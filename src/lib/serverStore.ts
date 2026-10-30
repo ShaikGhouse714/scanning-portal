@@ -116,3 +116,4 @@ export function deleteServerRecord(id: string): void {
   const updated = records.filter((r) => r.id !== id);
   saveServerRecords(updated);
 }
+

@@ -5,13 +5,12 @@ import { User } from '../types';
 import { SUPER_ADMIN_EMAIL } from '../lib/mockData';
 import { registerUser, authenticateUser } from '../lib/storage';
 import {
-  Cpu,
+  Layers,
   Mail,
   User as UserIcon,
   ArrowRight,
   Hash,
   CheckCircle2,
-  ScanLine,
 } from 'lucide-react';
 
 interface AuthScreenProps {
@@ -31,12 +30,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   const cleanEmail = email.trim().toLowerCase();
   const isSuperAdminEmail = cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase();
 
-  // STEP 1: Verify email
+  // STEP 1: Check email
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!email.trim()) {
-      setError('Enter your authorized email address.');
+      setError('Please enter your email address.');
       return;
     }
 
@@ -46,28 +45,26 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
       setIsLoading(false);
 
       if (res.success && res.user) {
-        // Known user (or Super Admin) -> Proceed directly to portal
         onLoginSuccess(res.user);
       } else if (res.error === 'No account found with this email. Please register your account.') {
-        // First-time operator -> Next step: Name & Scanning Center Number
         setStep('complete_profile');
       } else {
         setError(res.error || 'Authentication failure.');
       }
-    }, 350);
+    }, 300);
   };
 
-  // STEP 2: Name + Scanning Center registration
+  // STEP 2: Name + Center registration
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!name.trim()) {
-      setError('Please provide your full name.');
+      setError('Please enter your full name.');
       return;
     }
     if (!scanningCenter.trim() && !isSuperAdminEmail) {
-      setError('Please provide your Scanning Center Number (e.g. Center 3, SC-02).');
+      setError('Please enter your scanning center number (e.g. Center 03).');
       return;
     }
 
@@ -85,144 +82,134 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
       } else {
         setError(res.error || 'Registration failed.');
       }
-    }, 350);
+    }, 300);
   };
 
   return (
-    <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
-      {/* Futuristic Background Grid & Ambient Glow */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#0e1a30_1px,transparent_1px),linear-gradient(to_bottom,#0e1a30_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_40%,#000_70%,transparent_100%)] opacity-35 pointer-events-none" />
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
-
-      <div className="sm:mx-auto sm:w-full sm:max-w-md z-10 px-4">
-        {/* Holographic Header */}
+    <div className="min-h-screen bg-[#07090E] text-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md px-4">
+        {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="relative inline-block">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/20 via-blue-600/30 to-[#0B1528] border border-cyan-400/40 flex items-center justify-center shadow-xl shadow-cyan-500/15 mx-auto backdrop-blur-md">
-              <ScanLine className="w-8 h-8 text-cyan-400 animate-pulse" />
-            </div>
+          <div className="w-12 h-12 rounded-xl bg-[#141822] border border-[#232936] flex items-center justify-center shadow-md mx-auto">
+            <Layers className="w-6 h-6 text-slate-200" />
           </div>
-          <h2 className="mt-4 text-2xl font-black tracking-widest text-white font-mono uppercase">
-            SCANTRACK <span className="text-cyan-400">//</span> PORTAL
+          <h2 className="mt-4 text-xl sm:text-2xl font-bold tracking-tight text-white">
+            ScanTrack Portal
           </h2>
-          <p className="mt-1 text-xs font-mono text-cyan-300/60 tracking-wider uppercase">
-            Scanning Department Intake &amp; Audit Platform
+          <p className="mt-1 text-xs text-slate-400">
+            Scanning Department Script Intake &amp; Audit Platform
           </p>
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-center justify-center space-x-3 mb-6 font-mono text-xs">
+        <div className="flex items-center justify-center space-x-3 mb-6 text-xs">
           <div className="flex items-center space-x-1.5">
             <div
               className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold border ${
                 step === 'enter_email'
-                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
-                  : 'bg-cyan-950 border-cyan-800 text-cyan-400'
+                  ? 'bg-[#1C2332] border-[#2D384F] text-white'
+                  : 'bg-[#121620] border-[#1E2430] text-slate-400'
               }`}
             >
-              {step === 'complete_profile' ? <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" /> : '01'}
+              {step === 'complete_profile' ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : '1'}
             </div>
-            <span className={step === 'enter_email' ? 'text-cyan-300 font-bold' : 'text-slate-500'}>
-              AUTHENTICATE
+            <span className={step === 'enter_email' ? 'text-white font-medium' : 'text-slate-500'}>
+              Email
             </span>
           </div>
-          <div className="w-8 h-px bg-cyan-900/60" />
+          <div className="w-6 h-px bg-[#1E2430]" />
           <div className="flex items-center space-x-1.5">
             <div
               className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold border ${
                 step === 'complete_profile'
-                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
-                  : 'bg-slate-900 border-slate-800 text-slate-600'
+                  ? 'bg-[#1C2332] border-[#2D384F] text-white'
+                  : 'bg-[#121620] border-[#1E2430] text-slate-600'
               }`}
             >
-              02
+              2
             </div>
-            <span className={step === 'complete_profile' ? 'text-cyan-300 font-bold' : 'text-slate-600'}>
-              CENTER PROFILE
+            <span className={step === 'complete_profile' ? 'text-white font-medium' : 'text-slate-600'}>
+              Center Details
             </span>
           </div>
         </div>
 
-        {/* Cyber Card */}
-        <div className="bg-[#0A1122]/90 backdrop-blur-xl py-8 px-6 shadow-2xl rounded-2xl border border-cyan-900/50 sm:px-10 relative">
-          <div className="absolute top-0 left-0 w-8 h-[2px] bg-cyan-400" />
-          <div className="absolute top-0 right-0 w-8 h-[2px] bg-cyan-400" />
-
+        {/* Auth Card */}
+        <div className="bg-[#0E121A] py-8 px-6 shadow-2xl rounded-2xl border border-[#1E2430] sm:px-10">
           {error && (
-            <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono">
-              ⚠️ {error}
+            <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+              {error}
             </div>
           )}
 
           {/* STEP 1: Enter Email Only */}
           {step === 'enter_email' && (
-            <form onSubmit={handleEmailSubmit} className="space-y-5">
+            <form onSubmit={handleEmailSubmit} className="space-y-4">
               <div>
-                <h3 className="text-white font-bold text-sm font-mono tracking-wide">
-                  SYSTEM IDENTIFICATION
+                <h3 className="text-white font-semibold text-sm">
+                  Sign In to Scanning Portal
                 </h3>
                 <p className="text-slate-400 text-xs mt-0.5">
-                  Enter your email address to access your assigned scanning portal.
+                  Enter your email address to continue to your workstation.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-cyan-300/80 uppercase tracking-wider mb-1.5">
-                  Account Email
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-cyan-500/70 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="email"
                     required
                     autoFocus
-                    placeholder="operator@company.in"
+                    placeholder="e.g. operator@company.in"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full text-xs font-mono pl-9 pr-3 py-3 bg-[#050A16] border border-cyan-900/60 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
+                    className="w-full text-xs pl-9 pr-3 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-400 transition-all"
                   />
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1.5 font-mono">
-                  Accepts institutional and corporate domains.
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Any email domain is supported.
                 </p>
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white text-xs font-mono font-bold tracking-wider uppercase rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center space-x-2"
+                className="w-full py-2.5 px-4 bg-[#1E2536] hover:bg-[#283248] disabled:opacity-50 text-white text-xs font-semibold rounded-xl border border-[#303D57] transition-all flex items-center justify-center space-x-2"
               >
                 {isLoading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <>
-                    <span>CONTINUE TO WORKSTATION</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-cyan-200" />
+                    <span>Continue</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
                   </>
                 )}
               </button>
             </form>
           )}
 
-          {/* STEP 2: Name + Scanning Center Number */}
+          {/* STEP 2: Name + Scanning Center */}
           {step === 'complete_profile' && (
-            <form onSubmit={handleProfileSubmit} className="space-y-5">
+            <form onSubmit={handleProfileSubmit} className="space-y-4">
               <div>
-                <h3 className="text-white font-bold text-sm font-mono tracking-wide">
-                  WORKSTATION REGISTRATION
+                <h3 className="text-white font-semibold text-sm">
+                  Complete Your Profile
                 </h3>
                 <p className="text-slate-400 text-xs mt-0.5">
-                  First-time access detected for <span className="text-cyan-400 font-mono">{email}</span>.
+                  First-time access for <span className="text-white font-medium">{email}</span>.
                 </p>
               </div>
 
-              {/* Full Name */}
               <div>
-                <label className="block text-xs font-mono text-cyan-300/80 uppercase tracking-wider mb-1.5">
-                  Operator Full Name
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Your Full Name
                 </label>
                 <div className="relative">
-                  <UserIcon className="w-4 h-4 text-cyan-500/70 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <UserIcon className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     required
@@ -230,31 +217,32 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
                     placeholder="e.g. Ramesh Chandra"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full text-xs font-mono pl-9 pr-3 py-3 bg-[#050A16] border border-cyan-900/60 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
+                    className="w-full text-xs pl-9 pr-3 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-400"
                   />
                 </div>
               </div>
 
-              {/* Scanning Center Number */}
-              <div>
-                <label className="block text-xs font-mono text-cyan-300/80 uppercase tracking-wider mb-1.5">
-                  Scanning Center Number / Identifier
-                </label>
-                <div className="relative">
-                  <Hash className="w-4 h-4 text-cyan-500/70 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Center 04, Station 2, SC-08"
-                    value={scanningCenter}
-                    onChange={(e) => setScanningCenter(e.target.value)}
-                    className="w-full text-xs font-mono pl-9 pr-3 py-3 bg-[#050A16] border border-cyan-900/60 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400 transition-all"
-                  />
+              {!isSuperAdminEmail && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Scanning Center Number / Station
+                  </label>
+                  <div className="relative">
+                    <Hash className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Center 04, Station B"
+                      value={scanningCenter}
+                      onChange={(e) => setScanningCenter(e.target.value)}
+                      className="w-full text-xs pl-9 pr-3 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-400"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Specify your scanning workstation number.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1.5 font-mono">
-                  Your daily logs will be associated with this scanning center.
-                </p>
-              </div>
+              )}
 
               <div className="flex space-x-2 pt-1">
                 <button
@@ -263,21 +251,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
                     setStep('enter_email');
                     setError(null);
                   }}
-                  className="px-4 py-3 bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-mono rounded-xl border border-slate-800 transition-colors"
+                  className="px-3.5 py-2.5 bg-[#141822] hover:bg-[#1E2433] text-slate-300 text-xs rounded-xl border border-[#242C3D] transition-colors"
                 >
-                  BACK
+                  Back
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 py-3 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white text-xs font-mono font-bold tracking-wider uppercase rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center space-x-2"
+                  className="flex-1 py-2.5 px-4 bg-[#1E2536] hover:bg-[#283248] disabled:opacity-50 text-white text-xs font-semibold rounded-xl border border-[#303D57] transition-all flex items-center justify-center space-x-2"
                 >
                   {isLoading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
-                      <span>ACTIVATE &amp; ENTER WORKSTATION</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-cyan-200" />
+                      <span>Enter Workstation</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
                     </>
                   )}
                 </button>
@@ -285,9 +273,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
             </form>
           )}
 
-          <div className="mt-6 border-t border-cyan-950/80 pt-4 text-center">
-            <p className="text-[10px] font-mono text-slate-500 tracking-wider">
-              CENTRAL COMMAND PROTOCOL · KIIT SCANNING DEPARTMENT
+          <div className="mt-6 border-t border-[#1A202C] pt-4 text-center">
+            <p className="text-[11px] text-slate-500">
+              Scanning Department Portal • Authorized Access
             </p>
           </div>
         </div>
