@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, DailyRecord } from '../types';
+import { AVAILABLE_SCHOOLS } from '../lib/mockData';
 import {
   FileText,
   UploadCloud,
@@ -11,9 +12,9 @@ import {
   Save,
   Clock,
   History,
-  Info,
+  GraduationCap,
   Edit2,
-  Sparkles,
+  Building2,
 } from 'lucide-react';
 import { computeStatus } from '../lib/storage';
 
@@ -32,30 +33,36 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
 
   // Form states
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const [selectedSchool, setSelectedSchool] = useState<string>(AVAILABLE_SCHOOLS[0]);
   const [shift, setShift] = useState<'Morning' | 'Afternoon' | 'Night' | 'Full Day'>('Morning');
   const [receivedInput, setReceivedInput] = useState<string>('');
   const [uploadedInput, setUploadedInput] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [submittedFeedback, setSubmittedFeedback] = useState<boolean>(false);
 
-  // Check if an existing record exists for this user on the selected date
-  const existingRecordForDate = useMemo(() => {
-    return records.find((r) => r.userId === currentUser.id && r.date === selectedDate);
-  }, [records, currentUser.id, selectedDate]);
+  // Check if an existing record exists for this user on the selected date AND selected school
+  const existingRecord = useMemo(() => {
+    return records.find(
+      (r) =>
+        r.userId === currentUser.id &&
+        r.date === selectedDate &&
+        (r.school === selectedSchool || (!r.school && selectedSchool === AVAILABLE_SCHOOLS[0]))
+    );
+  }, [records, currentUser.id, selectedDate, selectedSchool]);
 
-  // When date changes or existing record is found, populate form
+  // When date/school changes, populate form if existing record found
   useEffect(() => {
-    if (existingRecordForDate) {
-      setReceivedInput(String(existingRecordForDate.receivedCount));
-      setUploadedInput(String(existingRecordForDate.uploadedCount));
-      setNotes(existingRecordForDate.notes || '');
-      setShift(existingRecordForDate.shift || 'Morning');
+    if (existingRecord) {
+      setReceivedInput(String(existingRecord.receivedCount));
+      setUploadedInput(String(existingRecord.uploadedCount));
+      setNotes(existingRecord.notes || '');
+      setShift(existingRecord.shift || 'Morning');
     } else {
       setReceivedInput('');
       setUploadedInput('');
       setNotes('');
     }
-  }, [existingRecordForDate, selectedDate]);
+  }, [existingRecord, selectedDate, selectedSchool]);
 
   // Numerical calculations
   const receivedCount = Math.max(0, parseInt(receivedInput) || 0);
@@ -81,11 +88,12 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
     }
 
     const newRecord: DailyRecord = {
-      id: existingRecordForDate ? existingRecordForDate.id : `rec_${Date.now()}`,
+      id: existingRecord ? existingRecord.id : `rec_${Date.now()}`,
       date: selectedDate,
       userId: currentUser.id,
       userName: currentUser.name,
       station: currentUser.station,
+      school: selectedSchool,
       receivedCount,
       uploadedCount,
       pendingCount,
@@ -93,7 +101,7 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
       status: computeStatus(receivedCount, uploadedCount),
       notes: notes.trim(),
       shift,
-      createdAt: existingRecordForDate ? existingRecordForDate.createdAt : new Date().toISOString(),
+      createdAt: existingRecord ? existingRecord.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
@@ -115,7 +123,7 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
             Welcome, {currentUser.name}
           </h1>
           <p className="text-emerald-100 text-xs sm:text-sm mt-1 max-w-xl">
-            Assigned to: <strong className="text-white">{currentUser.station}</strong>. Submit your daily count of scripts received vs. successfully uploaded to the portal.
+            Assigned to: <strong className="text-white">{currentUser.station}</strong>. Select the school and submit your daily count of scripts received vs. successfully uploaded.
           </p>
         </div>
 
@@ -130,13 +138,13 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
                 <FileText className="w-5 h-5 text-emerald-600" />
-                <span>Daily Script Intake &amp; Upload Form</span>
+                <span>School-Wise Script Intake &amp; Upload Form</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Record your daily totals. Super Admin monitors these logs for department sync.
+                Record your daily totals by school. Super Admin monitors these logs for department sync.
               </p>
             </div>
-            {existingRecordForDate && (
+            {existingRecord && (
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center space-x-1">
                 <Edit2 className="w-3 h-3" />
                 <span>Editing Log</span>
@@ -148,12 +156,35 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
             <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center space-x-2 text-xs font-semibold text-emerald-800 animate-in fade-in">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
-                Daily log successfully saved and transmitted to Super Admin dashboard!
+                Daily log for <strong>{selectedSchool}</strong> successfully saved and transmitted to Super Admin dashboard!
               </span>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* School Selector (Prominent) */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
+                <GraduationCap className="w-4 h-4 text-indigo-600" />
+                <span>Select School / Faculty</span>
+                <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={selectedSchool}
+                onChange={(e) => setSelectedSchool(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2.5 bg-indigo-50/50 border border-indigo-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all shadow-sm"
+              >
+                {AVAILABLE_SCHOOLS.map((school) => (
+                  <option key={school} value={school}>
+                    {school}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Select which school these scripts belong to before entering the counts.
+              </p>
+            </div>
+
             {/* Date & Shift Selectors */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -189,19 +220,19 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
             </div>
 
             {/* Counts: Received and Uploaded */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   1. Scripts Received
                 </label>
                 <p className="text-[11px] text-slate-500 mb-2">
-                  Total physical or batch scripts handed to your station today.
+                  Total physical scripts received for {selectedSchool}.
                 </p>
                 <input
                   type="number"
                   min="0"
                   required
-                  placeholder="e.g. 350"
+                  placeholder="e.g. 250"
                   value={receivedInput}
                   onChange={(e) => setReceivedInput(e.target.value)}
                   className="w-full text-lg font-bold px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -213,13 +244,13 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
                   2. Scripts Uploaded
                 </label>
                 <p className="text-[11px] text-slate-500 mb-2">
-                  Total scripts scanned, verified, and pushed to portal.
+                  Total scripts scanned &amp; verified into portal.
                 </p>
                 <input
                   type="number"
                   min="0"
                   required
-                  placeholder="e.g. 320"
+                  placeholder="e.g. 240"
                   value={uploadedInput}
                   onChange={(e) => setUploadedInput(e.target.value)}
                   className="w-full text-lg font-bold px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -247,7 +278,7 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
                     )}
                     <div>
                       <span className="text-xs font-bold uppercase tracking-wider block text-slate-700">
-                        Daily Verification Status
+                        {selectedSchool} Status
                       </span>
                       <span
                         className={`text-sm font-extrabold ${
@@ -291,7 +322,7 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
 
                 {hasDiscrepancy && (
                   <p className="mt-2 text-xs text-amber-800">
-                    <strong>Super Admin Notice:</strong> You received {receivedCount} but uploaded {uploadedCount}. Please provide a reason below so management knows the cause of the backlog.
+                    <strong>Super Admin Notice:</strong> You received {receivedCount} for {selectedSchool} but uploaded {uploadedCount}. Please provide a reason below so management knows the cause of the backlog.
                   </p>
                 )}
               </div>
@@ -308,8 +339,8 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={
                   hasDiscrepancy
-                    ? 'e.g. 15 scripts had blurred barcodes, sent for manual review; scanner jammed at 3 PM...'
-                    : 'Any shift observations or batch notes (optional)...'
+                    ? `e.g. 10 scripts from ${selectedSchool} had missing barcode sheets, kept for supervisor recheck...`
+                    : 'Any batch notes or observations (optional)...'
                 }
                 className="w-full text-xs p-3 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none placeholder:text-slate-400"
               />
@@ -323,7 +354,7 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
               >
                 <Save className="w-4 h-4" />
                 <span>
-                  {existingRecordForDate ? 'Update Daily Log Entry' : 'Submit Daily Log Entry'}
+                  {existingRecord ? `Update Log for ${selectedSchool}` : `Submit Daily Log for ${selectedSchool}`}
                 </span>
               </button>
             </div>
@@ -351,8 +382,8 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
                 <span className="font-semibold text-emerald-700 uppercase">Scanning Operator</span>
               </div>
               <div className="flex justify-between py-1.5">
-                <span className="text-slate-500">Total Logs Logged:</span>
-                <span className="font-semibold text-slate-900">{myRecords.length} Days</span>
+                <span className="text-slate-500">Total Logs Recorded:</span>
+                <span className="font-semibold text-slate-900">{myRecords.length} Entries</span>
               </div>
             </div>
           </div>
@@ -364,25 +395,28 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
                 <History className="w-4 h-4 text-emerald-600" />
                 <span>My Past Logs</span>
               </h3>
-              <span className="text-[11px] text-slate-400">Click date to edit</span>
+              <span className="text-[11px] text-slate-400">Click to load</span>
             </div>
 
-            <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
               {myRecords.length === 0 ? (
                 <p className="text-xs text-slate-400 py-6 text-center italic">
-                  No previous logs found. Submit your first log for today!
+                  No previous logs found. Submit your first school log for today!
                 </p>
               ) : (
                 myRecords.map((r) => {
                   const isPending = r.pendingCount > 0;
-                  const isSelected = r.date === selectedDate;
+                  const isSelected = r.date === selectedDate && r.school === selectedSchool;
                   return (
                     <div
                       key={r.id}
-                      onClick={() => setSelectedDate(r.date)}
+                      onClick={() => {
+                        setSelectedDate(r.date);
+                        if (r.school) setSelectedSchool(r.school);
+                      }}
                       className={`p-3 rounded-xl border cursor-pointer transition-all ${
                         isSelected
-                          ? 'border-emerald-500 bg-emerald-50/50 shadow-sm'
+                          ? 'border-emerald-500 bg-emerald-50/60 shadow-sm'
                           : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
@@ -397,6 +431,12 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
                         >
                           {isPending ? `${r.pendingCount} Pending` : '100% Uploaded'}
                         </span>
+                      </div>
+
+                      {/* School badge */}
+                      <div className="text-[11px] font-semibold text-indigo-700 truncate mb-1 flex items-center space-x-1">
+                        <GraduationCap className="w-3 h-3 text-indigo-500 shrink-0" />
+                        <span className="truncate">{r.school || 'General Batch'}</span>
                       </div>
 
                       <div className="flex items-center justify-between text-xs text-slate-600 mt-1">
@@ -425,4 +465,3 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
     </div>
   );
 };
-

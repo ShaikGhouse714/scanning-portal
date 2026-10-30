@@ -175,6 +175,7 @@ export function calculateMetrics(records: DailyRecord[]): DepartmentMetrics {
 export function exportRecordsToCSV(records: DailyRecord[]): void {
   const headers = [
     'Date',
+    'School',
     'Operator',
     'Station',
     'Shift',
@@ -188,6 +189,7 @@ export function exportRecordsToCSV(records: DailyRecord[]): void {
 
   const rows = records.map(r => [
     `"${r.date}"`,
+    `"${(r.school || 'General').replace(/"/g, '""')}"`,
     `"${r.userName.replace(/"/g, '""')}"`,
     `"${r.station.replace(/"/g, '""')}"`,
     `"${r.shift || 'General'}"`,

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { DailyRecord, User, DepartmentMetrics } from '../types';
+import { AVAILABLE_SCHOOLS } from '../lib/mockData';
 import { StatCard } from './StatCard';
 import {
   FileText,
@@ -11,15 +12,14 @@ import {
   Download,
   Users,
   Search,
-  Filter,
   CheckCircle2,
   AlertTriangle,
-  Clock,
-  MoreVertical,
+  GraduationCap,
   PlusCircle,
   Eye,
   Trash2,
   Calendar,
+  Building,
 } from 'lucide-react';
 import { calculateMetrics, exportRecordsToCSV } from '../lib/storage';
 
@@ -43,8 +43,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Filter states
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | 'week'>('all');
   const [selectedOperator, setSelectedOperator] = useState<string>('all');
+  const [selectedSchool, setSelectedSchool] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [viewTab, setViewTab] = useState<'audit_table' | 'school_matrix'>('audit_table');
 
   // Today's and Yesterday's date strings
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -70,6 +72,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       // Operator filter
       if (selectedOperator !== 'all' && r.userId !== selectedOperator) return false;
 
+      // School filter
+      if (selectedSchool !== 'all' && r.school !== selectedSchool) return false;
+
       // Status filter
       if (statusFilter === 'pending' && r.pendingCount <= 0) return false;
       if (statusFilter === 'completed' && r.pendingCount > 0) return false;
@@ -79,14 +84,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const q = searchQuery.toLowerCase();
         const matchName = r.userName.toLowerCase().includes(q);
         const matchStation = r.station.toLowerCase().includes(q);
+        const matchSchool = (r.school || '').toLowerCase().includes(q);
         const matchNotes = (r.notes || '').toLowerCase().includes(q);
         const matchDate = r.date.includes(q);
-        if (!matchName && !matchStation && !matchNotes && !matchDate) return false;
+        if (!matchName && !matchStation && !matchSchool && !matchNotes && !matchDate) return false;
       }
 
       return true;
     });
-  }, [records, dateFilter, selectedOperator, statusFilter, searchQuery, todayStr, yesterdayStr, weekAgoStr]);
+  }, [records, dateFilter, selectedOperator, selectedSchool, statusFilter, searchQuery, todayStr, yesterdayStr, weekAgoStr]);
 
   // Overall department metrics on filtered set
   const metrics: DepartmentMetrics = useMemo(() => {
@@ -102,7 +108,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const totalUp = opRecords.reduce((sum, r) => sum + r.uploadedCount, 0);
       const pending = opRecords.reduce((sum, r) => sum + Math.max(0, r.pendingCount), 0);
       const rate = totalRec > 0 ? (totalUp / totalRec) * 100 : 100;
-      const latestRecord = [...opRecords].sort((a, b) => b.date.localeCompare(a.date))[0];
 
       return {
         user: op,
@@ -111,10 +116,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         pending,
         rate,
         recordsCount: opRecords.length,
-        latestRecord,
       };
     });
   }, [users, records]);
+
+  // School-specific performance breakdown
+  const schoolBreakdown = useMemo(() => {
+    return AVAILABLE_SCHOOLS.map((schoolName) => {
+      const schoolRecs = records.filter((r) => r.school === schoolName);
+      const totalRec = schoolRecs.reduce((sum, r) => sum + r.receivedCount, 0);
+      const totalUp = schoolRecs.reduce((sum, r) => sum + r.uploadedCount, 0);
+      const pending = schoolRecs.reduce((sum, r) => sum + Math.max(0, r.pendingCount), 0);
+      const rate = totalRec > 0 ? (totalUp / totalRec) * 100 : 100;
+
+      return {
+        name: schoolName,
+        totalRec,
+        totalUp,
+        pending,
+        rate,
+        count: schoolRecs.length,
+      };
+    });
+  }, [records]);
 
   // Check if today has pending discrepancies
   const todayPendingRecords = useMemo(() => {
@@ -133,10 +157,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <span className="text-xs text-slate-400">• Scanning Dept Central Command</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">
-            Department Script Tracking &amp; Discrepancy Dashboard
+            Department Script Tracking &amp; School Discrepancy Dashboard
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Monitor daily received vs. uploaded scripts across all scanning stations and operators.
+            Monitor daily received vs. uploaded scripts across all 22 schools, scanning stations, and operators.
           </p>
         </div>
 
@@ -176,7 +200,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   Active Backlog Alert: {todayPendingRecords.reduce((sum, r) => sum + r.pendingCount, 0)} Scripts Not Uploaded Today
                 </h3>
                 <p className="text-xs text-amber-800 mt-1">
-                  Discrepancy detected in {todayPendingRecords.length} scanning station(s). Scripts were received but have not been fully uploaded to the portal yet.
+                  Discrepancy detected in {todayPendingRecords.length} school submission(s). Scripts were received but have not been fully uploaded to the portal yet.
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {todayPendingRecords.map((r) => (
@@ -184,7 +208,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       key={r.id}
                       className="inline-flex items-center space-x-1 text-[11px] font-medium bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200"
                     >
-                      <strong>{r.userName}</strong> ({r.station}): {r.pendingCount} pending ({r.notes || 'No note'})
+                      <strong>{r.school || 'General'}</strong> ({r.userName}): {r.pendingCount} pending ({r.notes || 'No note'})
                     </span>
                   ))}
                 </div>
@@ -208,7 +232,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <StatCard
           title="Total Scripts Received"
           value={metrics.totalReceived.toLocaleString()}
-          subtitle="Physical/digital batch intake"
+          subtitle="Physical intake across all schools"
           icon={FileText}
           variant="indigo"
           badge={`${metrics.totalRecords} Logs`}
@@ -243,330 +267,351 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         />
       </div>
 
-      {/* Operator Breakdown Cards */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
-            <Users className="w-4 h-4 text-indigo-600" />
-            <span>Scanning Operator Accountability Matrix</span>
-          </h2>
-          <span className="text-xs text-slate-500">
-            {operatorBreakdown.length} Active Workstations
-          </span>
+      {/* Navigation Switcher: Table View vs School Breakdown Matrix */}
+      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setViewTab('audit_table')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              viewTab === 'audit_table'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Day-Wise Audit Log Table</span>
+          </button>
+          <button
+            onClick={() => setViewTab('school_matrix')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              viewTab === 'school_matrix'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <GraduationCap className="w-3.5 h-3.5" />
+            <span>School-Wise Performance Matrix (22 Schools)</span>
+          </button>
         </div>
 
-        {operatorBreakdown.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 border border-dashed border-slate-300 text-center shadow-sm">
-            <Users className="w-9 h-9 text-indigo-400 mx-auto mb-2" />
-            <h3 className="text-sm font-bold text-slate-800">No Scanning Operators Registered Yet</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              You are set up as the <strong>Super Admin</strong>. Click below to add staff operators to your Scanning Department, or have them register directly with their email.
+        <span className="text-xs text-slate-500 hidden sm:block">
+          Filtered records: <strong>{filteredRecords.length}</strong>
+        </span>
+      </div>
+
+      {viewTab === 'school_matrix' ? (
+        /* 22 Schools Performance Matrix */
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-1 flex items-center space-x-2">
+              <GraduationCap className="w-4 h-4 text-indigo-600" />
+              <span>School-By-School Intake &amp; Discrepancy Matrix</span>
+            </h2>
+            <p className="text-xs text-slate-500 mb-4">
+              Real-time script synchronization breakdown across all 22 schools and faculties.
             </p>
-            <button
-              onClick={onOpenUserModal}
-              className="mt-4 inline-flex items-center space-x-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors"
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Add First Scanning Operator</span>
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {operatorBreakdown.map((item) => {
-              const hasPending = item.pending > 0;
-              return (
-                <div
-                  key={item.user.id}
-                  className={`bg-white rounded-xl p-4 border shadow-sm transition-all hover:shadow-md ${
-                    hasPending ? 'border-amber-200 ring-1 ring-amber-100' : 'border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center space-x-2.5">
-                      <div
-                        className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${item.user.avatarColor}`}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {schoolBreakdown.map((sch) => {
+                const hasPending = sch.pending > 0;
+                return (
+                  <div
+                    key={sch.name}
+                    className={`p-3.5 rounded-xl border transition-all ${
+                      hasPending
+                        ? 'bg-amber-50/50 border-amber-200 ring-1 ring-amber-100'
+                        : sch.count > 0
+                        ? 'bg-emerald-50/30 border-emerald-200'
+                        : 'bg-slate-50/60 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <h4 className="text-xs font-bold text-slate-900 truncate max-w-[200px]" title={sch.name}>
+                        {sch.name}
+                      </h4>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          hasPending
+                            ? 'bg-amber-100 text-amber-800'
+                            : sch.count > 0
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-slate-200 text-slate-600'
+                        }`}
                       >
-                        {item.user.name.charAt(0)}
+                        {hasPending
+                          ? `⚠️ ${sch.pending} Pending`
+                          : sch.count > 0
+                          ? '100% Synced'
+                          : 'No Logs'}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-3 gap-1 text-[11px] pt-2 border-t border-slate-200/60">
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase font-semibold">Rec</span>
+                        <span className="font-bold text-slate-800">{sch.totalRec}</span>
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-slate-900 truncate">
-                          {item.user.name}
-                        </h3>
-                        <p className="text-[11px] text-slate-500 truncate max-w-[140px]">
-                          {item.user.station}
-                        </p>
+                        <span className="text-slate-400 block text-[9px] uppercase font-semibold">Up</span>
+                        <span className="font-bold text-emerald-700">{sch.totalUp}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[9px] uppercase font-semibold">Sync</span>
+                        <span className="font-bold text-slate-700">
+                          {sch.count > 0 ? `${sch.rate.toFixed(1)}%` : '-'}
+                        </span>
                       </div>
                     </div>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        hasPending
-                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                          : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                      }`}
-                    >
-                      {hasPending ? `${item.pending} Pending` : '100%'}
-                    </span>
                   </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-2 text-xs pt-3 border-t border-slate-100">
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                        Received
-                      </span>
-                      <span className="text-slate-900 font-bold text-sm">
-                        {item.totalRec.toLocaleString()}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                        Uploaded
-                      </span>
-                      <span className="text-emerald-700 font-bold text-sm">
-                        {item.totalUp.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="mt-3">
-                    <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
-                      <span>Sync Rate</span>
-                      <span>{item.rate.toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          item.rate >= 95 ? 'bg-emerald-500' : 'bg-amber-500'
-                        }`}
-                        style={{ width: `${Math.min(100, item.rate)}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        )}
-      </div>
-
-      {/* Main Day-wise Audit Table Section */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {/* Table Filters Header */}
-        <div className="p-4 border-b border-slate-200 bg-slate-50/60 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Quick Date Pills */}
-          <div className="flex items-center space-x-1 overflow-x-auto pb-1 md:pb-0">
-            <span className="text-xs font-semibold text-slate-500 mr-2 flex items-center space-x-1">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              <span>Date:</span>
-            </span>
-            {[
-              { id: 'all', label: 'All Records' },
-              { id: 'today', label: 'Today' },
-              { id: 'yesterday', label: 'Yesterday' },
-              { id: 'week', label: 'Last 7 Days' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setDateFilter(tab.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                  dateFilter === tab.id
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Search & Dropdown Selectors */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Search */}
-            <div className="relative flex-1 sm:w-48">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search notes, staff..."
-                className="w-full text-xs pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
+        </div>
+      ) : (
+        /* Main Day-wise Audit Table Section */
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          {/* Table Filters Header */}
+          <div className="p-4 border-b border-slate-200 bg-slate-50/60 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            {/* Quick Date Pills */}
+            <div className="flex items-center space-x-1 overflow-x-auto pb-1 lg:pb-0">
+              <span className="text-xs font-semibold text-slate-500 mr-2 flex items-center space-x-1">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span>Date:</span>
+              </span>
+              {[
+                { id: 'all', label: 'All Records' },
+                { id: 'today', label: 'Today' },
+                { id: 'yesterday', label: 'Yesterday' },
+                { id: 'week', label: 'Last 7 Days' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setDateFilter(tab.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                    dateFilter === tab.id
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
-            {/* Operator filter */}
-            <select
-              value={selectedOperator}
-              onChange={(e) => setSelectedOperator(e.target.value)}
-              className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            >
-              <option value="all">All Operators</option>
-              {users
-                .filter((u) => u.role === 'operator')
-                .map((op) => (
-                  <option key={op.id} value={op.id}>
-                    {op.name}
-                  </option>
-                ))}
-            </select>
+            {/* Dropdown Selectors: School, Operator, Status, Search */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* School Filter Dropdown */}
+              <div className="w-full sm:w-auto">
+                <select
+                  value={selectedSchool}
+                  onChange={(e) => setSelectedSchool(e.target.value)}
+                  className="w-full sm:w-48 text-xs font-semibold px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                >
+                  <option value="all">All 22 Schools</option>
+                  {AVAILABLE_SCHOOLS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Status filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            >
-              <option value="all">All Statuses</option>
-              <option value="pending">⚠️ Pending Backlog Only</option>
-              <option value="completed">✅ 100% Uploaded</option>
-            </select>
+              {/* Operator filter */}
+              <select
+                value={selectedOperator}
+                onChange={(e) => setSelectedOperator(e.target.value)}
+                className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              >
+                <option value="all">All Operators</option>
+                {users
+                  .filter((u) => u.role === 'operator')
+                  .map((op) => (
+                    <option key={op.id} value={op.id}>
+                      {op.name}
+                    </option>
+                  ))}
+              </select>
+
+              {/* Status filter */}
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              >
+                <option value="all">All Statuses</option>
+                <option value="pending">⚠️ Pending Backlogs Only</option>
+                <option value="completed">✅ 100% Uploaded</option>
+              </select>
+
+              {/* Search */}
+              <div className="relative flex-1 sm:w-40">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search school, notes..."
+                  className="w-full text-xs pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Data Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider text-[11px] border-b border-slate-200">
+                <tr>
+                  <th className="py-3.5 px-4">Date</th>
+                  <th className="py-3.5 px-4">School / Faculty</th>
+                  <th className="py-3.5 px-4">Operator &amp; Station</th>
+                  <th className="py-3.5 px-4">Shift</th>
+                  <th className="py-3.5 px-4 text-right">Received</th>
+                  <th className="py-3.5 px-4 text-right">Uploaded</th>
+                  <th className="py-3.5 px-4 text-right">Pending</th>
+                  <th className="py-3.5 px-4 text-center">Status / Sync</th>
+                  <th className="py-3.5 px-4">Backlog Notes / Reason</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="py-12 text-center text-slate-400 text-sm">
+                      No scanning logs match your search or filter criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRecords.map((r) => {
+                    const isPending = r.pendingCount > 0;
+                    return (
+                      <tr
+                        key={r.id}
+                        className={`hover:bg-slate-50/80 transition-colors ${
+                          isPending ? 'bg-amber-50/20' : ''
+                        }`}
+                      >
+                        <td className="py-3.5 px-4 font-semibold text-slate-800 whitespace-nowrap">
+                          {r.date}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900">
+                          <div className="flex items-center space-x-1.5">
+                            <GraduationCap className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                            <span className="truncate max-w-[180px]" title={r.school}>
+                              {r.school || 'General Batch'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-semibold text-slate-900">{r.userName}</div>
+                          <div className="text-[11px] text-slate-500">{r.station}</div>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-medium">
+                            {r.shift || 'General'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold text-slate-900">
+                          {r.receivedCount.toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold text-emerald-700">
+                          {r.uploadedCount.toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-bold">
+                          {isPending ? (
+                            <span className="inline-flex items-center space-x-1 text-amber-700 font-extrabold bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>+{r.pendingCount}</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-medium">0</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span
+                            className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              isPending
+                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            }`}
+                          >
+                            {isPending ? (
+                              <>
+                                <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                <span>{r.completionRate.toFixed(1)}%</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>100% Synced</span>
+                              </>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 max-w-xs">
+                          {r.notes ? (
+                            <p className="text-slate-600 text-xs truncate" title={r.notes}>
+                              {r.notes}
+                            </p>
+                          ) : (
+                            <span className="text-slate-300 italic text-[11px]">No notes</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end space-x-1">
+                            <button
+                              onClick={() => onEditRecord(r)}
+                              title="Edit or inspect log details"
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Delete record for ${r.school} on ${r.date}?`)) {
+                                  onDeleteRecord(r.id);
+                                }
+                              }}
+                              title="Delete log"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+              {/* Table Summary Footer */}
+              {filteredRecords.length > 0 && (
+                <tfoot className="bg-slate-100/80 font-bold text-slate-900 border-t border-slate-200">
+                  <tr>
+                    <td colSpan={4} className="py-3 px-4 uppercase text-[11px] text-slate-500">
+                      Filtered Totals ({filteredRecords.length} records)
+                    </td>
+                    <td className="py-3 px-4 text-right text-sm">
+                      {metrics.totalReceived.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-right text-sm text-emerald-700">
+                      {metrics.totalUploaded.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-right text-sm text-amber-700">
+                      {metrics.totalPending.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-center text-xs">
+                      {metrics.overallCompletionRate}% Overall
+                    </td>
+                    <td colSpan={2}></td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           </div>
         </div>
-
-        {/* Data Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider text-[11px] border-b border-slate-200">
-              <tr>
-                <th className="py-3.5 px-4">Date</th>
-                <th className="py-3.5 px-4">Operator &amp; Station</th>
-                <th className="py-3.5 px-4">Shift</th>
-                <th className="py-3.5 px-4 text-right">Received</th>
-                <th className="py-3.5 px-4 text-right">Uploaded</th>
-                <th className="py-3.5 px-4 text-right">Pending</th>
-                <th className="py-3.5 px-4 text-center">Status / Sync</th>
-                <th className="py-3.5 px-4">Backlog Notes / Reason</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredRecords.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400 text-sm">
-                    No scanning logs match your search or filter criteria.
-                  </td>
-                </tr>
-              ) : (
-                filteredRecords.map((r) => {
-                  const isPending = r.pendingCount > 0;
-                  return (
-                    <tr
-                      key={r.id}
-                      className={`hover:bg-slate-50/80 transition-colors ${
-                        isPending ? 'bg-amber-50/20' : ''
-                      }`}
-                    >
-                      <td className="py-3.5 px-4 font-semibold text-slate-800 whitespace-nowrap">
-                        {r.date}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-900">{r.userName}</div>
-                        <div className="text-[11px] text-slate-500">{r.station}</div>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-medium">
-                          {r.shift || 'General'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-bold text-slate-900">
-                        {r.receivedCount.toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-bold text-emerald-700">
-                        {r.uploadedCount.toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-bold">
-                        {isPending ? (
-                          <span className="inline-flex items-center space-x-1 text-amber-700 font-extrabold bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
-                            <AlertTriangle className="w-3 h-3" />
-                            <span>+{r.pendingCount}</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 font-medium">0</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span
-                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            isPending
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          }`}
-                        >
-                          {isPending ? (
-                            <>
-                              <AlertTriangle className="w-3 h-3 text-amber-600" />
-                              <span>{r.completionRate.toFixed(1)}% Uploaded</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>100% Synced</span>
-                            </>
-                          )}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 max-w-xs">
-                        {r.notes ? (
-                          <p className="text-slate-600 text-xs truncate" title={r.notes}>
-                            {r.notes}
-                          </p>
-                        ) : (
-                          <span className="text-slate-300 italic text-[11px]">No notes</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end space-x-1">
-                          <button
-                            onClick={() => onEditRecord(r)}
-                            title="Edit or inspect log details"
-                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Delete record for ${r.userName} on ${r.date}?`)) {
-                                onDeleteRecord(r.id);
-                              }
-                            }}
-                            title="Delete log"
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-            {/* Table Summary Footer */}
-            {filteredRecords.length > 0 && (
-              <tfoot className="bg-slate-100/80 font-bold text-slate-900 border-t border-slate-200">
-                <tr>
-                  <td colSpan={3} className="py-3 px-4 uppercase text-[11px] text-slate-500">
-                    Filtered Totals ({filteredRecords.length} records)
-                  </td>
-                  <td className="py-3 px-4 text-right text-sm">
-                    {metrics.totalReceived.toLocaleString()}
-                  </td>
-                  <td className="py-3 px-4 text-right text-sm text-emerald-700">
-                    {metrics.totalUploaded.toLocaleString()}
-                  </td>
-                  <td className="py-3 px-4 text-right text-sm text-amber-700">
-                    {metrics.totalPending.toLocaleString()}
-                  </td>
-                  <td className="py-3 px-4 text-center text-xs">
-                    {metrics.overallCompletionRate}% Overall
-                  </td>
-                  <td colSpan={2}></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
-

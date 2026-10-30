@@ -286,3 +286,4 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
     </div>
   );
 };
+

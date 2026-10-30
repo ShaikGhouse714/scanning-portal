@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { DailyRecord } from '../types';
-import { X, Calendar, User, FileText, CheckCircle2, AlertTriangle, Save, Clock } from 'lucide-react';
+import { AVAILABLE_SCHOOLS } from '../lib/mockData';
+import { X, Calendar, GraduationCap, FileText, CheckCircle2, AlertTriangle, Save, Clock } from 'lucide-react';
 import { computeStatus } from '../lib/storage';
 
 interface RecordModalProps {
@@ -24,6 +25,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
   const [uploadedCount, setUploadedCount] = useState<number>(record?.uploadedCount || 0);
   const [notes, setNotes] = useState<string>(record?.notes || '');
   const [shift, setShift] = useState(record?.shift || 'Morning');
+  const [school, setSchool] = useState(record?.school || AVAILABLE_SCHOOLS[0]);
 
   // Reset internal state when record changes
   React.useEffect(() => {
@@ -32,6 +34,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
       setUploadedCount(record.uploadedCount);
       setNotes(record.notes || '');
       setShift(record.shift || 'Morning');
+      setSchool(record.school || AVAILABLE_SCHOOLS[0]);
     }
   }, [record]);
 
@@ -45,6 +48,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
     e.preventDefault();
     const updated: DailyRecord = {
       ...record,
+      school,
       receivedCount,
       uploadedCount,
       pendingCount: pending,
@@ -94,6 +98,25 @@ export const RecordModal: React.FC<RecordModalProps> = ({
               <span className="font-semibold text-slate-700 block mb-0.5">Workstation</span>
               <div className="truncate text-slate-900 font-medium">{record.station}</div>
             </div>
+          </div>
+
+          {/* School Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center space-x-1.5">
+              <GraduationCap className="w-4 h-4 text-indigo-600" />
+              <span>School / Faculty</span>
+            </label>
+            <select
+              value={school}
+              onChange={(e) => setSchool(e.target.value)}
+              className="w-full text-xs font-semibold px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            >
+              {AVAILABLE_SCHOOLS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -208,4 +231,3 @@ export const RecordModal: React.FC<RecordModalProps> = ({
     </div>
   );
 };
-

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, DailyRecord } from '../types';
+import { AVAILABLE_SCHOOLS } from '../lib/mockData';
 import {
   getStoredUsers,
   saveStoredUsers,
@@ -113,6 +114,7 @@ export default function Home() {
       userId: operator.id,
       userName: operator.name,
       station: operator.station,
+      school: AVAILABLE_SCHOOLS[0],
       receivedCount: 0,
       uploadedCount: 0,
       pendingCount: 0,

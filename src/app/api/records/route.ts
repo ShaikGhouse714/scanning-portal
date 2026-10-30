@@ -12,7 +12,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { date, userId, userName, station, receivedCount, uploadedCount, shift, notes } = body;
+    const { date, userId, userName, station, school, receivedCount, uploadedCount, shift, notes } = body;
 
     const received = Math.max(0, Number(receivedCount) || 0);
     const uploaded = Math.max(0, Number(uploadedCount) || 0);
@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       userId: userId || 'user_unknown',
       userName: userName || 'Operator',
       station: station || 'General Station',
+      school: school || 'School of Applied Science',
       receivedCount: received,
       uploadedCount: uploaded,
       pendingCount: pending,

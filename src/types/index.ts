@@ -21,6 +21,7 @@ export interface DailyRecord {
   userId: string;
   userName: string;
   station: string;
+  school: string; // School associated with the scripts batch
   receivedCount: number;
   uploadedCount: number;
   pendingCount: number; // receivedCount - uploadedCount
