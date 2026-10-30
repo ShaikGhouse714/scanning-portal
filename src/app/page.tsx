@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { User, DailyRecord } from '../types';
 import { AVAILABLE_SCHOOLS } from '../lib/mockData';
 import {
@@ -10,9 +10,8 @@ import {
   saveStoredRecords,
   getActiveUser,
   setActiveUser,
-  resetDemoData,
 } from '../lib/storage';
-import { Navbar } from '../components/Navbar';
+import { Sidebar } from '../components/Sidebar';
 import { AdminDashboard } from '../components/AdminDashboard';
 import { OperatorPortal } from '../components/OperatorPortal';
 import { UserManagementModal } from '../components/UserManagementModal';
@@ -24,29 +23,62 @@ export default function Home() {
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [records, setRecords] = useState<DailyRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<string>('tracking');
 
   // Modals
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedRecordForModal, setSelectedRecordForModal] = useState<DailyRecord | null>(null);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
 
-  // Initialize data on client mount
-  useEffect(() => {
-    setIsClient(true);
-    const loadedUsers = getStoredUsers();
-    const loadedRecords = getStoredRecords();
-    const active = getActiveUser();
+  // Sync data from server
+  const syncFromServer = useCallback(async () => {
+    try {
+      const [recRes, userRes] = await Promise.all([
+        fetch('/api/records', { cache: 'no-store' }),
+        fetch('/api/users', { cache: 'no-store' }),
+      ]);
 
-    setUsers(loadedUsers);
-    setRecords(loadedRecords);
-    setCurrentUser(active);
+      if (recRes.ok) {
+        const recJson = await recRes.json();
+        if (recJson.data) {
+          setRecords(recJson.data);
+          saveStoredRecords(recJson.data);
+        }
+      }
+
+      if (userRes.ok) {
+        const userJson = await userRes.json();
+        if (userJson.data) {
+          setUsers(userJson.data);
+          saveStoredUsers(userJson.data);
+        }
+      }
+    } catch (e) {
+      console.warn('Server fetch error, using local fallback:', e);
+    }
   }, []);
 
-  // Update active user & save session
-  const handleSelectUser = (user: User) => {
-    setCurrentUser(user);
-    setActiveUser(user);
-  };
+  // Initialize data on mount
+  useEffect(() => {
+    setIsClient(true);
+    const localUsers = getStoredUsers();
+    const localRecords = getStoredRecords();
+    const active = getActiveUser();
+
+    setUsers(localUsers);
+    setRecords(localRecords);
+    setCurrentUser(active);
+
+    // Initial server fetch
+    syncFromServer();
+
+    // Auto-refresh polling every 4 seconds to sync any submissions from other devices/testers
+    const interval = setInterval(() => {
+      syncFromServer();
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [syncFromServer]);
 
   // Sign out
   const handleSignOut = () => {
@@ -54,8 +86,9 @@ export default function Home() {
     setActiveUser(null);
   };
 
-  // Save or update a daily record
-  const handleSaveRecord = (record: DailyRecord) => {
+  // Save record: updates local state + POST to server
+  const handleSaveRecord = async (record: DailyRecord) => {
+    // Optimistic UI update
     setRecords((prev) => {
       const index = prev.findIndex((r) => r.id === record.id);
       let updated: DailyRecord[];
@@ -68,27 +101,58 @@ export default function Home() {
       saveStoredRecords(updated);
       return updated;
     });
+
+    try {
+      await fetch('/api/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(record),
+      });
+      syncFromServer();
+    } catch (err) {
+      console.error('Failed to sync record to server:', err);
+    }
   };
 
-  // Delete a record
-  const handleDeleteRecord = (id: string) => {
+  // Delete record: local + server
+  const handleDeleteRecord = async (id: string) => {
     setRecords((prev) => {
       const updated = prev.filter((r) => r.id !== id);
       saveStoredRecords(updated);
       return updated;
     });
+
+    try {
+      await fetch(`/api/records?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      syncFromServer();
+    } catch (err) {
+      console.error('Failed to delete record on server:', err);
+    }
   };
 
-  // Save new user or update
-  const handleSaveUser = (newUser: User) => {
+  // Save new user: local + server
+  const handleSaveUser = async (newUser: User) => {
     setUsers((prev) => {
       const updated = [...prev, newUser];
       saveStoredUsers(updated);
       return updated;
     });
+
+    try {
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser),
+      });
+      syncFromServer();
+    } catch (err) {
+      console.error('Failed to save user to server:', err);
+    }
   };
 
-  // Toggle user active status
+  // Toggle user status
   const handleToggleUserStatus = (userId: string) => {
     setUsers((prev) => {
       const updated = prev.map((u) => {
@@ -105,7 +169,7 @@ export default function Home() {
     });
   };
 
-  // Handle Add Record from Admin view
+  // Admin adds new record
   const handleAdminAddNewRecord = () => {
     const operator = users.find((u) => u.role === 'operator') || currentUser || users[0];
     const newRecord: DailyRecord = {
@@ -129,30 +193,33 @@ export default function Home() {
     setIsRecordModalOpen(true);
   };
 
-  // Calculate total pending scripts across all records
-  const totalPendingAcrossDept = records.reduce((acc, r) => acc + Math.max(0, r.pendingCount), 0);
-
   if (!isClient) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050811]">
+      <div className="min-h-screen flex items-center justify-center bg-[#07090E]">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs font-mono font-semibold text-cyan-400/80 uppercase tracking-wider">
-            INITIALIZING SCANTRACK SYSTEM...
-          </p>
+          <div className="w-8 h-8 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs font-mono text-slate-400">Loading Exam Ops...</p>
         </div>
       </div>
     );
   }
 
-  // If not logged in, show Auth / Registration screen
+  // Not logged in -> Show Auth Screen
   if (!currentUser) {
     return (
       <AuthScreen
-        onLoginSuccess={(user) => {
+        onLoginSuccess={async (user) => {
           setCurrentUser(user);
           setActiveUser(user);
-          setUsers(getStoredUsers());
+          // Sync with server immediately
+          try {
+            await fetch('/api/users', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(user),
+            });
+            syncFromServer();
+          } catch (e) {}
         }}
       />
     );
@@ -161,50 +228,43 @@ export default function Home() {
   const isSuperAdmin = currentUser.role === 'super_admin';
 
   return (
-    <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col font-sans">
-      {/* Navigation Header */}
-      <Navbar
+    <div className="min-h-screen bg-[#07090E] text-slate-200 flex font-sans">
+      {/* Left Sidebar matching screenshot */}
+      <Sidebar
         currentUser={currentUser}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         onSignOut={handleSignOut}
-        pendingCountTotal={totalPendingAcrossDept}
+        onOpenUserModal={isSuperAdmin ? () => setIsUserModalOpen(true) : undefined}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {isSuperAdmin ? (
-          <AdminDashboard
-            records={records}
-            users={users}
-            onOpenUserModal={() => setIsUserModalOpen(true)}
-            onEditRecord={(record) => {
-              setSelectedRecordForModal(record);
-              setIsRecordModalOpen(true);
-            }}
-            onDeleteRecord={handleDeleteRecord}
-            onAddRecord={handleAdminAddNewRecord}
-          />
-        ) : (
-          <OperatorPortal
-            currentUser={currentUser}
-            records={records}
-            onSaveRecord={handleSaveRecord}
-          />
-        )}
-      </main>
+      {/* Main Content Viewport */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto h-screen">
+        <main className="flex-1 p-6 lg:p-8">
+          {isSuperAdmin ? (
+            <AdminDashboard
+              records={records}
+              users={users}
+              onOpenUserModal={() => setIsUserModalOpen(true)}
+              onEditRecord={(record) => {
+                setSelectedRecordForModal(record);
+                setIsRecordModalOpen(true);
+              }}
+              onDeleteRecord={handleDeleteRecord}
+              onAddRecord={handleAdminAddNewRecord}
+              onRefresh={syncFromServer}
+            />
+          ) : (
+            <OperatorPortal
+              currentUser={currentUser}
+              records={records}
+              onSaveRecord={handleSaveRecord}
+            />
+          )}
+        </main>
+      </div>
 
-      {/* Footer */}
-      <footer className="bg-[#070D1A] border-t border-cyan-950/60 py-6 text-center text-xs font-mono text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p>
-            SCANTRACK CORE // KIIT SCANNING DEPARTMENT RECONCILIATION NETWORK
-          </p>
-          <p className="text-slate-500">
-            CHIEF COMMAND: <strong className="text-cyan-400">shaikghousem@codetantra.in</strong>
-          </p>
-        </div>
-      </footer>
-
-      {/* Super Admin User & Station Management Modal */}
+      {/* User Management Modal */}
       <UserManagementModal
         isOpen={isUserModalOpen}
         onClose={() => setIsUserModalOpen(false)}

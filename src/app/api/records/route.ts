@@ -1,26 +1,28 @@
 import { NextResponse } from 'next/server';
-import { INITIAL_RECORDS } from '@/lib/mockData';
+import { getServerRecords, saveOrUpdateServerRecord, deleteServerRecord } from '@/lib/serverStore';
+import { computeStatus } from '@/lib/storage';
 
 export async function GET() {
+  const records = getServerRecords();
   return NextResponse.json({
     success: true,
-    data: INITIAL_RECORDS,
-    total: INITIAL_RECORDS.length,
+    data: records,
+    total: records.length,
   });
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { date, userId, userName, station, school, receivedCount, uploadedCount, shift, notes } = body;
+    const { id, date, userId, userName, station, school, receivedCount, uploadedCount, shift, notes } = body;
 
     const received = Math.max(0, Number(receivedCount) || 0);
     const uploaded = Math.max(0, Number(uploadedCount) || 0);
     const pending = Math.max(0, received - uploaded);
     const rate = received > 0 ? (uploaded / received) * 100 : 100;
 
-    const newRecord = {
-      id: `rec_${Date.now()}`,
+    const record = {
+      id: id || `rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       date: date || new Date().toISOString().split('T')[0],
       userId: userId || 'user_unknown',
       userName: userName || 'Operator',
@@ -30,17 +32,19 @@ export async function POST(request: Request) {
       uploadedCount: uploaded,
       pendingCount: pending,
       completionRate: rate,
-      status: uploaded === received ? 'completed' : uploaded < received ? 'pending_backlog' : 'over_uploaded',
+      status: computeStatus(received, uploaded),
       notes: notes || '',
       shift: shift || 'Morning',
-      createdAt: new Date().toISOString(),
+      createdAt: body.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
+    saveOrUpdateServerRecord(record);
+
     return NextResponse.json({
       success: true,
-      message: 'Record successfully created/logged',
-      data: newRecord,
+      message: 'Record successfully synchronized to server',
+      data: record,
     }, { status: 201 });
   } catch (error) {
     return NextResponse.json({
@@ -51,3 +55,16 @@ export async function POST(request: Request) {
   }
 }
 
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ success: false, message: 'ID required' }, { status: 400 });
+    }
+    deleteServerRecord(id);
+    return NextResponse.json({ success: true, message: 'Record deleted' });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
+  }
+}
