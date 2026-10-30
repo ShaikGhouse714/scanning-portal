@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { User, UserRole } from '../types';
-import { X, UserPlus, Shield, User as UserIcon, Check, Power } from 'lucide-react';
+import { User } from '../types';
+import { X, UserPlus, Power, ShieldCheck, Hash } from 'lucide-react';
 
 interface UserManagementModalProps {
   isOpen: boolean;
@@ -22,8 +22,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   const [showAddForm, setShowAddForm] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [station, setStation] = useState('Station E - Mobile Flatbed');
-  const [role, setRole] = useState<UserRole>('operator');
+  const [centerNumber, setCenterNumber] = useState('');
 
   if (!isOpen) return null;
 
@@ -31,43 +30,41 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
 
-    const colors = ['bg-indigo-600', 'bg-emerald-600', 'bg-blue-600', 'bg-purple-600', 'bg-amber-600', 'bg-rose-600'];
-    const randomColor = colors[Math.floor(Math.random() * colors.length)];
-
     const newUser: User = {
       id: `user_${Date.now()}`,
       name: name.trim(),
       email: email.trim(),
-      role,
-      station: station.trim(),
+      role: 'operator',
+      station: `Scanning Center ${centerNumber.trim() || 'General'}`,
       department: 'Scanning Dept',
-      avatarColor: randomColor,
+      avatarColor: 'bg-cyan-600',
       status: 'active',
     };
 
     onSaveUser(newUser);
     setName('');
     setEmail('');
+    setCenterNumber('');
     setShowAddForm(false);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-mono">
+      <div className="bg-[#091122] rounded-2xl shadow-2xl border border-cyan-900/60 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-cyan-950 flex items-center justify-between bg-[#060C1A]">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
-              <Shield className="w-5 h-5 text-indigo-600" />
-              <span>Scanning Department Hierarchy &amp; Access</span>
+            <h2 className="text-base font-bold text-white flex items-center space-x-2">
+              <ShieldCheck className="w-5 h-5 text-cyan-400" />
+              <span>SCANNING CENTERS &amp; OPERATOR DIRECTORY</span>
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Super Admin Control: Manage scanning operators, workstations, and permissions.
+            <p className="text-xs text-slate-400 mt-0.5">
+              Super Admin Control: Monitor active centers and operator workstations.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -75,73 +72,61 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
-          {/* Add user action banner */}
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-800">
-              Department Personnel ({users.length})
+            <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
+              REGISTERED WORKSTATIONS ({users.length})
             </span>
             <button
               onClick={() => setShowAddForm(!showAddForm)}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg shadow-sm transition-colors"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold rounded-lg shadow-sm transition-all"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>{showAddForm ? 'Cancel' : 'Add New Operator'}</span>
+              <span>{showAddForm ? 'CANCEL' : 'ADD OPERATOR'}</span>
             </button>
           </div>
 
-          {/* Add User Form Drawer */}
+          {/* Add User Drawer */}
           {showAddForm && (
             <form
               onSubmit={handleCreateUser}
-              className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 space-y-3 animate-in fade-in"
+              className="bg-[#050A16] border border-cyan-900/60 rounded-xl p-4 space-y-3"
             >
-              <div className="text-xs font-semibold text-indigo-900 uppercase tracking-wider">
-                Create New Scanning Operator
+              <div className="text-xs font-bold text-cyan-400 uppercase tracking-wider">
+                REGISTER SCANNING CENTER OPERATOR
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Full Name</label>
+                  <label className="block text-[11px] text-slate-400 mb-1">Full Name</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g., Jonathan Bell"
+                    placeholder="e.g. Ramesh Chandra"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full text-xs px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full text-xs px-3 py-2 bg-[#091122] border border-cyan-950 rounded-lg text-white focus:outline-none focus:border-cyan-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Company Email</label>
+                  <label className="block text-[11px] text-slate-400 mb-1">Email</label>
                   <input
                     type="email"
                     required
-                    placeholder="e.g., j.bell@company.internal"
+                    placeholder="ramesh@kiit.ac.in"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full text-xs px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full text-xs px-3 py-2 bg-[#091122] border border-cyan-950 rounded-lg text-white focus:outline-none focus:border-cyan-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Assigned Station / Scanner</label>
+                  <label className="block text-[11px] text-slate-400 mb-1">Center Number</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g., Station E - Fujitsu fi-7160"
-                    value={station}
-                    onChange={(e) => setStation(e.target.value)}
-                    className="w-full text-xs px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    placeholder="e.g. Center 05"
+                    value={centerNumber}
+                    onChange={(e) => setCenterNumber(e.target.value)}
+                    className="w-full text-xs px-3 py-2 bg-[#091122] border border-cyan-950 rounded-lg text-white focus:outline-none focus:border-cyan-400"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Role Hierarchy</label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as UserRole)}
-                    className="w-full text-xs px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  >
-                    <option value="operator">Basic User (Scanning Operator - Daywise Logging Only)</option>
-                    <option value="super_admin">Super Admin (Full Oversight &amp; Audit Access)</option>
-                  </select>
                 </div>
               </div>
 
@@ -149,57 +134,59 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg"
+                  className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm"
+                  className="px-3 py-1.5 text-xs font-bold bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 shadow-sm"
                 >
-                  Confirm &amp; Add Member
+                  Register Center
                 </button>
               </div>
             </form>
           )}
 
-          {/* User List Table */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+          {/* Directory list */}
+          <div className="border border-cyan-950 rounded-xl overflow-hidden divide-y divide-cyan-950/70">
             {users.map((user) => {
               const isAdmin = user.role === 'super_admin';
               return (
                 <div
                   key={user.id}
-                  className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                  className="p-3.5 flex items-center justify-between hover:bg-[#060C1A] transition-colors"
                 >
                   <div className="flex items-center space-x-3">
                     <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white ${user.avatarColor}`}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white ${
+                        isAdmin ? 'bg-cyan-600 ring-1 ring-cyan-400/50' : 'bg-slate-800'
+                      }`}
                     >
-                      {user.name.charAt(0)}
+                      {isAdmin ? <ShieldCheck className="w-4 h-4 text-cyan-200" /> : user.name.charAt(0)}
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm font-semibold text-slate-900">{user.name}</span>
+                        <span className="text-xs font-bold text-white">{user.name}</span>
                         <span
-                          className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                          className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${
                             isAdmin
-                              ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
-                              : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                              : 'bg-slate-800 text-slate-300 border border-slate-700'
                           }`}
                         >
-                          {isAdmin ? 'Super Admin' : 'Scanning Operator'}
+                          {isAdmin ? 'SUPER ADMIN' : 'OPERATOR'}
                         </span>
                         {user.status === 'inactive' && (
-                          <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">
-                            Inactive
+                          <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-rose-950/40 text-rose-400 border border-rose-900/60">
+                            INACTIVE
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center space-x-2 text-xs text-slate-500 mt-0.5">
+                      <div className="flex items-center space-x-2 text-[11px] text-slate-500 mt-0.5">
                         <span>{user.email}</span>
                         <span>•</span>
-                        <span className="text-slate-600 font-medium">{user.station}</span>
+                        <span className="text-cyan-400/80 font-bold">{user.station}</span>
                       </div>
                     </div>
                   </div>
@@ -207,19 +194,19 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => onToggleStatus(user.id)}
-                      disabled={user.id === 'user_admin'}
+                      disabled={isAdmin}
                       title={
-                        user.id === 'user_admin'
+                        isAdmin
                           ? 'Super Admin cannot be deactivated'
                           : user.status === 'active'
-                          ? 'Deactivate User'
-                          : 'Activate User'
+                          ? 'Deactivate'
+                          : 'Activate'
                       }
                       className={`p-2 rounded-lg text-xs font-medium border transition-colors ${
                         user.status === 'active'
-                          ? 'text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100'
-                          : 'text-slate-500 border-slate-200 bg-slate-100 hover:bg-slate-200'
-                      } disabled:opacity-40 disabled:cursor-not-allowed`}
+                          ? 'text-emerald-400 border-emerald-900/50 bg-emerald-950/30 hover:bg-emerald-950/60'
+                          : 'text-slate-500 border-slate-800 bg-slate-900 hover:bg-slate-800'
+                      } disabled:opacity-30 disabled:cursor-not-allowed`}
                     >
                       <Power className="w-3.5 h-3.5" />
                     </button>
@@ -231,16 +218,15 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+        <div className="px-6 py-3 border-t border-cyan-950 bg-[#060C1A] flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-sm"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-lg shadow-sm"
           >
-            Done
+            CLOSE
           </button>
         </div>
       </div>
     </div>
   );
 };
-

@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ScanTrack Portal | Scanning Dept Daily Tracker & Audit",
-  description: "Scanning Department daily scripts received and uploaded tracking system with Super Admin oversight.",
+  title: "ScanTrack Core // Scanning Department Portal",
+  description: "Scanning Department Intake, Verification & Real-time Audit Network",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -12,8 +17,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col font-sans bg-slate-50 text-slate-900 selection:bg-indigo-500 selection:text-white">
+    <html lang="en" className="h-full dark">
+      <body className="min-h-full flex flex-col bg-[#050811] text-[#E2E8F0] antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
         {children}
       </body>
     </html>

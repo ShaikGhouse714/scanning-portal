@@ -134,11 +134,11 @@ export default function Home() {
 
   if (!isClient) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+      <div className="min-h-screen flex items-center justify-center bg-[#050811]">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Loading ScanTrack Portal...
+          <div className="w-10 h-10 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs font-mono font-semibold text-cyan-400/80 uppercase tracking-wider">
+            INITIALIZING SCANTRACK SYSTEM...
           </p>
         </div>
       </div>
@@ -161,12 +161,10 @@ export default function Home() {
   const isSuperAdmin = currentUser.role === 'super_admin';
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col font-sans">
       {/* Navigation Header */}
       <Navbar
         currentUser={currentUser}
-        allUsers={users}
-        onSelectUser={handleSelectUser}
         onSignOut={handleSignOut}
         pendingCountTotal={totalPendingAcrossDept}
       />
@@ -195,13 +193,13 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+      <footer className="bg-[#070D1A] border-t border-cyan-950/60 py-6 text-center text-xs font-mono text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p>
-            ScanTrack Enterprise Portal • Scanning Department Intake &amp; Discrepancy System
+            SCANTRACK CORE // KIIT SCANNING DEPARTMENT RECONCILIATION NETWORK
           </p>
-          <p className="text-slate-400">
-            Super Admin: <strong className="text-slate-700">{users.find(u => u.role === 'super_admin')?.email || 'shaikghousem@codetantra.in'}</strong>
+          <p className="text-slate-500">
+            CHIEF COMMAND: <strong className="text-cyan-400">shaikghousem@codetantra.in</strong>
           </p>
         </div>
       </footer>

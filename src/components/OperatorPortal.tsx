@@ -14,7 +14,8 @@ import {
   History,
   GraduationCap,
   Edit2,
-  Building2,
+  Radio,
+  ScanLine,
 } from 'lucide-react';
 import { computeStatus } from '../lib/storage';
 
@@ -73,7 +74,7 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
   const completionRate =
     receivedCount > 0 ? Math.min(100, (uploadedCount / receivedCount) * 100) : 100;
 
-  // Filter operator's own submissions
+  // Filter operator's own submissions only
   const myRecords = useMemo(() => {
     return records
       .filter((r) => r.userId === currentUser.id)
@@ -111,209 +112,202 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Operator Welcome Banner */}
-      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
-        <div className="relative z-10">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold mb-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
-            <span>Scanning Operator Station</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Welcome, {currentUser.name}
-          </h1>
-          <p className="text-emerald-100 text-xs sm:text-sm mt-1 max-w-xl">
-            Assigned to: <strong className="text-white">{currentUser.station}</strong>. Select the school and submit your daily count of scripts received vs. successfully uploaded.
-          </p>
-        </div>
+    <div className="space-y-6 max-w-6xl mx-auto font-sans">
+      {/* Workstation HUD Banner */}
+      <div className="bg-[#091122] rounded-2xl p-6 border border-cyan-900/50 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-0 w-16 h-1 bg-cyan-400" />
 
-        {/* Decorative circle glow */}
-        <div className="absolute -right-8 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+          <div>
+            <div className="inline-flex items-center space-x-2 px-2.5 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-[10px] font-mono text-cyan-300 tracking-widest mb-2 uppercase">
+              <Radio className="w-3 h-3 text-cyan-400 animate-pulse" />
+              <span>TERMINAL ACTIVE // {currentUser.station}</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-white font-mono tracking-wide">
+              OPERATOR: {currentUser.name}
+            </h1>
+            <p className="text-slate-400 text-xs mt-0.5 font-mono">
+              KIIT SCANNING BRANCH · SCRIPT INTAKE &amp; DISCREPANCY LOGGING
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <div className="bg-[#050A16] px-4 py-2 rounded-xl border border-cyan-900/60 font-mono text-right">
+              <span className="text-[10px] text-slate-500 uppercase block">Total Submissions</span>
+              <span className="text-base font-bold text-cyan-300">{myRecords.length} ENTRIES</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: The Daily Logging Form (7 cols) */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+        {/* Left Column: Form (7 cols) */}
+        <div className="lg:col-span-7 bg-[#091122] rounded-2xl border border-cyan-900/50 shadow-2xl p-6">
+          <div className="flex items-center justify-between pb-4 border-b border-cyan-950 mb-5">
             <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-                <FileText className="w-5 h-5 text-emerald-600" />
-                <span>School-Wise Script Intake &amp; Upload Form</span>
+              <h2 className="text-sm font-bold font-mono tracking-wider text-white uppercase flex items-center space-x-2">
+                <ScanLine className="w-4 h-4 text-cyan-400" />
+                <span>DAILY SCRIPT INTAKE FORM</span>
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Record your daily totals by school. Super Admin monitors these logs for department sync.
+              <p className="text-xs text-slate-400 mt-0.5">
+                Select target school and input intake vs. upload counts.
               </p>
             </div>
             {existingRecord && (
-              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center space-x-1">
+              <span className="text-[10px] font-mono font-bold px-2 py-1 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 flex items-center space-x-1">
                 <Edit2 className="w-3 h-3" />
-                <span>Editing Log</span>
+                <span>LOG LOADED</span>
               </span>
             )}
           </div>
 
           {submittedFeedback && (
-            <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center space-x-2 text-xs font-semibold text-emerald-800 animate-in fade-in">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="mb-5 p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center space-x-2 text-xs font-mono text-emerald-300 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>
-                Daily log for <strong>{selectedSchool}</strong> successfully saved and transmitted to Super Admin dashboard!
+                DATA TRANSMITTED // Record for {selectedSchool} synced to Central Command.
               </span>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* School Selector (Prominent) */}
+            {/* School Selector */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
-                <GraduationCap className="w-4 h-4 text-indigo-600" />
-                <span>Select School / Faculty</span>
-                <span className="text-rose-500">*</span>
+              <label className="block text-xs font-mono font-bold text-cyan-300/80 uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
+                <GraduationCap className="w-3.5 h-3.5 text-cyan-400" />
+                <span>SELECT FACULTY / SCHOOL</span>
               </label>
               <select
                 value={selectedSchool}
                 onChange={(e) => setSelectedSchool(e.target.value)}
-                className="w-full text-xs font-semibold px-3 py-2.5 bg-indigo-50/50 border border-indigo-200 rounded-xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all shadow-sm"
+                className="w-full text-xs font-mono px-3 py-3 bg-[#050A16] border border-cyan-900/70 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-cyan-400 transition-all shadow-inner"
               >
                 {AVAILABLE_SCHOOLS.map((school) => (
-                  <option key={school} value={school}>
+                  <option key={school} value={school} className="bg-[#050A16] text-white">
                     {school}
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Select which school these scripts belong to before entering the counts.
-              </p>
             </div>
 
-            {/* Date & Shift Selectors */}
+            {/* Date & Shift */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Logging Date</span>
+                <label className="block text-xs font-mono font-bold text-cyan-300/80 uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>LOGGING DATE</span>
                 </label>
                 <input
                   type="date"
                   required
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-colors"
+                  className="w-full text-xs font-mono px-3 py-2.5 bg-[#050A16] border border-cyan-900/70 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-cyan-400 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
-                  <Clock className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Work Shift</span>
+                <label className="block text-xs font-mono font-bold text-cyan-300/80 uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
+                  <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>WORK SHIFT</span>
                 </label>
                 <select
                   value={shift}
                   onChange={(e) => setShift(e.target.value as any)}
-                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-colors"
+                  className="w-full text-xs font-mono px-3 py-2.5 bg-[#050A16] border border-cyan-900/70 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-cyan-400 transition-colors"
                 >
-                  <option value="Morning">Morning Shift (08:00 - 14:00)</option>
-                  <option value="Afternoon">Afternoon Shift (14:00 - 20:00)</option>
-                  <option value="Night">Night Shift (20:00 - 02:00)</option>
-                  <option value="Full Day">Full Day Ingestion</option>
+                  <option value="Morning" className="bg-[#050A16]">Morning (08:00 - 14:00)</option>
+                  <option value="Afternoon" className="bg-[#050A16]">Afternoon (14:00 - 20:00)</option>
+                  <option value="Night" className="bg-[#050A16]">Night (20:00 - 02:00)</option>
+                  <option value="Full Day" className="bg-[#050A16]">Full Day Operations</option>
                 </select>
               </div>
             </div>
 
-            {/* Counts: Received and Uploaded */}
+            {/* Counts: Received vs Uploaded */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  1. Scripts Received
+              <div className="p-4 rounded-xl bg-[#050A16] border border-cyan-900/50">
+                <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  1. SCRIPTS RECEIVED
                 </label>
-                <p className="text-[11px] text-slate-500 mb-2">
-                  Total physical scripts received for {selectedSchool}.
+                <p className="text-[10px] font-mono text-slate-500 mb-2">
+                  Total physical scripts received from branch.
                 </p>
                 <input
                   type="number"
                   min="0"
                   required
-                  placeholder="e.g. 250"
+                  placeholder="0"
                   value={receivedInput}
                   onChange={(e) => setReceivedInput(e.target.value)}
-                  className="w-full text-lg font-bold px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-xl font-mono font-bold px-3 py-2 bg-[#091122] border border-cyan-900/70 rounded-lg text-cyan-300 focus:outline-none focus:ring-1 focus:ring-cyan-400"
                 />
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  2. Scripts Uploaded
+              <div className="p-4 rounded-xl bg-[#050A16] border border-cyan-900/50">
+                <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1">
+                  2. SCRIPTS UPLOADED
                 </label>
-                <p className="text-[11px] text-slate-500 mb-2">
-                  Total scripts scanned &amp; verified into portal.
+                <p className="text-[10px] font-mono text-slate-500 mb-2">
+                  Total scanned &amp; verified into portal.
                 </p>
                 <input
                   type="number"
                   min="0"
                   required
-                  placeholder="e.g. 240"
+                  placeholder="0"
                   value={uploadedInput}
                   onChange={(e) => setUploadedInput(e.target.value)}
-                  className="w-full text-lg font-bold px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-xl font-mono font-bold px-3 py-2 bg-[#091122] border border-cyan-900/70 rounded-lg text-emerald-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
                 />
               </div>
             </div>
 
-            {/* Live Calculation Feedback Card */}
+            {/* Live Telemetry Meter */}
             {receivedInput !== '' && uploadedInput !== '' && (
               <div
-                className={`p-4 rounded-xl border transition-all ${
+                className={`p-4 rounded-xl border font-mono transition-all ${
                   hasDiscrepancy
-                    ? 'bg-amber-50/70 border-amber-200'
-                    : isOverUploaded
-                    ? 'bg-blue-50/70 border-blue-200'
-                    : 'bg-emerald-50/70 border-emerald-200'
+                    ? 'bg-rose-500/10 border-rose-500/40 text-rose-300'
+                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     {hasDiscrepancy ? (
-                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                      <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
                     ) : (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                     )}
                     <div>
-                      <span className="text-xs font-bold uppercase tracking-wider block text-slate-700">
-                        {selectedSchool} Status
+                      <span className="text-[10px] font-bold uppercase tracking-wider block text-slate-400">
+                        TELEMETRY VERIFICATION
                       </span>
-                      <span
-                        className={`text-sm font-extrabold ${
-                          hasDiscrepancy
-                            ? 'text-amber-900'
-                            : isOverUploaded
-                            ? 'text-blue-900'
-                            : 'text-emerald-900'
-                        }`}
-                      >
+                      <span className="text-sm font-bold">
                         {hasDiscrepancy
-                          ? `⚠️ ${pendingCount} Scripts Pending Upload`
-                          : isOverUploaded
-                          ? `Notice: Uploaded exceeds Received (+${uploadedCount - receivedCount})`
-                          : '100% Uploaded (All Received Scripts Synchronized)'}
+                          ? `⚠️ DELTA: ${pendingCount} SCRIPTS PENDING UPLOAD`
+                          : 'SYNCHRONIZED // 100% COMPLETE'}
                       </span>
                     </div>
                   </div>
 
                   <div className="text-right">
-                    <span className="text-xs font-bold text-slate-700">
+                    <span className="text-sm font-bold text-white">
                       {completionRate.toFixed(1)}%
                     </span>
-                    <p className="text-[10px] text-slate-500">Completion</p>
+                    <p className="text-[9px] text-slate-400 uppercase">SYNC RATE</p>
                   </div>
                 </div>
 
                 {/* Progress bar */}
-                <div className="mt-3 w-full h-2 bg-white/80 rounded-full overflow-hidden border border-black/5">
+                <div className="mt-3 w-full h-1.5 bg-[#050A16] rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${
                       completionRate >= 100
-                        ? 'bg-emerald-500'
+                        ? 'bg-emerald-400'
                         : completionRate >= 90
-                        ? 'bg-amber-500'
+                        ? 'bg-amber-400'
                         : 'bg-rose-500'
                     }`}
                     style={{ width: `${Math.min(100, completionRate)}%` }}
@@ -321,17 +315,17 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
                 </div>
 
                 {hasDiscrepancy && (
-                  <p className="mt-2 text-xs text-amber-800">
-                    <strong>Super Admin Notice:</strong> You received {receivedCount} for {selectedSchool} but uploaded {uploadedCount}. Please provide a reason below so management knows the cause of the backlog.
+                  <p className="mt-2 text-xs text-rose-300/90 font-mono">
+                    Attention: You have {pendingCount} un-uploaded scripts. Please provide a reason below for Super Admin audit.
                   </p>
                 )}
               </div>
             )}
 
-            {/* Notes / Reason for Backlog */}
+            {/* Notes */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Shift Notes / Backlog Explanation {hasDiscrepancy && <span className="text-amber-600">* (Recommended)</span>}
+              <label className="block text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                DISCREPANCY NOTES / REASON {hasDiscrepancy && <span className="text-rose-400">* REQUIRED</span>}
               </label>
               <textarea
                 rows={3}
@@ -339,69 +333,43 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={
                   hasDiscrepancy
-                    ? `e.g. 10 scripts from ${selectedSchool} had missing barcode sheets, kept for supervisor recheck...`
+                    ? `e.g. 10 scripts had faint barcode printing, kept for manual review...`
                     : 'Any batch notes or observations (optional)...'
                 }
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none placeholder:text-slate-400"
+                className="w-full text-xs font-mono p-3 bg-[#050A16] border border-cyan-900/70 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-400"
               />
             </div>
 
-            {/* Submit Button */}
+            {/* Submit */}
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-md transition-colors"
+                className="w-full py-3 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-mono font-bold tracking-widest uppercase rounded-xl shadow-lg shadow-cyan-600/20 transition-all flex items-center justify-center space-x-2"
               >
                 <Save className="w-4 h-4" />
                 <span>
-                  {existingRecord ? `Update Log for ${selectedSchool}` : `Submit Daily Log for ${selectedSchool}`}
+                  {existingRecord ? 'UPDATE RECORD' : 'TRANSMIT LOG TO COMMAND'}
                 </span>
               </button>
             </div>
           </form>
         </div>
 
-        {/* Right Column: Workstation Info & Operator's Recent History (5 cols) */}
+        {/* Right Column: History (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
-          {/* Station Card */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Workstation Details
-            </h3>
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-500">Hardware / Station:</span>
-                <span className="font-semibold text-slate-900">{currentUser.station}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-500">Department:</span>
-                <span className="font-semibold text-slate-900">{currentUser.department}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-500">System Role:</span>
-                <span className="font-semibold text-emerald-700 uppercase">Scanning Operator</span>
-              </div>
-              <div className="flex justify-between py-1.5">
-                <span className="text-slate-500">Total Logs Recorded:</span>
-                <span className="font-semibold text-slate-900">{myRecords.length} Entries</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Operator's Personal Past Logs */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
-                <History className="w-4 h-4 text-emerald-600" />
-                <span>My Past Logs</span>
+          <div className="bg-[#091122] rounded-2xl border border-cyan-900/50 shadow-2xl p-5">
+            <div className="flex items-center justify-between mb-3 border-b border-cyan-950 pb-2">
+              <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                <History className="w-3.5 h-3.5 text-cyan-400" />
+                <span>MY LOGGED BATCHES</span>
               </h3>
-              <span className="text-[11px] text-slate-400">Click to load</span>
+              <span className="text-[10px] font-mono text-slate-500">CLICK TO LOAD</span>
             </div>
 
-            <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
               {myRecords.length === 0 ? (
-                <p className="text-xs text-slate-400 py-6 text-center italic">
-                  No previous logs found. Submit your first school log for today!
+                <p className="text-xs font-mono text-slate-500 py-8 text-center">
+                  NO BATCHES RECORDED YET. SUBMIT FIRST ENTRY ABOVE.
                 </p>
               ) : (
                 myRecords.map((r) => {
@@ -414,43 +382,42 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({
                         setSelectedDate(r.date);
                         if (r.school) setSelectedSchool(r.school);
                       }}
-                      className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                      className={`p-3 rounded-xl border font-mono cursor-pointer transition-all ${
                         isSelected
-                          ? 'border-emerald-500 bg-emerald-50/60 shadow-sm'
-                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          ? 'border-cyan-400 bg-cyan-950/40 shadow-md shadow-cyan-500/10'
+                          : 'border-cyan-950 bg-[#050A16] hover:border-cyan-900'
                       }`}
                     >
                       <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-bold text-slate-800">{r.date}</span>
+                        <span className="font-bold text-white">{r.date}</span>
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
                             isPending
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                           }`}
                         >
-                          {isPending ? `${r.pendingCount} Pending` : '100% Uploaded'}
+                          {isPending ? `⚠️ ${r.pendingCount} PENDING` : '100% SYNC'}
                         </span>
                       </div>
 
-                      {/* School badge */}
-                      <div className="text-[11px] font-semibold text-indigo-700 truncate mb-1 flex items-center space-x-1">
-                        <GraduationCap className="w-3 h-3 text-indigo-500 shrink-0" />
+                      <div className="text-[11px] font-semibold text-cyan-300 truncate mb-1 flex items-center space-x-1">
+                        <GraduationCap className="w-3 h-3 text-cyan-400 shrink-0" />
                         <span className="truncate">{r.school || 'General Batch'}</span>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs text-slate-600 mt-1">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1">
                         <span>
-                          Rec: <strong className="text-slate-900">{r.receivedCount}</strong> | Up:{' '}
-                          <strong className="text-emerald-700">{r.uploadedCount}</strong>
+                          REC: <strong className="text-white">{r.receivedCount}</strong> | UP:{' '}
+                          <strong className="text-emerald-400">{r.uploadedCount}</strong>
                         </span>
-                        <span className="text-[11px] text-slate-500">
+                        <span className="text-[10px] text-slate-400">
                           {r.completionRate.toFixed(1)}%
                         </span>
                       </div>
 
                       {r.notes && (
-                        <p className="text-[11px] text-slate-500 mt-1.5 line-clamp-1 italic">
+                        <p className="text-[10px] text-slate-500 mt-1 line-clamp-1 italic">
                           &quot;{r.notes}&quot;
                         </p>
                       )}

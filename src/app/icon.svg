@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Outer Glow Frame -->
+  <rect width="64" height="64" rx="14" fill="#070D1A"/>
+  <rect x="1" y="1" width="62" height="62" rx="13" stroke="#00E5FF" stroke-opacity="0.3" stroke-width="1.5"/>
+  
+  <!-- Document Sheet -->
+  <path d="M18 14C18 12.8954 18.8954 12 20 12H38L48 22V50C48 51.1046 47.1046 52 46 52H20C18.8954 52 18 51.1046 18 50V14Z" fill="#0E1B33" stroke="#2563EB" stroke-width="1.5"/>
+  <path d="M38 12V22H48" stroke="#2563EB" stroke-width="1.5"/>
+  
+  <!-- Text lines inside doc -->
+  <line x1="24" y1="28" x2="40" y2="28" stroke="#38BDF8" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.5"/>
+  <line x1="24" y1="34" x2="38" y2="34" stroke="#38BDF8" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.5"/>
+  <line x1="24" y1="40" x2="34" y2="40" stroke="#38BDF8" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.5"/>
+  
+  <!-- Glowing Scanning Laser Line -->
+  <line x1="12" y1="32" x2="52" y2="32" stroke="#00F0FF" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="14" y1="32" x2="50" y2="32" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round"/>
+  
+  <!-- Scan Target Corners -->
+  <path d="M13 19V14H18" stroke="#00E5FF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M51 19V14H46" stroke="#00E5FF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M13 45V50H18" stroke="#00E5FF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M51 45V50H46" stroke="#00E5FF" stroke-width="2" stroke-linecap="round"/>
+</svg>

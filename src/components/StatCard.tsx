@@ -8,7 +8,7 @@ interface StatCardProps {
   value: string | number;
   subtitle?: string;
   icon: LucideIcon;
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'indigo';
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'indigo' | 'cyan';
   badge?: string;
 }
 
@@ -17,70 +17,65 @@ export const StatCard: React.FC<StatCardProps> = ({
   value,
   subtitle,
   icon: Icon,
-  variant = 'default',
+  variant = 'cyan',
   badge,
 }) => {
-  const variantStyles = {
-    default: {
-      bg: 'bg-white',
-      border: 'border-slate-200',
-      iconBg: 'bg-slate-100 text-slate-700',
-      valueColor: 'text-slate-900',
-    },
-    indigo: {
-      bg: 'bg-white',
-      border: 'border-indigo-100 ring-1 ring-indigo-50',
-      iconBg: 'bg-indigo-50 text-indigo-600',
-      valueColor: 'text-indigo-950',
-    },
-    success: {
-      bg: 'bg-white',
-      border: 'border-emerald-100 ring-1 ring-emerald-50',
-      iconBg: 'bg-emerald-50 text-emerald-600',
-      valueColor: 'text-emerald-950',
-    },
-    warning: {
-      bg: 'bg-amber-50/40',
-      border: 'border-amber-200 ring-1 ring-amber-100',
-      iconBg: 'bg-amber-100 text-amber-700',
-      valueColor: 'text-amber-950',
-    },
-    danger: {
-      bg: 'bg-rose-50/50',
-      border: 'border-rose-200 ring-1 ring-rose-100',
-      iconBg: 'bg-rose-100 text-rose-700',
-      valueColor: 'text-rose-950',
-    },
-  }[variant];
+  const isAlert = variant === 'warning' || variant === 'danger';
+  const isSuccess = variant === 'success';
 
   return (
     <div
-      className={`rounded-xl p-5 border shadow-sm transition-all hover:shadow-md ${variantStyles.bg} ${variantStyles.border}`}
+      className={`rounded-2xl p-5 border bg-[#091122] transition-all hover:border-cyan-500/50 relative overflow-hidden font-mono shadow-xl ${
+        isAlert
+          ? 'border-rose-500/30 bg-gradient-to-b from-rose-950/20 to-[#091122]'
+          : isSuccess
+          ? 'border-emerald-500/30 bg-gradient-to-b from-emerald-950/15 to-[#091122]'
+          : 'border-cyan-900/40 bg-[#091122]'
+      }`}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold tracking-wider uppercase text-slate-500">
+        <span className="text-[10px] font-bold tracking-widest uppercase text-slate-400">
           {title}
         </span>
-        <div className={`p-2.5 rounded-xl ${variantStyles.iconBg}`}>
-          <Icon className="w-5 h-5" />
+        <div
+          className={`p-2 rounded-xl border ${
+            isAlert
+              ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+              : isSuccess
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
+          }`}
+        >
+          <Icon className="w-4 h-4" />
         </div>
       </div>
 
       <div className="mt-3 flex items-baseline justify-between">
-        <div className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${variantStyles.valueColor}`}>
+        <div
+          className={`text-2xl sm:text-3xl font-black tracking-tight ${
+            isAlert ? 'text-rose-400' : isSuccess ? 'text-emerald-400' : 'text-white'
+          }`}
+        >
           {value}
         </div>
         {badge && (
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+          <span
+            className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
+              isAlert
+                ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                : isSuccess
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                : 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+            }`}
+          >
             {badge}
           </span>
         )}
       </div>
 
       {subtitle && (
-        <p className="mt-1 text-xs text-slate-500 line-clamp-1">{subtitle}</p>
+        <p className="mt-1 text-[11px] text-slate-400 line-clamp-1 font-mono tracking-tight">{subtitle}</p>
       )}
     </div>
   );
 };
-
