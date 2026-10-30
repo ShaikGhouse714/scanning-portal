@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { SUPER_ADMIN_EMAIL } from '../lib/mockData';
-import { registerUser, authenticateUser } from '../lib/storage';
+import { registerUser, authenticateUser, saveStoredUsers } from '../lib/storage';
 import {
   Layers,
   Mail,
@@ -30,8 +30,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   const cleanEmail = email.trim().toLowerCase();
   const isSuperAdminEmail = cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase();
 
-  // STEP 1: Check email
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  // STEP 1: Check email against server + local store
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!email.trim()) {
@@ -40,22 +40,68 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      // Fetch latest users directly from server
+      const userRes = await fetch('/api/users', { cache: 'no-store' });
+      let serverUsers: User[] = [];
+      if (userRes.ok) {
+        const uJson = await userRes.json();
+        if (Array.isArray(uJson.data)) {
+          serverUsers = uJson.data;
+          saveStoredUsers(serverUsers);
+        }
+      }
+
+      const found = serverUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+      if (found) {
+        setIsLoading(false);
+        onLoginSuccess(found);
+        return;
+      }
+
+      // Check local cache fallback
+      const localCheck = authenticateUser(email);
+      if (localCheck.success && localCheck.user) {
+        setIsLoading(false);
+        onLoginSuccess(localCheck.user);
+        return;
+      }
+
+      // If Super Admin logging in for first time, auto-generate Super Admin user
+      if (isSuperAdminEmail) {
+        const adminRes = registerUser('Shaik Ghouse M', cleanEmail, 'HQ / Scanning Dept Management');
+        if (adminRes.success && adminRes.user) {
+          try {
+            await fetch('/api/users', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(adminRes.user),
+            });
+          } catch {}
+          setIsLoading(false);
+          onLoginSuccess(adminRes.user);
+          return;
+        }
+      }
+
+      // First time user -> Proceed to Step 2 (Name + Center)
+      setIsLoading(false);
+      setStep('complete_profile');
+    } catch {
+      // Local fallback
       const res = authenticateUser(email);
       setIsLoading(false);
-
       if (res.success && res.user) {
         onLoginSuccess(res.user);
-      } else if (res.error === 'No account found with this email. Please register your account.') {
-        setStep('complete_profile');
       } else {
-        setError(res.error || 'Authentication failure.');
+        setStep('complete_profile');
       }
-    }, 300);
+    }
   };
 
   // STEP 2: Name + Center registration
-  const handleProfileSubmit = (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -69,20 +115,30 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      const station = isSuperAdminEmail
-        ? 'HQ / Scanning Dept Management'
-        : `Scanning Center ${scanningCenter.trim()}`;
 
-      const res = registerUser(name, email, station);
-      setIsLoading(false);
+    const station = isSuperAdminEmail
+      ? 'HQ / Scanning Dept Management'
+      : `Scanning Center ${scanningCenter.trim()}`;
 
-      if (res.success && res.user) {
-        onLoginSuccess(res.user);
-      } else {
-        setError(res.error || 'Registration failed.');
+    const res = registerUser(name, email, station);
+
+    if (res.success && res.user) {
+      // Sync immediately to server API
+      try {
+        await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(res.user),
+        });
+      } catch (err) {
+        console.warn('Server user sync error:', err);
       }
-    }, 300);
+      setIsLoading(false);
+      onLoginSuccess(res.user);
+    } else {
+      setIsLoading(false);
+      setError(res.error || 'Registration failed.');
+    }
   };
 
   return (

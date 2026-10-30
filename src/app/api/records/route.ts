@@ -1,20 +1,56 @@
 import { NextResponse } from 'next/server';
-import { getServerRecords, saveOrUpdateServerRecord, deleteServerRecord } from '@/lib/serverStore';
-import { computeStatus } from '@/lib/storage';
+import {
+  getServerRecords,
+  saveOrUpdateServerRecord,
+  deleteServerRecord,
+  computeServerStatus,
+} from '@/lib/serverStore';
 
-export async function GET() {
-  const records = getServerRecords();
-  return NextResponse.json({
-    success: true,
-    data: records,
-    total: records.length,
-  });
+const noCacheHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
+
+export async function GET(request: Request) {
+  try {
+    // Reading request URL guarantees per-request dynamic evaluation
+    const _url = request.url;
+    const records = getServerRecords();
+    return NextResponse.json(
+      {
+        success: true,
+        data: records,
+        total: records.length,
+      },
+      {
+        status: 200,
+        headers: noCacheHeaders,
+      }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: String(error) },
+      { status: 500, headers: noCacheHeaders }
+    );
+  }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { id, date, userId, userName, station, school, receivedCount, uploadedCount, shift, notes } = body;
+    const {
+      id,
+      date,
+      userId,
+      userName,
+      station,
+      school,
+      receivedCount,
+      uploadedCount,
+      shift,
+      notes,
+    } = body;
 
     const received = Math.max(0, Number(receivedCount) || 0);
     const uploaded = Math.max(0, Number(uploadedCount) || 0);
@@ -32,7 +68,7 @@ export async function POST(request: Request) {
       uploadedCount: uploaded,
       pendingCount: pending,
       completionRate: rate,
-      status: computeStatus(received, uploaded),
+      status: computeServerStatus(received, uploaded),
       notes: notes || '',
       shift: shift || 'Morning',
       createdAt: body.createdAt || new Date().toISOString(),
@@ -41,17 +77,23 @@ export async function POST(request: Request) {
 
     saveOrUpdateServerRecord(record);
 
-    return NextResponse.json({
-      success: true,
-      message: 'Record successfully synchronized to server',
-      data: record,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Record successfully synchronized to server',
+        data: record,
+      },
+      { status: 201, headers: noCacheHeaders }
+    );
   } catch (error) {
-    return NextResponse.json({
-      success: false,
-      message: 'Invalid payload',
-      error: String(error),
-    }, { status: 400 });
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Invalid payload',
+        error: String(error),
+      },
+      { status: 400, headers: noCacheHeaders }
+    );
   }
 }
 
@@ -60,11 +102,20 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) {
-      return NextResponse.json({ success: false, message: 'ID required' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: 'ID required' },
+        { status: 400, headers: noCacheHeaders }
+      );
     }
     deleteServerRecord(id);
-    return NextResponse.json({ success: true, message: 'Record deleted' });
+    return NextResponse.json(
+      { success: true, message: 'Record deleted' },
+      { status: 200, headers: noCacheHeaders }
+    );
   } catch (error) {
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: String(error) },
+      { status: 500, headers: noCacheHeaders }
+    );
   }
 }

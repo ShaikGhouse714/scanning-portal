@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, DailyRecord } from '../types';
 import { AVAILABLE_SCHOOLS } from '../lib/mockData';
 import {
@@ -23,38 +23,68 @@ export default function Home() {
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [records, setRecords] = useState<DailyRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<string>('tracking');
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // Modals
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedRecordForModal, setSelectedRecordForModal] = useState<DailyRecord | null>(null);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
 
-  // Sync data from server
+  const isReconcilingRef = useRef(false);
+
+  // Sync data from server with two-way reconciliation
   const syncFromServer = useCallback(async () => {
+    setIsSyncing(true);
     try {
       const [recRes, userRes] = await Promise.all([
         fetch('/api/records', { cache: 'no-store' }),
         fetch('/api/users', { cache: 'no-store' }),
       ]);
 
+      let serverRecords: DailyRecord[] = [];
+      let serverUsers: User[] = [];
+
       if (recRes.ok) {
         const recJson = await recRes.json();
-        if (recJson.data) {
-          setRecords(recJson.data);
-          saveStoredRecords(recJson.data);
+        if (Array.isArray(recJson.data)) {
+          serverRecords = recJson.data;
+          setRecords(serverRecords);
+          saveStoredRecords(serverRecords);
         }
       }
 
       if (userRes.ok) {
         const userJson = await userRes.json();
-        if (userJson.data) {
-          setUsers(userJson.data);
-          saveStoredUsers(userJson.data);
+        if (Array.isArray(userJson.data)) {
+          serverUsers = userJson.data;
+          setUsers(serverUsers);
+          saveStoredUsers(serverUsers);
         }
+      }
+
+      // Check if local device has records not yet known to server (offline healing)
+      if (!isReconcilingRef.current) {
+        isReconcilingRef.current = true;
+        const localRecs = getStoredRecords();
+        for (const lr of localRecs) {
+          const existsOnServer = serverRecords.some((sr) => sr.id === lr.id);
+          if (!existsOnServer && lr.id) {
+            try {
+              await fetch('/api/records', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(lr),
+              });
+            } catch {}
+          }
+        }
+        isReconcilingRef.current = false;
       }
     } catch (e) {
       console.warn('Server fetch error, using local fallback:', e);
+    } finally {
+      setIsSyncing(false);
     }
   }, []);
 
@@ -69,21 +99,46 @@ export default function Home() {
     setRecords(localRecords);
     setCurrentUser(active);
 
+    if (active) {
+      setActiveTab(active.role === 'super_admin' ? 'dashboard' : 'intake');
+    }
+
     // Initial server fetch
     syncFromServer();
 
-    // Auto-refresh polling every 4 seconds to sync any submissions from other devices/testers
+    // Auto-refresh polling every 3 seconds for instant multi-device reflection
     const interval = setInterval(() => {
       syncFromServer();
-    }, 4000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [syncFromServer]);
+
+  // Adjust active tab when switching user role
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.role === 'super_admin') {
+        if (activeTab === 'intake' || activeTab === 'my_logs' || activeTab === 'tracking') {
+          setActiveTab('dashboard');
+        }
+      } else {
+        if (
+          activeTab === 'dashboard' ||
+          activeTab === 'schools' ||
+          activeTab === 'audit_log' ||
+          activeTab === 'tracking'
+        ) {
+          setActiveTab('intake');
+        }
+      }
+    }
+  }, [currentUser, activeTab]);
 
   // Sign out
   const handleSignOut = () => {
     setCurrentUser(null);
     setActiveUser(null);
+    setActiveTab('dashboard');
   };
 
   // Save record: updates local state + POST to server
@@ -198,7 +253,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-[#07090E]">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs font-mono text-slate-400">Loading Exam Ops...</p>
+          <p className="text-xs font-mono text-slate-400">Loading ScanTrack Ops...</p>
         </div>
       </div>
     );
@@ -211,7 +266,7 @@ export default function Home() {
         onLoginSuccess={async (user) => {
           setCurrentUser(user);
           setActiveUser(user);
-          // Sync with server immediately
+          setActiveTab(user.role === 'super_admin' ? 'dashboard' : 'intake');
           try {
             await fetch('/api/users', {
               method: 'POST',
@@ -253,12 +308,17 @@ export default function Home() {
               onDeleteRecord={handleDeleteRecord}
               onAddRecord={handleAdminAddNewRecord}
               onRefresh={syncFromServer}
+              isSyncing={isSyncing}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
             />
           ) : (
             <OperatorPortal
               currentUser={currentUser}
               records={records}
               onSaveRecord={handleSaveRecord}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
             />
           )}
         </main>
