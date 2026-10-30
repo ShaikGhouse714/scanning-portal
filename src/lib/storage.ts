@@ -91,7 +91,6 @@ export function registerUser(
   name: string,
   email: string,
   station: string = 'General Scanning Station',
-  password?: string
 ): { success: boolean; user?: User; error?: string } {
   const users = getStoredUsers();
   const cleanEmail = email.trim().toLowerCase();
@@ -108,7 +107,6 @@ export function registerUser(
     id: `user_${Date.now()}`,
     name: name.trim(),
     email: email.trim(),
-    password: password || 'password123',
     role: isSuperAdminEmail ? 'super_admin' : 'operator',
     station: isSuperAdminEmail ? 'Central Management / HQ' : station.trim(),
     department: 'Scanning Dept',
