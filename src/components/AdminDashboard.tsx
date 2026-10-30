@@ -255,81 +255,98 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {operatorBreakdown.map((item) => {
-            const hasPending = item.pending > 0;
-            return (
-              <div
-                key={item.user.id}
-                className={`bg-white rounded-xl p-4 border shadow-sm transition-all hover:shadow-md ${
-                  hasPending ? 'border-amber-200 ring-1 ring-amber-100' : 'border-slate-200'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2.5">
-                    <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${item.user.avatarColor}`}
+        {operatorBreakdown.length === 0 ? (
+          <div className="bg-white rounded-2xl p-8 border border-dashed border-slate-300 text-center shadow-sm">
+            <Users className="w-9 h-9 text-indigo-400 mx-auto mb-2" />
+            <h3 className="text-sm font-bold text-slate-800">No Scanning Operators Registered Yet</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              You are set up as the <strong>Super Admin</strong>. Click below to add staff operators to your Scanning Department, or have them register directly with their email.
+            </p>
+            <button
+              onClick={onOpenUserModal}
+              className="mt-4 inline-flex items-center space-x-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Add First Scanning Operator</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {operatorBreakdown.map((item) => {
+              const hasPending = item.pending > 0;
+              return (
+                <div
+                  key={item.user.id}
+                  className={`bg-white rounded-xl p-4 border shadow-sm transition-all hover:shadow-md ${
+                    hasPending ? 'border-amber-200 ring-1 ring-amber-100' : 'border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-2.5">
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${item.user.avatarColor}`}
+                      >
+                        {item.user.name.charAt(0)}
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 truncate">
+                          {item.user.name}
+                        </h3>
+                        <p className="text-[11px] text-slate-500 truncate max-w-[140px]">
+                          {item.user.station}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        hasPending
+                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                          : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      }`}
                     >
-                      {item.user.name.charAt(0)}
+                      {hasPending ? `${item.pending} Pending` : '100%'}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-xs pt-3 border-t border-slate-100">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">
+                        Received
+                      </span>
+                      <span className="text-slate-900 font-bold text-sm">
+                        {item.totalRec.toLocaleString()}
+                      </span>
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900 truncate">
-                        {item.user.name}
-                      </h3>
-                      <p className="text-[11px] text-slate-500 truncate max-w-[140px]">
-                        {item.user.station}
-                      </p>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">
+                        Uploaded
+                      </span>
+                      <span className="text-emerald-700 font-bold text-sm">
+                        {item.totalUp.toLocaleString()}
+                      </span>
                     </div>
                   </div>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      hasPending
-                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                    }`}
-                  >
-                    {hasPending ? `${item.pending} Pending` : '100%'}
-                  </span>
-                </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-2 text-xs pt-3 border-t border-slate-100">
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                      Received
-                    </span>
-                    <span className="text-slate-900 font-bold text-sm">
-                      {item.totalRec.toLocaleString()}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">
-                      Uploaded
-                    </span>
-                    <span className="text-emerald-700 font-bold text-sm">
-                      {item.totalUp.toLocaleString()}
-                    </span>
+                  {/* Progress bar */}
+                  <div className="mt-3">
+                    <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                      <span>Sync Rate</span>
+                      <span>{item.rate.toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          item.rate >= 95 ? 'bg-emerald-500' : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${Math.min(100, item.rate)}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-
-                {/* Progress bar */}
-                <div className="mt-3">
-                  <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
-                    <span>Sync Rate</span>
-                    <span>{item.rate.toFixed(1)}%</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        item.rate >= 95 ? 'bg-emerald-500' : 'bg-amber-500'
-                      }`}
-                      style={{ width: `${Math.min(100, item.rate)}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Main Day-wise Audit Table Section */}

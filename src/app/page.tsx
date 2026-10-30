@@ -10,13 +10,13 @@ import {
   getActiveUser,
   setActiveUser,
   resetDemoData,
-  computeStatus,
 } from '../lib/storage';
 import { Navbar } from '../components/Navbar';
 import { AdminDashboard } from '../components/AdminDashboard';
 import { OperatorPortal } from '../components/OperatorPortal';
 import { UserManagementModal } from '../components/UserManagementModal';
 import { RecordModal } from '../components/RecordModal';
+import { AuthScreen } from '../components/AuthScreen';
 
 export default function Home() {
   const [isClient, setIsClient] = useState(false);
@@ -41,10 +41,16 @@ export default function Home() {
     setCurrentUser(active);
   }, []);
 
-  // Update active user & save
+  // Update active user & save session
   const handleSelectUser = (user: User) => {
     setCurrentUser(user);
     setActiveUser(user);
+  };
+
+  // Sign out
+  const handleSignOut = () => {
+    setCurrentUser(null);
+    setActiveUser(null);
   };
 
   // Save or update a daily record
@@ -98,17 +104,9 @@ export default function Home() {
     });
   };
 
-  // Reset to initial seed demo data
-  const handleResetData = () => {
-    const { users: newUsers, records: newRecords } = resetDemoData();
-    setUsers(newUsers);
-    setRecords(newRecords);
-    setCurrentUser(newUsers[0]);
-  };
-
   // Handle Add Record from Admin view
   const handleAdminAddNewRecord = () => {
-    const operator = users.find((u) => u.role === 'operator') || users[0];
+    const operator = users.find((u) => u.role === 'operator') || currentUser || users[0];
     const newRecord: DailyRecord = {
       id: `rec_${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
@@ -132,16 +130,29 @@ export default function Home() {
   // Calculate total pending scripts across all records
   const totalPendingAcrossDept = records.reduce((acc, r) => acc + Math.max(0, r.pendingCount), 0);
 
-  if (!isClient || !currentUser) {
+  if (!isClient) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Loading Scanning Portal...
+          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Loading ScanTrack Portal...
           </p>
         </div>
       </div>
+    );
+  }
+
+  // If not logged in, show Auth / Registration screen
+  if (!currentUser) {
+    return (
+      <AuthScreen
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setActiveUser(user);
+          setUsers(getStoredUsers());
+        }}
+      />
     );
   }
 
@@ -154,7 +165,7 @@ export default function Home() {
         currentUser={currentUser}
         allUsers={users}
         onSelectUser={handleSelectUser}
-        onResetData={handleResetData}
+        onSignOut={handleSignOut}
         pendingCountTotal={totalPendingAcrossDept}
       />
 
@@ -185,10 +196,10 @@ export default function Home() {
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p>
-            ScanTrack Enterprise Portal • Scanning Department Audit &amp; Reconciliation System
+            ScanTrack Enterprise Portal • Scanning Department Intake &amp; Discrepancy System
           </p>
           <p className="text-slate-400">
-            Deployed on Vercel • Next.js App Router
+            Super Admin: <strong className="text-slate-700">{users.find(u => u.role === 'super_admin')?.email || 'shaikghousem@codetantra.in'}</strong>
           </p>
         </div>
       </footer>

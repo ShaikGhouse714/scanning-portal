@@ -4,11 +4,13 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
   role: UserRole;
   station: string;
   department: string;
   avatarColor: string;
   status: 'active' | 'inactive';
+  createdAt?: string;
 }
 
 export type RecordStatus = 'completed' | 'pending_backlog' | 'over_uploaded';
@@ -38,4 +40,3 @@ export interface DepartmentMetrics {
   totalRecords: number;
   discrepancyCount: number;
 }
-

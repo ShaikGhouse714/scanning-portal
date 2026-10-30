@@ -1,11 +1,11 @@
 'use client';
 
 import { User, DailyRecord, DepartmentMetrics, RecordStatus } from '../types';
-import { INITIAL_USERS, INITIAL_RECORDS } from './mockData';
+import { INITIAL_USERS, INITIAL_RECORDS, SUPER_ADMIN_EMAIL } from './mockData';
 
-const USERS_STORAGE_KEY = 'scantrack_users_v1';
-const RECORDS_STORAGE_KEY = 'scantrack_records_v1';
-const CURRENT_USER_KEY = 'scantrack_active_user_v1';
+const USERS_STORAGE_KEY = 'scantrack_users_v2';
+const RECORDS_STORAGE_KEY = 'scantrack_records_v2';
+const CURRENT_USER_KEY = 'scantrack_active_user_v2';
 
 export function getStoredUsers(): User[] {
   if (typeof window === 'undefined') return INITIAL_USERS;
@@ -15,7 +15,14 @@ export function getStoredUsers(): User[] {
       localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(INITIAL_USERS));
       return INITIAL_USERS;
     }
-    return JSON.parse(raw);
+    const users: User[] = JSON.parse(raw);
+    // Ensure Super Admin email is always present and has role super_admin
+    const hasAdmin = users.some(u => u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase());
+    if (!hasAdmin) {
+      users.unshift(INITIAL_USERS[0]);
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    }
+    return users;
   } catch {
     return INITIAL_USERS;
   }
@@ -53,26 +60,91 @@ export function saveStoredRecords(records: DailyRecord[]): void {
   }
 }
 
-export function getActiveUser(): User {
-  if (typeof window === 'undefined') return INITIAL_USERS[0];
+export function getActiveUser(): User | null {
+  if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(CURRENT_USER_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw);
-      const user = INITIAL_USERS.find(u => u.id === parsed.id) || parsed;
-      return user;
+      const parsed: User = JSON.parse(raw);
+      const allUsers = getStoredUsers();
+      const matched = allUsers.find(u => u.id === parsed.id || u.email.toLowerCase() === parsed.email.toLowerCase());
+      return matched || parsed;
     }
   } catch {}
-  return INITIAL_USERS[0]; // Default to Super Admin
+  return null;
 }
 
-export function setActiveUser(user: User): void {
+export function setActiveUser(user: User | null): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+    if (user) {
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(CURRENT_USER_KEY);
+    }
   } catch (e) {
     console.error('Failed to set active user', e);
   }
+}
+
+export function registerUser(
+  name: string,
+  email: string,
+  station: string = 'General Scanning Station',
+  password?: string
+): { success: boolean; user?: User; error?: string } {
+  const users = getStoredUsers();
+  const cleanEmail = email.trim().toLowerCase();
+  
+  if (users.some(u => u.email.toLowerCase() === cleanEmail)) {
+    return { success: false, error: 'An account with this email address already exists. Please sign in.' };
+  }
+
+  const isSuperAdminEmail = cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase();
+  const colors = ['bg-indigo-600', 'bg-emerald-600', 'bg-blue-600', 'bg-purple-600', 'bg-amber-600', 'bg-teal-600'];
+  const avatarColor = isSuperAdminEmail ? 'bg-indigo-600' : colors[Math.floor(Math.random() * colors.length)];
+
+  const newUser: User = {
+    id: `user_${Date.now()}`,
+    name: name.trim(),
+    email: email.trim(),
+    password: password || 'password123',
+    role: isSuperAdminEmail ? 'super_admin' : 'operator',
+    station: isSuperAdminEmail ? 'Central Management / HQ' : station.trim(),
+    department: 'Scanning Dept',
+    avatarColor,
+    status: 'active',
+    createdAt: new Date().toISOString(),
+  };
+
+  const updatedUsers = [...users, newUser];
+  saveStoredUsers(updatedUsers);
+  return { success: true, user: newUser };
+}
+
+export function authenticateUser(email: string): { success: boolean; user?: User; error?: string } {
+  const users = getStoredUsers();
+  const cleanEmail = email.trim().toLowerCase();
+  const matched = users.find(u => u.email.toLowerCase() === cleanEmail);
+
+  if (matched) {
+    if (matched.status === 'inactive') {
+      return { success: false, error: 'This user account is currently deactivated. Please contact Super Admin.' };
+    }
+    return { success: true, user: matched };
+  }
+
+  // If email matches super admin email but was somehow deleted, restore it
+  if (cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
+    const adminUser: User = {
+      ...INITIAL_USERS[0],
+      email: SUPER_ADMIN_EMAIL,
+    };
+    saveStoredUsers([adminUser, ...users]);
+    return { success: true, user: adminUser };
+  }
+
+  return { success: false, error: 'No account found with this email. Please register your account.' };
 }
 
 export function computeStatus(received: number, uploaded: number): RecordStatus {
@@ -145,4 +217,3 @@ export function resetDemoData(): { users: User[]; records: DailyRecord[] } {
   }
   return { users: INITIAL_USERS, records: INITIAL_RECORDS };
 }
-
