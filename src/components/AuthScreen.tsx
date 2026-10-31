@@ -101,7 +101,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
         role: 'admin', // New users are strictly Basic Admin
         station: 'Partner Admin Station',
         department: 'Scanning Dept',
-        avatarColor: 'bg-neutral-800',
+        avatarColor: 'bg-indigo-600',
         status: 'active',
         createdAt: new Date().toISOString(),
       };
@@ -134,47 +134,47 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#000000] text-neutral-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-[#07090E] text-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md px-4">
         {/* Brand Header with 3-bar metric icon */}
         <div className="text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-[#0D0D0D] border border-[#222222] flex items-center justify-center shadow-2xl mx-auto p-2">
+          <div className="w-14 h-14 rounded-2xl bg-[#0E1322] border border-[#1F2942] flex items-center justify-center shadow-xl mx-auto p-2">
             <svg className="w-8 h-8" viewBox="0 0 64 64" fill="none">
-              <rect x="13" y="34" width="10" height="22" rx="5" fill="#FFFFFF" />
-              <rect x="27" y="22" width="10" height="34" rx="5" fill="#A3A3A3" />
-              <rect x="41" y="10" width="10" height="46" rx="5" fill="#525252" />
+              <rect x="13" y="34" width="10" height="22" rx="5" fill="#00A3FF" />
+              <rect x="27" y="22" width="10" height="34" rx="5" fill="#6E44FF" />
+              <rect x="41" y="10" width="10" height="46" rx="5" fill="#9E00FF" />
             </svg>
           </div>
           <h2 className="mt-3 text-xl sm:text-2xl font-bold tracking-tight text-white">
             Scanning Tracker
           </h2>
-          <p className="mt-1 text-xs text-neutral-400">
+          <p className="mt-1 text-xs text-slate-400">
             Intake Verification &amp; Portal Reconciliation Network
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-[#0A0A0A] py-8 px-6 sm:px-8 border border-[#222222] rounded-2xl shadow-2xl space-y-5">
-          <div className="text-center pb-2 border-b border-[#1C1C1C]">
+        <div className="bg-[#0E121A] py-8 px-6 sm:px-8 border border-[#1E2430] rounded-2xl shadow-2xl space-y-5">
+          <div className="text-center pb-2 border-b border-[#1A202C]">
             <h3 className="text-xs font-semibold text-white flex items-center justify-center space-x-1.5">
-              <ShieldCheck className="w-4 h-4 text-white" />
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <span>Sign In using Google Account</span>
             </h3>
-            <p className="text-[11px] text-neutral-400 mt-1">
+            <p className="text-[11px] text-slate-400 mt-1">
               Enter your Google email to access the portal
             </p>
           </div>
 
           {error && (
-            <div className="p-3 bg-neutral-900 border border-neutral-700 rounded-xl text-xs text-rose-300 leading-relaxed">
+            <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300 leading-relaxed">
               {error}
             </div>
           )}
 
-          {/* SINGLE CLEAN GOOGLE SIGN IN FORM (High Contrast B&W) */}
+          {/* SINGLE CLEAN GOOGLE SIGN IN FORM */}
           <form onSubmit={handleGoogleSignIn} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                 Google Account Email
               </label>
               <input
@@ -183,14 +183,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="yourname@gmail.com"
-                className="w-full text-xs px-3.5 py-2.5 bg-[#121212] border border-[#282828] rounded-xl text-white font-mono focus:outline-none focus:border-white/50 transition-all placeholder-neutral-500"
+                className="w-full text-xs px-3.5 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white font-mono focus:outline-none focus:border-cyan-500/60 transition-all placeholder-slate-500"
               />
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 px-4 bg-white hover:bg-neutral-200 text-black text-xs font-bold rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:via-indigo-500 hover:to-purple-500 text-white text-xs font-semibold rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
             >
               <GoogleIcon />
               <span>{isLoading ? 'Authenticating...' : 'Sign In using Google'}</span>
@@ -198,11 +198,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          <div className="pt-2 border-t border-[#1C1C1C] text-center">
-            <span className="text-[10px] text-neutral-500 font-mono block">
+          <div className="pt-2 border-t border-[#1A202C] text-center">
+            <span className="text-[10px] text-slate-500 font-mono block">
               New team members are assigned Basic Admin automatically.
             </span>
-            <span className="text-[10px] text-neutral-600 font-mono block mt-0.5">
+            <span className="text-[10px] text-slate-600 font-mono block mt-0.5">
               Role permissions managed by Super Admin (Shaik Ghouse M).
             </span>
           </div>

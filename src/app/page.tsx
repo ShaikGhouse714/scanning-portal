@@ -398,10 +398,10 @@ export default function Home() {
 
   if (!isClient) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#000000]">
+      <div className="min-h-screen flex items-center justify-center bg-[#07090E]">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs font-mono text-neutral-400">Loading Scanning Tracker...</p>
+          <div className="w-8 h-8 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs font-mono text-slate-400">Loading Scanning Tracker...</p>
         </div>
       </div>
     );
@@ -420,7 +420,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#000000] text-neutral-200 flex font-sans">
+    <div className="min-h-screen bg-[#07090E] text-slate-200 flex font-sans">
       {/* Sidebar */}
       <Sidebar
         currentUser={currentUser}
