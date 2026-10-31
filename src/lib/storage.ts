@@ -1,12 +1,27 @@
 'use client';
 
-import { User, DailyRecord, DepartmentMetrics, RecordStatus } from '../types';
-import { INITIAL_USERS, INITIAL_RECORDS, SUPER_ADMIN_EMAIL } from './mockData';
+import {
+  User,
+  PortalExamSlot,
+  TeamSubsheetEntry,
+  ReconciledDateSchool,
+} from '../types';
+import {
+  INITIAL_USERS,
+  SUPER_ADMIN_EMAIL,
+  DEFAULT_TEAM_ENTRIES,
+  DEFAULT_PORTAL_CSV,
+} from './mockData';
+import { parsePortalData } from './excelParser';
 
-const USERS_STORAGE_KEY = 'scantrack_users_v2';
-const RECORDS_STORAGE_KEY = 'scantrack_records_v2';
-const CURRENT_USER_KEY = 'scantrack_active_user_v2';
+const USERS_STORAGE_KEY = 'scantrack_users_v3';
+const CURRENT_USER_KEY = 'scantrack_active_user_v3';
+const TEAM_ENTRIES_KEY = 'scantrack_team_entries_v3';
+const PORTAL_SLOTS_KEY = 'scantrack_portal_slots_v3';
+const GOOGLE_SHEET_URL_KEY = 'scantrack_sheet_url_v3';
+const LAST_SYNCED_KEY = 'scantrack_last_synced_v3';
 
+// 1. User Management (Only Admin Shaik Ghouse + accounts created by admin)
 export function getStoredUsers(): User[] {
   if (typeof window === 'undefined') return INITIAL_USERS;
   try {
@@ -16,8 +31,9 @@ export function getStoredUsers(): User[] {
       return INITIAL_USERS;
     }
     const users: User[] = JSON.parse(raw);
-    // Ensure Super Admin email is always present and has role super_admin
-    const hasAdmin = users.some(u => u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase());
+    const hasAdmin = users.some(
+      (u) => u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()
+    );
     if (!hasAdmin) {
       users.unshift(INITIAL_USERS[0]);
       localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
@@ -37,41 +53,22 @@ export function saveStoredUsers(users: User[]): void {
   }
 }
 
-export function getStoredRecords(): DailyRecord[] {
-  if (typeof window === 'undefined') return INITIAL_RECORDS;
-  try {
-    const raw = localStorage.getItem(RECORDS_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(INITIAL_RECORDS));
-      return INITIAL_RECORDS;
-    }
-    return JSON.parse(raw);
-  } catch {
-    return INITIAL_RECORDS;
-  }
-}
-
-export function saveStoredRecords(records: DailyRecord[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(records));
-  } catch (e) {
-    console.error('Failed to save records', e);
-  }
-}
-
 export function getActiveUser(): User | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') return INITIAL_USERS[0];
   try {
     const raw = localStorage.getItem(CURRENT_USER_KEY);
     if (raw) {
       const parsed: User = JSON.parse(raw);
       const allUsers = getStoredUsers();
-      const matched = allUsers.find(u => u.id === parsed.id || u.email.toLowerCase() === parsed.email.toLowerCase());
+      const matched = allUsers.find(
+        (u) =>
+          u.id === parsed.id || u.email.toLowerCase() === parsed.email.toLowerCase()
+      );
       return matched || parsed;
     }
   } catch {}
-  return null;
+  // Default to Super Admin Shaik Ghouse
+  return INITIAL_USERS[0];
 }
 
 export function setActiveUser(user: User | null): void {
@@ -87,133 +84,152 @@ export function setActiveUser(user: User | null): void {
   }
 }
 
-export function registerUser(
+// Admin adding team accounts from their side
+export function createAccountByAdmin(
   name: string,
   email: string,
-  station: string = 'General Scanning Station',
+  role: 'admin' | 'operator' = 'operator',
+  station: string = 'General Station'
 ): { success: boolean; user?: User; error?: string } {
   const users = getStoredUsers();
   const cleanEmail = email.trim().toLowerCase();
-  
-  if (users.some(u => u.email.toLowerCase() === cleanEmail)) {
-    return { success: false, error: 'An account with this email address already exists. Please sign in.' };
+
+  if (users.some((u) => u.email.toLowerCase() === cleanEmail)) {
+    return { success: false, error: 'An account with this email already exists.' };
   }
 
-  const isSuperAdminEmail = cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase();
-  const colors = ['bg-indigo-600', 'bg-emerald-600', 'bg-blue-600', 'bg-purple-600', 'bg-amber-600', 'bg-teal-600'];
-  const avatarColor = isSuperAdminEmail ? 'bg-indigo-600' : colors[Math.floor(Math.random() * colors.length)];
-
   const newUser: User = {
-    id: `user_${Date.now()}`,
+    id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
     name: name.trim(),
-    email: email.trim(),
-    role: isSuperAdminEmail ? 'super_admin' : 'operator',
-    station: isSuperAdminEmail ? 'Central Management / HQ' : station.trim(),
+    email: cleanEmail,
+    role,
+    station: station.trim() || 'General Station',
     department: 'Scanning Dept',
-    avatarColor,
+    avatarColor: 'bg-emerald-600',
     status: 'active',
     createdAt: new Date().toISOString(),
   };
 
-  const updatedUsers = [...users, newUser];
-  saveStoredUsers(updatedUsers);
+  const updated = [...users, newUser];
+  saveStoredUsers(updated);
   return { success: true, user: newUser };
 }
 
-export function authenticateUser(email: string): { success: boolean; user?: User; error?: string } {
-  const users = getStoredUsers();
-  const cleanEmail = email.trim().toLowerCase();
-  const matched = users.find(u => u.email.toLowerCase() === cleanEmail);
-
-  if (matched) {
-    if (matched.status === 'inactive') {
-      return { success: false, error: 'This user account is currently deactivated. Please contact Super Admin.' };
+// 2. Team Subsheet Entries Storage
+export function getStoredTeamEntries(): TeamSubsheetEntry[] {
+  if (typeof window === 'undefined') return DEFAULT_TEAM_ENTRIES;
+  try {
+    const raw = localStorage.getItem(TEAM_ENTRIES_KEY);
+    if (!raw) {
+      localStorage.setItem(TEAM_ENTRIES_KEY, JSON.stringify(DEFAULT_TEAM_ENTRIES));
+      return DEFAULT_TEAM_ENTRIES;
     }
-    return { success: true, user: matched };
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_TEAM_ENTRIES;
+  } catch {
+    return DEFAULT_TEAM_ENTRIES;
   }
+}
 
-  // If email matches super admin email but was somehow deleted, restore it
-  if (cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
-    const adminUser: User = {
-      ...INITIAL_USERS[0],
-      email: SUPER_ADMIN_EMAIL,
-    };
-    saveStoredUsers([adminUser, ...users]);
-    return { success: true, user: adminUser };
+export function saveStoredTeamEntries(entries: TeamSubsheetEntry[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(TEAM_ENTRIES_KEY, JSON.stringify(entries));
+  } catch (e) {
+    console.error('Failed to save team entries', e);
   }
-
-  return { success: false, error: 'No account found with this email. Please register your account.' };
 }
 
-export function computeStatus(received: number, uploaded: number): RecordStatus {
-  if (uploaded === received) return 'completed';
-  if (uploaded < received) return 'pending_backlog';
-  return 'over_uploaded';
+// 3. Portal Exam Slots Storage
+export function getStoredPortalSlots(): PortalExamSlot[] {
+  if (typeof window === 'undefined') return parsePortalData(DEFAULT_PORTAL_CSV);
+  try {
+    const raw = localStorage.getItem(PORTAL_SLOTS_KEY);
+    if (!raw) {
+      const initial = parsePortalData(DEFAULT_PORTAL_CSV);
+      localStorage.setItem(PORTAL_SLOTS_KEY, JSON.stringify(initial));
+      return initial;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0
+      ? parsed
+      : parsePortalData(DEFAULT_PORTAL_CSV);
+  } catch {
+    return parsePortalData(DEFAULT_PORTAL_CSV);
+  }
 }
 
-export function calculateMetrics(records: DailyRecord[]): DepartmentMetrics {
-  const totalReceived = records.reduce((acc, r) => acc + (Number(r.receivedCount) || 0), 0);
-  const totalUploaded = records.reduce((acc, r) => acc + (Number(r.uploadedCount) || 0), 0);
-  const totalPending = records.reduce((acc, r) => acc + Math.max(0, (Number(r.pendingCount) || 0)), 0);
-  const discrepancyCount = records.filter(r => r.pendingCount !== 0).length;
-  const overallCompletionRate = totalReceived > 0 
-    ? Math.min(100, Number(((totalUploaded / totalReceived) * 100).toFixed(1)))
-    : 100;
-
-  return {
-    totalReceived,
-    totalUploaded,
-    totalPending,
-    overallCompletionRate,
-    totalRecords: records.length,
-    discrepancyCount,
-  };
+export function saveStoredPortalSlots(slots: PortalExamSlot[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(PORTAL_SLOTS_KEY, JSON.stringify(slots));
+  } catch (e) {
+    console.error('Failed to save portal slots', e);
+  }
 }
 
-export function exportRecordsToCSV(records: DailyRecord[]): void {
+// 4. Saved Google Sheet URL
+export function getStoredSheetUrl(): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem(GOOGLE_SHEET_URL_KEY) || '';
+}
+
+export function saveStoredSheetUrl(url: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(GOOGLE_SHEET_URL_KEY, url);
+}
+
+// 5. Last Sync Timestamp
+export function getLastSyncTime(): string {
+  if (typeof window === 'undefined') return 'Never';
+  return localStorage.getItem(LAST_SYNCED_KEY) || 'Ready to sync';
+}
+
+export function setLastSyncTime(timeStr: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(LAST_SYNCED_KEY, timeStr);
+}
+
+// 6. Export Reconciled Data to CSV
+export function exportReconciliationToCSV(
+  matrix: ReconciledDateSchool[],
+  fileName: string = 'ScanTrack_Reconciliation_Audit.csv'
+) {
   const headers = [
     'Date',
-    'School',
-    'Operator',
-    'Station',
-    'Shift',
-    'Received Count',
-    'Uploaded Count',
-    'Pending Count',
-    'Completion %',
+    'School Code',
+    'School Name',
+    'Team Physical Received',
+    'Team Scanned Count',
+    'Portal Completed Count',
+    'Variance (Scanned - Portal)',
     'Status',
-    'Notes / Backlog Reason',
+    'Teammates Involved',
+    'Portal Exam Slots Count',
   ];
 
-  const rows = records.map(r => [
-    `"${r.date}"`,
-    `"${(r.school || 'General').replace(/"/g, '""')}"`,
-    `"${r.userName.replace(/"/g, '""')}"`,
-    `"${r.station.replace(/"/g, '""')}"`,
-    `"${r.shift || 'General'}"`,
-    r.receivedCount,
-    r.uploadedCount,
-    r.pendingCount,
-    `"${r.completionRate.toFixed(1)}%"`,
-    `"${r.status === 'completed' ? '100% Uploaded' : r.status === 'pending_backlog' ? 'Pending Backlog' : 'Over-Uploaded'}"`,
-    `"${(r.notes || '').replace(/"/g, '""')}"`,
+  const rows = matrix.map((m) => [
+    m.date,
+    m.schoolCode,
+    `"${(m.schoolName || '').replace(/"/g, '""')}"`,
+    m.teamReceived,
+    m.teamScanned,
+    m.portalCompleted,
+    m.discrepancyScannedVsPortal,
+    m.status.toUpperCase(),
+    `"${m.teammates.join(', ')}"`,
+    m.portalSlotsCount,
   ]);
 
-  const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+  const csvContent =
+    'data:text/csv;charset=utf-8,' +
+    [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement('a');
   link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `scanning_dept_audit_${new Date().toISOString().split('T')[0]}.csv`);
+  link.setAttribute('download', fileName);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-}
-
-export function resetDemoData(): { users: User[]; records: DailyRecord[] } {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(INITIAL_USERS));
-    localStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(INITIAL_RECORDS));
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(INITIAL_USERS[0]));
-  }
-  return { users: INITIAL_USERS, records: INITIAL_RECORDS };
 }

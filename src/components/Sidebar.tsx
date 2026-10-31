@@ -5,13 +5,15 @@ import { User } from '../types';
 import {
   Layers,
   LayoutDashboard,
-  GraduationCap,
-  ClipboardList,
-  Building2,
+  Users2,
+  FileSpreadsheet,
+  Link2,
+  UserPlus,
   LogOut,
   ChevronLeft,
-  FileSpreadsheet,
-  Clock,
+  CheckCircle2,
+  AlertOctagon,
+  RefreshCw,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -19,7 +21,9 @@ interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onSignOut: () => void;
-  onOpenUserModal?: () => void;
+  onOpenAccountModal?: () => void;
+  netDiscrepancy?: number;
+  isSyncing?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -27,22 +31,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   onSignOut,
-  onOpenUserModal,
+  onOpenAccountModal,
+  netDiscrepancy = 0,
+  isSyncing = false,
 }) => {
-  const isSuperAdmin = currentUser.role === 'super_admin';
-
-  const adminNavItems = [
-    { id: 'dashboard', label: 'Dashboard Overview', icon: LayoutDashboard },
-    { id: 'schools', label: '22 Schools Breakdown', icon: GraduationCap },
-    { id: 'audit_log', label: 'Day-Wise Audit Log', icon: ClipboardList },
+  const navItems = [
+    {
+      id: 'reconciliation',
+      label: 'Intake vs Portal Matrix',
+      icon: LayoutDashboard,
+      badge: netDiscrepancy > 0 ? `+${netDiscrepancy}` : undefined,
+      badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+    },
+    {
+      id: 'teammates',
+      label: 'Team Subsheets Status',
+      icon: Users2,
+    },
+    {
+      id: 'portal_exams',
+      label: 'Portal Exam Schedules',
+      icon: FileSpreadsheet,
+    },
+    {
+      id: 'data_sources',
+      label: 'Data Sources & Live Sync',
+      icon: Link2,
+    },
   ];
-
-  const operatorNavItems = [
-    { id: 'intake', label: 'Daily Intake Form', icon: FileSpreadsheet },
-    { id: 'my_logs', label: 'My Submissions', icon: Clock },
-  ];
-
-  const navItems = isSuperAdmin ? adminNavItems : operatorNavItems;
 
   return (
     <aside className="w-64 bg-[#0A0D14] border-r border-[#1B202A] flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none font-sans">
@@ -58,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ScanTrack
               </span>
               <span className="text-[10px] text-slate-500 font-mono block leading-tight">
-                Scanning Dept
+                Exam Ops Reconciler
               </span>
             </div>
           </div>
@@ -79,30 +95,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                   isActive
                     ? 'bg-[#181E2B] text-white shadow-sm border border-[#273142]'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#121620]'
                 }`}
               >
-                <Icon
-                  className={`w-4 h-4 ${
-                    isActive ? 'text-white' : 'text-slate-500'
-                  }`}
-                />
-                <span>{item.label}</span>
+                <div className="flex items-center space-x-3">
+                  <Icon
+                    className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500'}`}
+                  />
+                  <span>{item.label}</span>
+                </div>
+                {item.badge && (
+                  <span
+                    className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${item.badgeColor}`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}
 
-          {/* Centers & Stations directory for Super Admin */}
-          {isSuperAdmin && onOpenUserModal && (
+          {/* Admin Account Management */}
+          {onOpenAccountModal && (
             <button
-              onClick={onOpenUserModal}
+              onClick={onOpenAccountModal}
               className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-[#121620] transition-all"
             >
-              <Building2 className="w-4 h-4 text-slate-500" />
-              <span>Scanning Centers</span>
+              <UserPlus className="w-4 h-4 text-slate-500" />
+              <span>Manage Accounts</span>
             </button>
           )}
         </nav>
@@ -119,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {currentUser.name}
             </p>
             <p className="text-[11px] text-slate-400 truncate font-mono">
-              {isSuperAdmin ? 'Super Admin' : currentUser.station}
+              Platform Admin
             </p>
           </div>
         </div>

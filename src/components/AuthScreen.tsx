@@ -2,39 +2,26 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { SUPER_ADMIN_EMAIL } from '../lib/mockData';
-import { registerUser, authenticateUser, saveStoredUsers } from '../lib/storage';
-import {
-  Layers,
-  Mail,
-  User as UserIcon,
-  ArrowRight,
-  Hash,
-  CheckCircle2,
-} from 'lucide-react';
+import { SUPER_ADMIN_EMAIL, INITIAL_USERS } from '../lib/mockData';
+import { getStoredUsers } from '../lib/storage';
+import { Layers, ShieldCheck, ArrowRight, Lock, CheckCircle2 } from 'lucide-react';
 
 interface AuthScreenProps {
   onLoginSuccess: (user: User) => void;
 }
 
-type AuthStep = 'enter_email' | 'complete_profile';
-
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
-  const [step, setStep] = useState<AuthStep>('enter_email');
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [scanningCenter, setScanningCenter] = useState('');
+  const [email, setEmail] = useState(SUPER_ADMIN_EMAIL);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const cleanEmail = email.trim().toLowerCase();
-  const isSuperAdminEmail = cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase();
 
-  // STEP 1: Check email against server + local store
-  const handleEmailSubmit = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!email.trim()) {
+
+    if (!cleanEmail) {
       setError('Please enter your email address.');
       return;
     }
@@ -42,102 +29,45 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     try {
-      // Fetch latest users directly from server
-      const userRes = await fetch('/api/users', { cache: 'no-store' });
-      let serverUsers: User[] = [];
-      if (userRes.ok) {
-        const uJson = await userRes.json();
-        if (Array.isArray(uJson.data)) {
-          serverUsers = uJson.data;
-          saveStoredUsers(serverUsers);
-        }
-      }
-
-      const found = serverUsers.find((u) => u.email.toLowerCase() === cleanEmail);
-      if (found) {
+      // 1. Check if Super Admin
+      if (cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
         setIsLoading(false);
-        onLoginSuccess(found);
+        onLoginSuccess(INITIAL_USERS[0]);
         return;
       }
 
-      // Check local cache fallback
-      const localCheck = authenticateUser(email);
-      if (localCheck.success && localCheck.user) {
-        setIsLoading(false);
-        onLoginSuccess(localCheck.user);
-        return;
+      // 2. Check server / stored authorized accounts added by admin
+      const res = await fetch('/api/users', { cache: 'no-store' });
+      let usersList: User[] = getStoredUsers();
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) usersList = json.data;
       }
 
-      // If Super Admin logging in for first time, auto-generate Super Admin user
-      if (isSuperAdminEmail) {
-        const adminRes = registerUser('Shaik Ghouse M', cleanEmail, 'HQ / Scanning Dept Management');
-        if (adminRes.success && adminRes.user) {
-          try {
-            await fetch('/api/users', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(adminRes.user),
-            });
-          } catch {}
+      const match = usersList.find((u) => u.email.toLowerCase() === cleanEmail);
+      if (match) {
+        if (match.status === 'inactive') {
           setIsLoading(false);
-          onLoginSuccess(adminRes.user);
+          setError('This account has been deactivated by the Administrator.');
           return;
         }
+        setIsLoading(false);
+        onLoginSuccess(match);
+        return;
       }
 
-      // First time user -> Proceed to Step 2 (Name + Center)
       setIsLoading(false);
-      setStep('complete_profile');
+      setError(
+        'Access Restricted: Self-registration is disabled. Only the Administrator can create authorized accounts.'
+      );
     } catch {
-      // Local fallback
-      const res = authenticateUser(email);
-      setIsLoading(false);
-      if (res.success && res.user) {
-        onLoginSuccess(res.user);
+      if (cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
+        setIsLoading(false);
+        onLoginSuccess(INITIAL_USERS[0]);
       } else {
-        setStep('complete_profile');
+        setIsLoading(false);
+        setError('Connection error. Please try again.');
       }
-    }
-  };
-
-  // STEP 2: Name + Center registration
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!name.trim()) {
-      setError('Please enter your full name.');
-      return;
-    }
-    if (!scanningCenter.trim() && !isSuperAdminEmail) {
-      setError('Please enter your scanning center number (e.g. Center 03).');
-      return;
-    }
-
-    setIsLoading(true);
-
-    const station = isSuperAdminEmail
-      ? 'HQ / Scanning Dept Management'
-      : `Scanning Center ${scanningCenter.trim()}`;
-
-    const res = registerUser(name, email, station);
-
-    if (res.success && res.user) {
-      // Sync immediately to server API
-      try {
-        await fetch('/api/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(res.user),
-        });
-      } catch (err) {
-        console.warn('Server user sync error:', err);
-      }
-      setIsLoading(false);
-      onLoginSuccess(res.user);
-    } else {
-      setIsLoading(false);
-      setError(res.error || 'Registration failed.');
     }
   };
 
@@ -153,186 +83,70 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
             ScanTrack Portal
           </h2>
           <p className="mt-1 text-xs text-slate-400">
-            Scanning Department Script Intake &amp; Audit Platform
+            Scanning Intake &amp; Central Portal Reconciliation System
           </p>
         </div>
 
-        {/* Step Indicator */}
-        <div className="flex items-center justify-center space-x-3 mb-6 text-xs">
-          <div className="flex items-center space-x-1.5">
-            <div
-              className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold border ${
-                step === 'enter_email'
-                  ? 'bg-[#1C2332] border-[#2D384F] text-white'
-                  : 'bg-[#121620] border-[#1E2430] text-slate-400'
-              }`}
-            >
-              {step === 'complete_profile' ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : '1'}
-            </div>
-            <span className={step === 'enter_email' ? 'text-white font-medium' : 'text-slate-500'}>
-              Email
-            </span>
+        {/* Card */}
+        <div className="bg-[#0E121A] py-8 px-6 sm:px-8 border border-[#1E2430] rounded-2xl shadow-2xl space-y-6">
+          <div className="text-center pb-2 border-b border-[#1A202C]">
+            <h3 className="text-sm font-semibold text-white flex items-center justify-center space-x-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Admin Authentication</span>
+            </h3>
+            <p className="text-[11px] text-slate-400 mt-1">
+              Sign in with your authorized admin email address
+            </p>
           </div>
-          <div className="w-6 h-px bg-[#1E2430]" />
-          <div className="flex items-center space-x-1.5">
-            <div
-              className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold border ${
-                step === 'complete_profile'
-                  ? 'bg-[#1C2332] border-[#2D384F] text-white'
-                  : 'bg-[#121620] border-[#1E2430] text-slate-600'
-              }`}
-            >
-              2
-            </div>
-            <span className={step === 'complete_profile' ? 'text-white font-medium' : 'text-slate-600'}>
-              Center Details
-            </span>
-          </div>
-        </div>
 
-        {/* Auth Card */}
-        <div className="bg-[#0E121A] py-8 px-6 shadow-2xl rounded-2xl border border-[#1E2430] sm:px-10">
           {error && (
-            <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+            <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300">
               {error}
             </div>
           )}
 
-          {/* STEP 1: Enter Email Only */}
-          {step === 'enter_email' && (
-            <form onSubmit={handleEmailSubmit} className="space-y-4">
-              <div>
-                <h3 className="text-white font-semibold text-sm">
-                  Sign In to Scanning Portal
-                </h3>
-                <p className="text-slate-400 text-xs mt-0.5">
-                  Enter your email address to continue to your workstation.
-                </p>
-              </div>
+          <form onSubmit={handleSignIn} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Authorized Email
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="shaikghousem@codetantra.in"
+                className="w-full text-xs px-3.5 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white font-mono focus:outline-none focus:border-slate-500 transition-all"
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    required
-                    autoFocus
-                    placeholder="e.g. operator@company.in"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full text-xs pl-9 pr-3 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-400 transition-all"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Any email domain is supported.
-                </p>
-              </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-2.5 px-4 bg-[#1E2536] hover:bg-[#283248] text-white text-xs font-semibold rounded-xl border border-[#303D57] transition-all flex items-center justify-center space-x-2 shadow-sm disabled:opacity-50"
+            >
+              <span>{isLoading ? 'Verifying Credentials...' : 'Sign In to Portal'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-[#1E2536] hover:bg-[#283248] disabled:opacity-50 text-white text-xs font-semibold rounded-xl border border-[#303D57] transition-all flex items-center justify-center space-x-2"
-              >
-                {isLoading ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span>Continue</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
-                  </>
-                )}
-              </button>
-            </form>
-          )}
+            {/* Quick 1-click Admin button */}
+            <button
+              type="button"
+              onClick={() => {
+                setEmail(SUPER_ADMIN_EMAIL);
+                onLoginSuccess(INITIAL_USERS[0]);
+              }}
+              className="w-full py-2 px-4 bg-[#141822] hover:bg-[#1A202E] text-slate-300 hover:text-white text-xs rounded-xl border border-[#232A3B] transition-all flex items-center justify-center space-x-2"
+            >
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <span>Quick Login as Shaik Ghouse (Admin)</span>
+            </button>
+          </form>
 
-          {/* STEP 2: Name + Scanning Center */}
-          {step === 'complete_profile' && (
-            <form onSubmit={handleProfileSubmit} className="space-y-4">
-              <div>
-                <h3 className="text-white font-semibold text-sm">
-                  Complete Your Profile
-                </h3>
-                <p className="text-slate-400 text-xs mt-0.5">
-                  First-time access for <span className="text-white font-medium">{email}</span>.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Your Full Name
-                </label>
-                <div className="relative">
-                  <UserIcon className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    autoFocus
-                    placeholder="e.g. Ramesh Chandra"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full text-xs pl-9 pr-3 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-400"
-                  />
-                </div>
-              </div>
-
-              {!isSuperAdminEmail && (
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Scanning Center Number / Station
-                  </label>
-                  <div className="relative">
-                    <Hash className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Center 04, Station B"
-                      value={scanningCenter}
-                      onChange={(e) => setScanningCenter(e.target.value)}
-                      className="w-full text-xs pl-9 pr-3 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-slate-400"
-                    />
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Specify your scanning workstation number.
-                  </p>
-                </div>
-              )}
-
-              <div className="flex space-x-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep('enter_email');
-                    setError(null);
-                  }}
-                  className="px-3.5 py-2.5 bg-[#141822] hover:bg-[#1E2433] text-slate-300 text-xs rounded-xl border border-[#242C3D] transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1 py-2.5 px-4 bg-[#1E2536] hover:bg-[#283248] disabled:opacity-50 text-white text-xs font-semibold rounded-xl border border-[#303D57] transition-all flex items-center justify-center space-x-2"
-                >
-                  {isLoading ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <span>Enter Workstation</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          )}
-
-          <div className="mt-6 border-t border-[#1A202C] pt-4 text-center">
-            <p className="text-[11px] text-slate-500">
-              Scanning Department Portal • Authorized Access
-            </p>
+          <div className="pt-2 border-t border-[#1A202C] text-center">
+            <span className="text-[10px] text-slate-500 font-mono">
+              Protected Single-Admin Environment • Cross-Device Reconciler
+            </span>
           </div>
         </div>
       </div>

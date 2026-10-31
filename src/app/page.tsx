@@ -1,193 +1,280 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, DailyRecord } from '../types';
-import { AVAILABLE_SCHOOLS } from '../lib/mockData';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { User, PortalExamSlot, TeamSubsheetEntry } from '../types';
 import {
   getStoredUsers,
   saveStoredUsers,
-  getStoredRecords,
-  saveStoredRecords,
   getActiveUser,
   setActiveUser,
+  getStoredTeamEntries,
+  saveStoredTeamEntries,
+  getStoredPortalSlots,
+  saveStoredPortalSlots,
+  getStoredSheetUrl,
+  saveStoredSheetUrl,
+  getLastSyncTime,
+  setLastSyncTime,
+  createAccountByAdmin,
 } from '../lib/storage';
+import {
+  parsePortalData,
+  parseTeamGoogleSheet,
+  reconcileIntakeVsPortal,
+} from '../lib/excelParser';
+import {
+  DEFAULT_TEAM_ENTRIES,
+  DEFAULT_PORTAL_CSV,
+  INITIAL_USERS,
+} from '../lib/mockData';
 import { Sidebar } from '../components/Sidebar';
-import { AdminDashboard } from '../components/AdminDashboard';
-import { OperatorPortal } from '../components/OperatorPortal';
+import { ReconciliationDashboard } from '../components/ReconciliationDashboard';
 import { UserManagementModal } from '../components/UserManagementModal';
-import { RecordModal } from '../components/RecordModal';
 import { AuthScreen } from '../components/AuthScreen';
 
 export default function Home() {
   const [isClient, setIsClient] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [records, setRecords] = useState<DailyRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [users, setUsers] = useState<User[]>([]);
+  const [activeTab, setActiveTab] = useState<string>('reconciliation');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState<boolean>(false);
 
-  // Modals
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [selectedRecordForModal, setSelectedRecordForModal] = useState<DailyRecord | null>(null);
-  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
-
-  const isReconcilingRef = useRef(false);
-
-  // Sync data from server with two-way reconciliation
-  const syncFromServer = useCallback(async () => {
-    setIsSyncing(true);
-    try {
-      const [recRes, userRes] = await Promise.all([
-        fetch('/api/records', { cache: 'no-store' }),
-        fetch('/api/users', { cache: 'no-store' }),
-      ]);
-
-      let serverRecords: DailyRecord[] = [];
-      let serverUsers: User[] = [];
-
-      if (recRes.ok) {
-        const recJson = await recRes.json();
-        if (Array.isArray(recJson.data)) {
-          serverRecords = recJson.data;
-          setRecords(serverRecords);
-          saveStoredRecords(serverRecords);
-        }
-      }
-
-      if (userRes.ok) {
-        const userJson = await userRes.json();
-        if (Array.isArray(userJson.data)) {
-          serverUsers = userJson.data;
-          setUsers(serverUsers);
-          saveStoredUsers(serverUsers);
-        }
-      }
-
-      // Check if local device has records not yet known to server (offline healing)
-      if (!isReconcilingRef.current) {
-        isReconcilingRef.current = true;
-        const localRecs = getStoredRecords();
-        for (const lr of localRecs) {
-          const existsOnServer = serverRecords.some((sr) => sr.id === lr.id);
-          if (!existsOnServer && lr.id) {
-            try {
-              await fetch('/api/records', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(lr),
-              });
-            } catch {}
-          }
-        }
-        isReconcilingRef.current = false;
-      }
-    } catch (e) {
-      console.warn('Server fetch error, using local fallback:', e);
-    } finally {
-      setIsSyncing(false);
-    }
-  }, []);
+  // Core Data Stores
+  const [teamEntries, setTeamEntries] = useState<TeamSubsheetEntry[]>([]);
+  const [portalSlots, setPortalSlots] = useState<PortalExamSlot[]>([]);
+  const [googleSheetUrl, setGoogleSheetUrl] = useState<string>('');
+  const [lastSyncedTime, setLastSyncedTimeState] = useState<string>('Ready to sync');
 
   // Initialize data on mount
   useEffect(() => {
     setIsClient(true);
-    const localUsers = getStoredUsers();
-    const localRecords = getStoredRecords();
     const active = getActiveUser();
+    const storedUsers = getStoredUsers();
+    const storedTeam = getStoredTeamEntries();
+    const storedPortal = getStoredPortalSlots();
+    const storedUrl = getStoredSheetUrl();
+    const lastTime = getLastSyncTime();
 
-    setUsers(localUsers);
-    setRecords(localRecords);
     setCurrentUser(active);
+    setUsers(storedUsers);
+    setTeamEntries(storedTeam);
+    setPortalSlots(storedPortal);
+    setGoogleSheetUrl(storedUrl);
+    setLastSyncedTimeState(lastTime);
 
-    if (active) {
-      setActiveTab(active.role === 'super_admin' ? 'dashboard' : 'intake');
+    // Initial server fetch to sync across devices
+    (async () => {
+      try {
+        const [teamRes, portalRes, userRes] = await Promise.all([
+          fetch('/api/team-entries', { cache: 'no-store' }),
+          fetch('/api/portal-slots', { cache: 'no-store' }),
+          fetch('/api/users', { cache: 'no-store' }),
+        ]);
+
+        if (teamRes.ok) {
+          const tJson = await teamRes.json();
+          if (Array.isArray(tJson.data) && tJson.data.length > 0) {
+            setTeamEntries(tJson.data);
+            saveStoredTeamEntries(tJson.data);
+          }
+          if (tJson.sheetUrl) {
+            setGoogleSheetUrl(tJson.sheetUrl);
+            saveStoredSheetUrl(tJson.sheetUrl);
+          }
+        }
+
+        if (portalRes.ok) {
+          const pJson = await portalRes.json();
+          if (Array.isArray(pJson.data) && pJson.data.length > 0) {
+            setPortalSlots(pJson.data);
+            saveStoredPortalSlots(pJson.data);
+          }
+        }
+
+        if (userRes.ok) {
+          const uJson = await userRes.json();
+          if (Array.isArray(uJson.data) && uJson.data.length > 0) {
+            setUsers(uJson.data);
+            saveStoredUsers(uJson.data);
+          }
+        }
+      } catch (e) {
+        console.warn('Initial server sync using local store:', e);
+      }
+    })();
+  }, []);
+
+  // Compute live reconciliation
+  const { matrix, teammates, metrics } = useMemo(() => {
+    return reconcileIntakeVsPortal(teamEntries, portalSlots);
+  }, [teamEntries, portalSlots]);
+
+  // Sync with live Google Sheet (Publish to web URL in XLSX format)
+  const handleSyncGoogleSheet = useCallback(async () => {
+    if (!googleSheetUrl.trim()) {
+      setActiveTab('data_sources');
+      alert(
+        'Please enter your published Google Sheet URL first in the "Data Sources" section.'
+      );
+      return;
     }
 
-    // Initial server fetch
-    syncFromServer();
-
-    // Auto-refresh polling every 3 seconds for instant multi-device reflection
-    const interval = setInterval(() => {
-      syncFromServer();
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [syncFromServer]);
-
-  // Adjust active tab when switching user role
-  useEffect(() => {
-    if (currentUser) {
-      if (currentUser.role === 'super_admin') {
-        if (activeTab === 'intake' || activeTab === 'my_logs' || activeTab === 'tracking') {
-          setActiveTab('dashboard');
-        }
-      } else {
-        if (
-          activeTab === 'dashboard' ||
-          activeTab === 'schools' ||
-          activeTab === 'audit_log' ||
-          activeTab === 'tracking'
-        ) {
-          setActiveTab('intake');
-        }
-      }
-    }
-  }, [currentUser, activeTab]);
-
-  // Sign out
-  const handleSignOut = () => {
-    setCurrentUser(null);
-    setActiveUser(null);
-    setActiveTab('dashboard');
-  };
-
-  // Save record: updates local state + POST to server
-  const handleSaveRecord = async (record: DailyRecord) => {
-    // Optimistic UI update
-    setRecords((prev) => {
-      const index = prev.findIndex((r) => r.id === record.id);
-      let updated: DailyRecord[];
-      if (index >= 0) {
-        updated = [...prev];
-        updated[index] = record;
-      } else {
-        updated = [record, ...prev];
-      }
-      saveStoredRecords(updated);
-      return updated;
-    });
+    setIsSyncing(true);
 
     try {
-      await fetch('/api/records', {
+      const res = await fetch('/api/sync-sheet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(record),
+        body: JSON.stringify({ url: googleSheetUrl }),
       });
-      syncFromServer();
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        alert(
+          json.message ||
+            'Failed to sync with Google Sheet. Make sure the sheet is published to the web in XLSX format.'
+        );
+        setIsSyncing(false);
+        return;
+      }
+
+      const newEntries: TeamSubsheetEntry[] = json.data;
+      setTeamEntries(newEntries);
+      saveStoredTeamEntries(newEntries);
+
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeMsg = `Synced at ${nowStr}`;
+      setLastSyncedTimeState(timeMsg);
+      setLastSyncTime(timeMsg);
+
+      // Save to server store
+      await fetch('/api/team-entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entries: newEntries, sheetUrl: googleSheetUrl }),
+      });
+
+      alert(
+        `Google Sheet synchronized successfully! Loaded ${json.sheetNames?.length || 0} teammate subsheet(s) and ${newEntries.length} entries.`
+      );
     } catch (err) {
-      console.error('Failed to sync record to server:', err);
+      console.error('Google Sheet sync error:', err);
+      alert('Network error while syncing Google Sheet. Please check the URL.');
+    } finally {
+      setIsSyncing(false);
     }
-  };
+  }, [googleSheetUrl]);
 
-  // Delete record: local + server
-  const handleDeleteRecord = async (id: string) => {
-    setRecords((prev) => {
-      const updated = prev.filter((r) => r.id !== id);
-      saveStoredRecords(updated);
-      return updated;
-    });
-
+  // Upload Portal Excel / CSV File
+  const handleUploadPortalFile = async (file: File) => {
     try {
-      await fetch(`/api/records?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE',
+      const arrayBuffer = await file.arrayBuffer();
+      const parsedSlots = parsePortalData(arrayBuffer);
+
+      if (parsedSlots.length === 0) {
+        alert('Could not find valid exam schedule rows in this file. Please verify the format.');
+        return;
+      }
+
+      setPortalSlots(parsedSlots);
+      saveStoredPortalSlots(parsedSlots);
+
+      // Sync to server
+      await fetch('/api/portal-slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slots: parsedSlots }),
       });
-      syncFromServer();
-    } catch (err) {
-      console.error('Failed to delete record on server:', err);
+
+      alert(
+        `Portal file uploaded! Successfully extracted ${parsedSlots.length} exam slots.`
+      );
+    } catch (e) {
+      console.error('Failed to parse portal file:', e);
+      alert('Error parsing portal file: ' + String(e));
     }
   };
 
-  // Save new user: local + server
+  // Upload Team Google Sheet File directly (.xlsx)
+  const handleUploadTeamSheetFile = async (file: File) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const { teammateEntries, sheetNames } = parseTeamGoogleSheet(arrayBuffer);
+
+      if (teammateEntries.length === 0) {
+        alert(
+          'No valid subsheet rows found. Ensure each tab has columns like Date, School, Received, Scanned.'
+        );
+        return;
+      }
+
+      setTeamEntries(teammateEntries);
+      saveStoredTeamEntries(teammateEntries);
+
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeMsg = `Uploaded at ${nowStr}`;
+      setLastSyncedTimeState(timeMsg);
+      setLastSyncTime(timeMsg);
+
+      // Sync to server
+      await fetch('/api/team-entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entries: teammateEntries }),
+      });
+
+      alert(
+        `Team sheet uploaded! Loaded ${sheetNames.length} teammate subsheet(s) (${sheetNames.join(', ')}) with ${teammateEntries.length} total entries.`
+      );
+    } catch (e) {
+      console.error('Failed to parse team sheet:', e);
+      alert('Error parsing team sheet: ' + String(e));
+    }
+  };
+
+  // Reset to reference Demo Data
+  const handleResetToDemoData = () => {
+    const demoPortal = parsePortalData(DEFAULT_PORTAL_CSV);
+    const demoTeam = [...DEFAULT_TEAM_ENTRIES];
+
+    setPortalSlots(demoPortal);
+    saveStoredPortalSlots(demoPortal);
+
+    setTeamEntries(demoTeam);
+    saveStoredTeamEntries(demoTeam);
+
+    setLastSyncedTimeState('Loaded Demo Data');
+    setLastSyncTime('Loaded Demo Data');
+
+    fetch('/api/portal-slots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slots: demoPortal }),
+    }).catch(() => {});
+
+    fetch('/api/team-entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: demoTeam }),
+    }).catch(() => {});
+
+    alert('Loaded reference portal exam slots and sample team subsheets!');
+  };
+
+  // Update Google Sheet URL
+  const handleUpdateSheetUrl = (url: string) => {
+    setGoogleSheetUrl(url);
+    saveStoredSheetUrl(url);
+    fetch('/api/team-entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sheetUrl: url }),
+    }).catch(() => {});
+  };
+
+  // Admin Account Creation
   const handleSaveUser = async (newUser: User) => {
     setUsers((prev) => {
       const updated = [...prev, newUser];
@@ -201,13 +288,10 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser),
       });
-      syncFromServer();
-    } catch (err) {
-      console.error('Failed to save user to server:', err);
-    }
+    } catch (e) {}
   };
 
-  // Toggle user status
+  // Toggle user active status
   const handleToggleUserStatus = (userId: string) => {
     setUsers((prev) => {
       const updated = prev.map((u) => {
@@ -224,28 +308,9 @@ export default function Home() {
     });
   };
 
-  // Admin adds new record
-  const handleAdminAddNewRecord = () => {
-    const operator = users.find((u) => u.role === 'operator') || currentUser || users[0];
-    const newRecord: DailyRecord = {
-      id: `rec_${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
-      userId: operator.id,
-      userName: operator.name,
-      station: operator.station,
-      school: AVAILABLE_SCHOOLS[0],
-      receivedCount: 0,
-      uploadedCount: 0,
-      pendingCount: 0,
-      completionRate: 100,
-      status: 'completed',
-      shift: 'Morning',
-      notes: '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setSelectedRecordForModal(newRecord);
-    setIsRecordModalOpen(true);
+  const handleSignOut = () => {
+    setCurrentUser(null);
+    setActiveUser(null);
   };
 
   if (!isClient) {
@@ -253,96 +318,67 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-[#07090E]">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs font-mono text-slate-400">Loading ScanTrack Ops...</p>
+          <p className="text-xs font-mono text-slate-400">Loading ScanTrack Reconciler...</p>
         </div>
       </div>
     );
   }
 
-  // Not logged in -> Show Auth Screen
+  // Not signed in -> Show Admin Auth Screen
   if (!currentUser) {
     return (
       <AuthScreen
-        onLoginSuccess={async (user) => {
+        onLoginSuccess={(user) => {
           setCurrentUser(user);
           setActiveUser(user);
-          setActiveTab(user.role === 'super_admin' ? 'dashboard' : 'intake');
-          try {
-            await fetch('/api/users', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(user),
-            });
-            syncFromServer();
-          } catch (e) {}
         }}
       />
     );
   }
 
-  const isSuperAdmin = currentUser.role === 'super_admin';
-
   return (
     <div className="min-h-screen bg-[#07090E] text-slate-200 flex font-sans">
-      {/* Left Sidebar matching screenshot */}
+      {/* Sidebar */}
       <Sidebar
         currentUser={currentUser}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onSignOut={handleSignOut}
-        onOpenUserModal={isSuperAdmin ? () => setIsUserModalOpen(true) : undefined}
+        onOpenAccountModal={() => setIsAccountModalOpen(true)}
+        netDiscrepancy={metrics.netDiscrepancy}
+        isSyncing={isSyncing}
       />
 
-      {/* Main Content Viewport */}
+      {/* Main Viewport */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto h-screen">
         <main className="flex-1 p-6 lg:p-8">
-          {isSuperAdmin ? (
-            <AdminDashboard
-              records={records}
-              users={users}
-              onOpenUserModal={() => setIsUserModalOpen(true)}
-              onEditRecord={(record) => {
-                setSelectedRecordForModal(record);
-                setIsRecordModalOpen(true);
-              }}
-              onDeleteRecord={handleDeleteRecord}
-              onAddRecord={handleAdminAddNewRecord}
-              onRefresh={syncFromServer}
-              isSyncing={isSyncing}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-            />
-          ) : (
-            <OperatorPortal
-              currentUser={currentUser}
-              records={records}
-              onSaveRecord={handleSaveRecord}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-            />
-          )}
+          <ReconciliationDashboard
+            matrix={matrix}
+            teammates={teammates}
+            metrics={metrics}
+            portalSlots={portalSlots}
+            teamEntries={teamEntries}
+            googleSheetUrl={googleSheetUrl}
+            onUpdateSheetUrl={handleUpdateSheetUrl}
+            onSyncGoogleSheet={handleSyncGoogleSheet}
+            onUploadPortalFile={handleUploadPortalFile}
+            onUploadTeamSheetFile={handleUploadTeamSheetFile}
+            onResetToDemoData={handleResetToDemoData}
+            isSyncing={isSyncing}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            lastSyncedTime={lastSyncedTime}
+          />
         </main>
       </div>
 
-      {/* User Management Modal */}
+      {/* Admin User Management Modal */}
       <UserManagementModal
-        isOpen={isUserModalOpen}
-        onClose={() => setIsUserModalOpen(false)}
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
         users={users}
         onSaveUser={handleSaveUser}
         onToggleStatus={handleToggleUserStatus}
-      />
-
-      {/* Record Inspect / Edit Modal */}
-      <RecordModal
-        isOpen={isRecordModalOpen}
-        onClose={() => {
-          setIsRecordModalOpen(false);
-          setSelectedRecordForModal(null);
-        }}
-        record={selectedRecordForModal}
-        onSave={handleSaveRecord}
-        isAdmin={isSuperAdmin}
       />
     </div>
   );

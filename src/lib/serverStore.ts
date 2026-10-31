@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { User, DailyRecord, RecordStatus } from '@/types';
-import { SUPER_ADMIN_EMAIL, INITIAL_USERS } from '@/lib/mockData';
+import { User, PortalExamSlot, TeamSubsheetEntry } from '@/types';
+import { SUPER_ADMIN_EMAIL, INITIAL_USERS, DEFAULT_TEAM_ENTRIES, DEFAULT_PORTAL_CSV } from '@/lib/mockData';
+import { parsePortalData } from './excelParser';
 
 let cachedDataDir: string | null = null;
 
@@ -13,7 +14,6 @@ function getDataDir(): string {
     if (!fs.existsSync(localDir)) {
       fs.mkdirSync(localDir, { recursive: true });
     }
-    // Test write permission
     const testFile = path.join(localDir, '.write-test');
     fs.writeFileSync(testFile, 'ok', 'utf-8');
     fs.unlinkSync(testFile);
@@ -29,27 +29,20 @@ function getDataDir(): string {
   }
 }
 
-function getUsersFilePath(): string {
-  return path.join(getDataDir(), 'users.json');
+function getFilePath(filename: string): string {
+  return path.join(getDataDir(), filename);
 }
 
-function getRecordsFilePath(): string {
-  return path.join(getDataDir(), 'records.json');
-}
-
-// In-memory fallback singleton
+// In-memory singletons
 let inMemoryUsers: User[] = [...INITIAL_USERS];
-let inMemoryRecords: DailyRecord[] = [];
+let inMemoryTeamEntries: TeamSubsheetEntry[] = [...DEFAULT_TEAM_ENTRIES];
+let inMemoryPortalSlots: PortalExamSlot[] = parsePortalData(DEFAULT_PORTAL_CSV);
+let inMemorySheetUrl: string = '';
 
-export function computeServerStatus(received: number, uploaded: number): RecordStatus {
-  if (uploaded === received) return 'completed';
-  if (uploaded < received) return 'pending_backlog';
-  return 'over_uploaded';
-}
-
+// 1. Users
 export function getServerUsers(): User[] {
   try {
-    const filePath = getUsersFilePath();
+    const filePath = getFilePath('users.json');
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, 'utf-8');
       const parsed: User[] = JSON.parse(data);
@@ -66,8 +59,7 @@ export function getServerUsers(): User[] {
       saveServerUsers(INITIAL_USERS);
       return INITIAL_USERS;
     }
-  } catch (err) {
-    console.warn('Error reading users file, using memory store:', err);
+  } catch {
     return inMemoryUsers;
   }
 }
@@ -75,8 +67,7 @@ export function getServerUsers(): User[] {
 export function saveServerUsers(users: User[]): void {
   inMemoryUsers = users;
   try {
-    const filePath = getUsersFilePath();
-    fs.writeFileSync(filePath, JSON.stringify(users, null, 2), 'utf-8');
+    fs.writeFileSync(getFilePath('users.json'), JSON.stringify(users, null, 2), 'utf-8');
   } catch (err) {
     console.warn('Error saving users file:', err);
   }
@@ -89,7 +80,6 @@ export function addServerUser(user: User): User {
   let updated: User[];
   if (index >= 0) {
     updated = [...users];
-    // Keep admin role protected
     const role = users[index].role === 'super_admin' ? 'super_admin' : user.role;
     updated[index] = {
       ...updated[index],
@@ -103,58 +93,79 @@ export function addServerUser(user: User): User {
   return index >= 0 ? updated[index] : user;
 }
 
-export function getServerRecords(): DailyRecord[] {
+// 2. Team Subsheet Entries
+export function getServerTeamEntries(): TeamSubsheetEntry[] {
   try {
-    const filePath = getRecordsFilePath();
+    const filePath = getFilePath('team_entries.json');
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, 'utf-8');
-      const parsed: DailyRecord[] = JSON.parse(data);
-      inMemoryRecords = parsed;
+      const parsed: TeamSubsheetEntry[] = JSON.parse(data);
+      inMemoryTeamEntries = parsed;
       return parsed;
     } else {
-      saveServerRecords([]);
-      return [];
+      saveServerTeamEntries(DEFAULT_TEAM_ENTRIES);
+      return DEFAULT_TEAM_ENTRIES;
     }
-  } catch (err) {
-    console.warn('Error reading records file, using memory store:', err);
-    return inMemoryRecords;
+  } catch {
+    return inMemoryTeamEntries;
   }
 }
 
-export function saveServerRecords(records: DailyRecord[]): void {
-  inMemoryRecords = records;
+export function saveServerTeamEntries(entries: TeamSubsheetEntry[]): void {
+  inMemoryTeamEntries = entries;
   try {
-    const filePath = getRecordsFilePath();
-    fs.writeFileSync(filePath, JSON.stringify(records, null, 2), 'utf-8');
+    fs.writeFileSync(getFilePath('team_entries.json'), JSON.stringify(entries, null, 2), 'utf-8');
   } catch (err) {
-    console.warn('Error saving records file:', err);
+    console.warn('Error saving team entries:', err);
   }
 }
 
-export function saveOrUpdateServerRecord(record: DailyRecord): DailyRecord {
-  const records = getServerRecords();
-  const index = records.findIndex(
-    (r) =>
-      r.id === record.id ||
-      (r.userId === record.userId && r.date === record.date && r.school === record.school)
-  );
-  let updated: DailyRecord[];
-  if (index >= 0) {
-    updated = [...records];
-    updated[index] = {
-      ...records[index],
-      ...record,
-      updatedAt: new Date().toISOString(),
-    };
-  } else {
-    updated = [record, ...records];
+// 3. Portal Slots
+export function getServerPortalSlots(): PortalExamSlot[] {
+  try {
+    const filePath = getFilePath('portal_slots.json');
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf-8');
+      const parsed: PortalExamSlot[] = JSON.parse(data);
+      inMemoryPortalSlots = parsed;
+      return parsed;
+    } else {
+      const initial = parsePortalData(DEFAULT_PORTAL_CSV);
+      saveServerPortalSlots(initial);
+      return initial;
+    }
+  } catch {
+    return inMemoryPortalSlots;
   }
-  saveServerRecords(updated);
-  return index >= 0 ? updated[index] : record;
 }
 
-export function deleteServerRecord(id: string): void {
-  const records = getServerRecords();
-  const updated = records.filter((r) => r.id !== id);
-  saveServerRecords(updated);
+export function saveServerPortalSlots(slots: PortalExamSlot[]): void {
+  inMemoryPortalSlots = slots;
+  try {
+    fs.writeFileSync(getFilePath('portal_slots.json'), JSON.stringify(slots, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Error saving portal slots:', err);
+  }
+}
+
+// 4. Sheet URL
+export function getServerSheetUrl(): string {
+  try {
+    const filePath = getFilePath('sheet_url.txt');
+    if (fs.existsSync(filePath)) {
+      return fs.readFileSync(filePath, 'utf-8').trim();
+    }
+    return inMemorySheetUrl;
+  } catch {
+    return inMemorySheetUrl;
+  }
+}
+
+export function saveServerSheetUrl(url: string): void {
+  inMemorySheetUrl = url;
+  try {
+    fs.writeFileSync(getFilePath('sheet_url.txt'), url, 'utf-8');
+  } catch (err) {
+    console.warn('Error saving sheet URL:', err);
+  }
 }
