@@ -688,7 +688,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                   {filteredMatrix.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="py-16 text-center text-slate-500 text-xs">
-                        No reconciliation batches found matching your filter criteria.
+                        {teamEntries.length === 0 && portalSlots.length === 0
+                          ? 'No data loaded yet. Connect your Google Sheet or upload the Central Portal Excel in Data Sources & Live Sync to begin reconciliation.'
+                          : 'No reconciliation batches found matching your filter criteria.'}
                       </td>
                     </tr>
                   ) : (
@@ -945,7 +947,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredTeammates.length === 0 ? (
               <div className="col-span-full py-16 text-center text-slate-500 text-xs bg-[#0E121A] rounded-2xl border border-[#1E2430]">
-                No teammate subsheets match your search or filter.
+                {teammates.length === 0
+                  ? 'No teammate subsheets detected yet. Connect your Google Sheet or upload the workbook in Data Sources & Live Sync.'
+                  : 'No teammate subsheets match your search or filter.'}
               </div>
             ) : (
               filteredTeammates.map((tm) => {
@@ -1213,43 +1217,51 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#181E29]">
-                  {portalSlots
-                    .filter((s) => {
-                      if (!portalSearch.trim()) return true;
-                      const q = portalSearch.toLowerCase();
-                      return (
-                        s.scheduleId.includes(q) ||
-                        s.courseCode.toLowerCase().includes(q) ||
-                        s.courseTitle.toLowerCase().includes(q) ||
-                        s.schoolCode.toLowerCase().includes(q) ||
-                        s.date.includes(q)
-                      );
-                    })
-                    .map((s) => (
-                      <tr key={s.scheduleId} className="hover:bg-[#121620] transition-colors">
-                        <td className="py-2.5 px-4 font-mono text-slate-400">{s.scheduleId}</td>
-                        <td className="py-2.5 px-4 font-mono text-slate-300">{s.date}</td>
-                        <td className="py-2.5 px-4">
-                          <span className="font-mono font-bold text-slate-200 px-1.5 py-0.5 rounded bg-[#161C27] border border-[#242C3D] text-[10px]">
-                            {s.schoolCode}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4 font-mono text-slate-300">{s.courseCode}</td>
-                        <td
-                          className="py-2.5 px-4 font-medium text-white max-w-xs truncate"
-                          title={s.courseTitle}
-                        >
-                          {s.courseTitle}
-                        </td>
-                        <td className="py-2.5 px-4 text-slate-400 text-[11px]">{s.programme}</td>
-                        <td className="py-2.5 px-4 text-right font-mono font-bold text-emerald-400">
-                          {s.completed.toLocaleString()}
-                        </td>
-                        <td className="py-2.5 px-4 text-right font-mono text-slate-500">
-                          {s.notStarted}
-                        </td>
-                      </tr>
-                    ))}
+                  {portalSlots.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-16 text-center text-slate-500 text-xs">
+                        No portal exam records uploaded yet. Upload your central portal Excel file in Data Sources &amp; Live Sync.
+                      </td>
+                    </tr>
+                  ) : (
+                    portalSlots
+                      .filter((s) => {
+                        if (!portalSearch.trim()) return true;
+                        const q = portalSearch.toLowerCase();
+                        return (
+                          s.scheduleId.includes(q) ||
+                          s.courseCode.toLowerCase().includes(q) ||
+                          s.courseTitle.toLowerCase().includes(q) ||
+                          s.schoolCode.toLowerCase().includes(q) ||
+                          s.date.includes(q)
+                        );
+                      })
+                      .map((s) => (
+                        <tr key={s.scheduleId} className="hover:bg-[#121620] transition-colors">
+                          <td className="py-2.5 px-4 font-mono text-slate-400">{s.scheduleId}</td>
+                          <td className="py-2.5 px-4 font-mono text-slate-300">{s.date}</td>
+                          <td className="py-2.5 px-4">
+                            <span className="font-mono font-bold text-slate-200 px-1.5 py-0.5 rounded bg-[#161C27] border border-[#242C3D] text-[10px]">
+                              {s.schoolCode}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-4 font-mono text-slate-300">{s.courseCode}</td>
+                          <td
+                            className="py-2.5 px-4 font-medium text-white max-w-xs truncate"
+                            title={s.courseTitle}
+                          >
+                            {s.courseTitle}
+                          </td>
+                          <td className="py-2.5 px-4 text-slate-400 text-[11px]">{s.programme}</td>
+                          <td className="py-2.5 px-4 text-right font-mono font-bold text-emerald-400">
+                            {s.completed.toLocaleString()}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono text-slate-500">
+                            {s.notStarted}
+                          </td>
+                        </tr>
+                      ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1398,12 +1410,14 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 <span>
                   Current Staged Slots: <strong className="text-white">{portalSlots.length}</strong>
                 </span>
-                <button
-                  onClick={onResetToDemoData}
-                  className="text-[11px] text-amber-400 hover:text-amber-300 underline font-mono"
-                >
-                  Reload Default Reference File
-                </button>
+                {portalSlots.length > 0 && onResetToDemoData && (
+                  <button
+                    onClick={onResetToDemoData}
+                    className="text-[11px] text-rose-400 hover:text-rose-300 underline font-mono"
+                  >
+                    Clear Staged Data
+                  </button>
+                )}
               </div>
             </div>
           </div>

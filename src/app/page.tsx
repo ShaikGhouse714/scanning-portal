@@ -17,19 +17,13 @@ import {
   saveStoredSheetNames,
   getLastSyncTime,
   setLastSyncTime,
-  createAccountByAdmin,
 } from '../lib/storage';
 import {
   parsePortalData,
   parseTeamGoogleSheet,
   reconcileIntakeVsPortal,
 } from '../lib/excelParser';
-import {
-  DEFAULT_TEAM_ENTRIES,
-  DEFAULT_PORTAL_CSV,
-  INITIAL_USERS,
-  SUPER_ADMIN_EMAIL,
-} from '../lib/mockData';
+import { SUPER_ADMIN_EMAIL } from '../lib/mockData';
 import { Sidebar } from '../components/Sidebar';
 import { ReconciliationDashboard } from '../components/ReconciliationDashboard';
 import { UserManagementModal } from '../components/UserManagementModal';
@@ -43,7 +37,7 @@ export default function Home() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState<boolean>(false);
 
-  // Core Data Stores
+  // Core Data Stores (Clean Slate: Zero pre-saved data)
   const [teamEntries, setTeamEntries] = useState<TeamSubsheetEntry[]>([]);
   const [portalSlots, setPortalSlots] = useState<PortalExamSlot[]>([]);
   const [googleSheetUrl, setGoogleSheetUrl] = useState<string>('');
@@ -66,33 +60,29 @@ export default function Home() {
     setTeamEntries(storedTeam);
     setPortalSlots(storedPortal);
     setGoogleSheetUrl(storedUrl);
-    setSheetNames(
-      storedNames.length > 0
-        ? storedNames
-        : ['Shaik Ghouse', 'Ramesh Kumar', 'Priya Sharma', 'Mohit Patel']
-    );
+    setSheetNames(storedNames);
     setLastSyncedTimeState(lastTime);
 
     // Initial server fetch to sync across devices
     (async () => {
       try {
         const [teamRes, portalRes, userRes] = await Promise.all([
-          fetch('/api/team-entries', { cache: 'no-store' }),
-          fetch('/api/portal-slots', { cache: 'no-store' }),
-          fetch('/api/users', { cache: 'no-store' }),
+          fetch(`/api/team-entries?t=${Date.now()}`, { cache: 'no-store' }),
+          fetch(`/api/portal-slots?t=${Date.now()}`, { cache: 'no-store' }),
+          fetch(`/api/users?t=${Date.now()}`, { cache: 'no-store' }),
         ]);
 
         if (teamRes.ok) {
           const tJson = await teamRes.json();
-          if (Array.isArray(tJson.data) && tJson.data.length > 0) {
+          if (Array.isArray(tJson.data)) {
             setTeamEntries(tJson.data);
             saveStoredTeamEntries(tJson.data);
           }
-          if (tJson.sheetUrl) {
+          if (typeof tJson.sheetUrl === 'string') {
             setGoogleSheetUrl(tJson.sheetUrl);
             saveStoredSheetUrl(tJson.sheetUrl);
           }
-          if (Array.isArray(tJson.sheetNames) && tJson.sheetNames.length > 0) {
+          if (Array.isArray(tJson.sheetNames)) {
             setSheetNames(tJson.sheetNames);
             saveStoredSheetNames(tJson.sheetNames);
           }
@@ -100,7 +90,7 @@ export default function Home() {
 
         if (portalRes.ok) {
           const pJson = await portalRes.json();
-          if (Array.isArray(pJson.data) && pJson.data.length > 0) {
+          if (Array.isArray(pJson.data)) {
             setPortalSlots(pJson.data);
             saveStoredPortalSlots(pJson.data);
           }
@@ -123,6 +113,25 @@ export default function Home() {
   const { matrix, teammates, metrics } = useMemo(() => {
     return reconcileIntakeVsPortal(teamEntries, portalSlots, sheetNames);
   }, [teamEntries, portalSlots, sheetNames]);
+
+  // Refresh users list from cloud
+  const handleRefreshUsers = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/users?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { Pragma: 'no-cache', 'Cache-Control': 'no-cache' },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data) && json.data.length > 0) {
+          setUsers(json.data);
+          saveStoredUsers(json.data);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to refresh users:', e);
+    }
+  }, []);
 
   // Sync with live Google Sheet (Publish to web URL in XLSX format)
   const handleSyncGoogleSheet = useCallback(async () => {
@@ -258,37 +267,34 @@ export default function Home() {
     }
   };
 
-  // Reset to reference Demo Data
-  const handleResetToDemoData = () => {
-    const demoPortal = parsePortalData(DEFAULT_PORTAL_CSV);
-    const demoTeam = [...DEFAULT_TEAM_ENTRIES];
-    const demoNames = ['Shaik Ghouse', 'Ramesh Kumar', 'Priya Sharma', 'Mohit Patel'];
+  // Clear all data (Reset to clean slate)
+  const handleClearAllData = () => {
+    if (!confirm('Are you sure you want to clear all synced Google Sheet data and uploaded portal exam slots?')) {
+      return;
+    }
+    setPortalSlots([]);
+    saveStoredPortalSlots([]);
 
-    setPortalSlots(demoPortal);
-    saveStoredPortalSlots(demoPortal);
+    setTeamEntries([]);
+    saveStoredTeamEntries([]);
 
-    setTeamEntries(demoTeam);
-    saveStoredTeamEntries(demoTeam);
+    setSheetNames([]);
+    saveStoredSheetNames([]);
 
-    setSheetNames(demoNames);
-    saveStoredSheetNames(demoNames);
-
-    setLastSyncedTimeState('Loaded Demo Data');
-    setLastSyncTime('Loaded Demo Data');
+    setLastSyncedTimeState('Ready to sync');
+    setLastSyncTime('Ready to sync');
 
     fetch('/api/portal-slots', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slots: demoPortal }),
+      body: JSON.stringify({ slots: [] }),
     }).catch(() => {});
 
     fetch('/api/team-entries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entries: demoTeam, sheetNames: demoNames }),
+      body: JSON.stringify({ entries: [], sheetNames: [] }),
     }).catch(() => {});
-
-    alert('Loaded reference portal exam slots and sample team subsheets!');
   };
 
   // Update Google Sheet URL
@@ -379,7 +385,7 @@ export default function Home() {
 
   const isSuperAdmin =
     currentUser?.role === 'super_admin' ||
-    currentUser?.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+    currentUser?.email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase();
 
   // Enforce access control: Basic admins can ONLY access 'reconciliation' and 'data_sources'
   useEffect(() => {
@@ -401,7 +407,7 @@ export default function Home() {
     );
   }
 
-  // Not signed in -> Show Admin Auth Screen
+  // Not signed in -> Show Clean Google Sign In Screen
   if (!currentUser) {
     return (
       <AuthScreen
@@ -421,7 +427,14 @@ export default function Home() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onSignOut={handleSignOut}
-        onOpenAccountModal={isSuperAdmin ? () => setIsAccountModalOpen(true) : undefined}
+        onOpenAccountModal={
+          isSuperAdmin
+            ? () => {
+                handleRefreshUsers();
+                setIsAccountModalOpen(true);
+              }
+            : undefined
+        }
         netDiscrepancy={metrics.netDiscrepancy}
         isSyncing={isSyncing}
       />
@@ -440,7 +453,7 @@ export default function Home() {
             onSyncGoogleSheet={handleSyncGoogleSheet}
             onUploadPortalFile={handleUploadPortalFile}
             onUploadTeamSheetFile={handleUploadTeamSheetFile}
-            onResetToDemoData={handleResetToDemoData}
+            onResetToDemoData={handleClearAllData}
             isSyncing={isSyncing}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -459,6 +472,7 @@ export default function Home() {
           onSaveUser={handleSaveUser}
           onToggleStatus={handleToggleUserStatus}
           onUpdateRole={handleUpdateUserRole}
+          onRefreshUsers={handleRefreshUsers}
         />
       )}
     </div>

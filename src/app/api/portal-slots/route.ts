@@ -14,7 +14,7 @@ const noCacheHeaders = {
 export async function GET(request: Request) {
   try {
     const _url = request.url;
-    const slots = getServerPortalSlots();
+    const slots = await getServerPortalSlots();
     return NextResponse.json(
       { success: true, data: slots, total: slots.length },
       { status: 200, headers: noCacheHeaders }
@@ -34,14 +34,14 @@ export async function POST(request: Request) {
     if (contentType.includes('application/json')) {
       const body = await request.json();
       if (Array.isArray(body.slots)) {
-        saveServerPortalSlots(body.slots);
+        await saveServerPortalSlots(body.slots);
         return NextResponse.json(
           { success: true, message: `Saved ${body.slots.length} portal slots`, total: body.slots.length },
           { status: 200, headers: noCacheHeaders }
         );
       } else if (body.csvText) {
         const parsed = parsePortalData(body.csvText);
-        saveServerPortalSlots(parsed);
+        await saveServerPortalSlots(parsed);
         return NextResponse.json(
           { success: true, message: `Parsed and saved ${parsed.length} portal slots`, data: parsed },
           { status: 200, headers: noCacheHeaders }
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     // Binary file upload (.xlsx / .csv)
     const arrayBuffer = await request.arrayBuffer();
     const parsed = parsePortalData(arrayBuffer);
-    saveServerPortalSlots(parsed);
+    await saveServerPortalSlots(parsed);
 
     return NextResponse.json(
       { success: true, message: `Parsed ${parsed.length} exam slots from uploaded portal file`, data: parsed },
@@ -65,4 +65,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

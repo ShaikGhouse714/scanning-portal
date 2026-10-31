@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { User } from '../types';
-import { X, UserPlus, Power, ShieldCheck, Crown, Shield, UserCheck, ArrowUpRight } from 'lucide-react';
+import { X, UserPlus, Power, ShieldCheck, Crown, Shield, RefreshCw } from 'lucide-react';
 import { SUPER_ADMIN_EMAIL } from '../lib/mockData';
 
 interface UserManagementModalProps {
@@ -12,21 +12,61 @@ interface UserManagementModalProps {
   onSaveUser: (user: User) => void;
   onToggleStatus: (userId: string) => void;
   onUpdateRole: (userId: string, newRole: 'super_admin' | 'admin') => void;
+  onRefreshUsers?: () => Promise<void>;
 }
 
 export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   isOpen,
   onClose,
-  users,
+  users: propUsers,
   onSaveUser,
   onToggleStatus,
   onUpdateRole,
+  onRefreshUsers,
 }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'super_admin' | 'admin'>('admin');
   const [station, setStation] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [localUsers, setLocalUsers] = useState<User[]>(propUsers);
+
+  // Sync propUsers to local state
+  useEffect(() => {
+    setLocalUsers(propUsers);
+  }, [propUsers]);
+
+  // Fetch live users from server whenever modal opens
+  const fetchLiveUsers = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      if (onRefreshUsers) {
+        await onRefreshUsers();
+      } else {
+        const res = await fetch(`/api/users?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { Pragma: 'no-cache', 'Cache-Control': 'no-cache' },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            setLocalUsers(json.data);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to refresh users:', e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [onRefreshUsers]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchLiveUsers();
+    }
+  }, [isOpen, fetchLiveUsers]);
 
   if (!isOpen) return null;
 
@@ -47,11 +87,14 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     };
 
     onSaveUser(newUser);
+    setLocalUsers((prev) => [...prev, newUser]);
     setName('');
     setEmail('');
     setStation('');
     setShowAddForm(false);
   };
+
+  const displayUsers = localUsers.length > 0 ? localUsers : propUsers;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans animate-fadeIn">
@@ -67,27 +110,53 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               Only you (Admin) can add or manage accounts for this portal.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1A2230] transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={fetchLiveUsers}
+              disabled={isRefreshing}
+              title="Refresh live user registrations"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1A2230] transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-cyan-400' : ''}`} />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#1A2230] transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-200">
-              Authorized Accounts ({users.length})
-            </span>
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#1B2230] hover:bg-[#252E40] text-slate-200 text-xs font-medium rounded-lg border border-[#2B3548] shadow-sm transition-all"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>{showAddForm ? 'Cancel' : 'Add New Account'}</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-semibold text-slate-200">
+                Authorized Accounts ({displayUsers.length})
+              </span>
+              {isRefreshing && (
+                <span className="text-[10px] text-cyan-400 font-mono animate-pulse">
+                  Syncing live...
+                </span>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={fetchLiveUsers}
+                className="inline-flex items-center space-x-1 px-2.5 py-1 bg-[#121620] hover:bg-[#1A2230] text-slate-300 text-xs rounded-lg border border-[#212836] transition-colors"
+              >
+                <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+              <button
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="inline-flex items-center space-x-1.5 px-3 py-1 bg-[#1B2230] hover:bg-[#252E40] text-slate-200 text-xs font-medium rounded-lg border border-[#2B3548] shadow-sm transition-all"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>{showAddForm ? 'Cancel' : 'Add New Account'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Add User Drawer */}
@@ -157,8 +226,8 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
           {/* User List */}
           <div className="space-y-2">
-            {users.map((u) => {
-              const isOwner = u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+            {displayUsers.map((u) => {
+              const isOwner = u.email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase();
               const isSuper = u.role === 'super_admin' || isOwner;
 
               return (
@@ -168,7 +237,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 rounded-full bg-[#18202E] border border-[#28354A] flex items-center justify-center font-bold text-white text-xs">
-                      {u.name.charAt(0)}
+                      {u.name.charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
@@ -200,7 +269,14 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                         {u.role === 'admin' ? (
                           <button
                             type="button"
-                            onClick={() => onUpdateRole(u.id, 'super_admin')}
+                            onClick={() => {
+                              onUpdateRole(u.id, 'super_admin');
+                              setLocalUsers((prev) =>
+                                prev.map((item) =>
+                                  item.id === u.id ? { ...item, role: 'super_admin' } : item
+                                )
+                              );
+                            }}
                             title="Promote to Super Admin"
                             className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 font-medium transition-all flex items-center space-x-1"
                           >
@@ -210,7 +286,14 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                         ) : (
                           <button
                             type="button"
-                            onClick={() => onUpdateRole(u.id, 'admin')}
+                            onClick={() => {
+                              onUpdateRole(u.id, 'admin');
+                              setLocalUsers((prev) =>
+                                prev.map((item) =>
+                                  item.id === u.id ? { ...item, role: 'admin' } : item
+                                )
+                              );
+                            }}
                             title="Demote to Basic Admin"
                             className="text-[11px] px-2.5 py-1 rounded-lg bg-[#161C27] hover:bg-[#202737] text-slate-300 border border-[#242C3D] font-medium transition-all flex items-center space-x-1"
                           >
@@ -233,7 +316,16 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
                     {!isOwner && (
                       <button
-                        onClick={() => onToggleStatus(u.id)}
+                        onClick={() => {
+                          onToggleStatus(u.id);
+                          setLocalUsers((prev) =>
+                            prev.map((item) =>
+                              item.id === u.id
+                                ? { ...item, status: item.status === 'active' ? 'inactive' : 'active' }
+                                : item
+                            )
+                          );
+                        }}
                         title="Toggle Active Status"
                         className="p-1.5 text-slate-500 hover:text-white rounded hover:bg-[#1C2433] transition-colors"
                       >

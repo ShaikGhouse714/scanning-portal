@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getServerUsers, addServerUser, updateServerUser } from '@/lib/serverStore';
 import { SUPER_ADMIN_EMAIL } from '@/lib/mockData';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const noCacheHeaders = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
   Pragma: 'no-cache',
@@ -11,7 +14,7 @@ const noCacheHeaders = {
 export async function GET(request: Request) {
   try {
     const _url = request.url;
-    const users = getServerUsers();
+    const users = await getServerUsers();
     return NextResponse.json(
       {
         success: true,
@@ -67,7 +70,7 @@ export async function POST(request: Request) {
       createdAt: body.createdAt || new Date().toISOString(),
     };
 
-    const saved = addServerUser(newUser);
+    const saved = await addServerUser(newUser);
 
     return NextResponse.json(
       {
@@ -102,7 +105,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const updated = updateServerUser(targetKey, {
+    const updated = await updateServerUser(targetKey, {
       ...(role ? { role } : {}),
       ...(status ? { status } : {}),
     });

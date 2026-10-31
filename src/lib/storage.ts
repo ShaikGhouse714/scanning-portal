@@ -14,15 +14,16 @@ import {
 } from './mockData';
 import { parsePortalData } from './excelParser';
 
-const USERS_STORAGE_KEY = 'scantrack_users_v3';
-const CURRENT_USER_KEY = 'scantrack_active_user_v3';
-const TEAM_ENTRIES_KEY = 'scantrack_team_entries_v3';
-const PORTAL_SLOTS_KEY = 'scantrack_portal_slots_v3';
-const GOOGLE_SHEET_URL_KEY = 'scantrack_sheet_url_v3';
-const SHEET_NAMES_KEY = 'scantrack_sheet_names_v3';
-const LAST_SYNCED_KEY = 'scantrack_last_synced_v3';
+// Storage keys bumped to v4 to guarantee complete clean slate (no pre-saved mock data)
+const USERS_STORAGE_KEY = 'scantrack_users_v4';
+const CURRENT_USER_KEY = 'scantrack_active_user_v4';
+const TEAM_ENTRIES_KEY = 'scantrack_team_entries_v4';
+const PORTAL_SLOTS_KEY = 'scantrack_portal_slots_v4';
+const GOOGLE_SHEET_URL_KEY = 'scantrack_sheet_url_v4';
+const SHEET_NAMES_KEY = 'scantrack_sheet_names_v4';
+const LAST_SYNCED_KEY = 'scantrack_last_synced_v4';
 
-// 1. User Management (Only Admin Shaik Ghouse + accounts created by admin)
+// 1. User Management (Only Admin Shaik Ghouse + registered accounts)
 export function getStoredUsers(): User[] {
   if (typeof window === 'undefined') return INITIAL_USERS;
   try {
@@ -32,14 +33,32 @@ export function getStoredUsers(): User[] {
       return INITIAL_USERS;
     }
     const users: User[] = JSON.parse(raw);
-    const hasAdmin = users.some(
+    if (!Array.isArray(users) || users.length === 0) {
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(INITIAL_USERS));
+      return INITIAL_USERS;
+    }
+
+    // Filter out old legacy mock users (like mock operators from older versions)
+    // Only genuine accounts and Shaik Ghouse M are kept
+    const legacyMockIds = new Set(['user_tester_1', 'user_tester_2', 'user_tester_3', 'user_admin_2']);
+    const filtered = users.filter((u) => !legacyMockIds.has(u.id));
+
+    const hasAdmin = filtered.some(
       (u) => u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()
     );
     if (!hasAdmin) {
-      users.unshift(INITIAL_USERS[0]);
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+      filtered.unshift(INITIAL_USERS[0]);
     }
-    return users;
+
+    // Ensure Shaik Ghouse is always super_admin
+    const normalized = filtered.map((u) =>
+      u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()
+        ? { ...u, role: 'super_admin' as const }
+        : u
+    );
+
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(normalized));
+    return normalized;
   } catch {
     return INITIAL_USERS;
   }
@@ -48,7 +67,12 @@ export function getStoredUsers(): User[] {
 export function saveStoredUsers(users: User[]): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    // Ensure Super Admin is always present
+    const hasAdmin = users.some(
+      (u) => u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()
+    );
+    const toSave = hasAdmin ? users : [INITIAL_USERS[0], ...users];
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(toSave));
   } catch (e) {
     console.error('Failed to save users', e);
   }
@@ -88,8 +112,8 @@ export function setActiveUser(user: User | null): void {
 export function createAccountByAdmin(
   name: string,
   email: string,
-  role: 'admin' | 'operator' = 'operator',
-  station: string = 'General Station'
+  role: 'super_admin' | 'admin' = 'admin',
+  station: string = 'Partner Station'
 ): { success: boolean; user?: User; error?: string } {
   const users = getStoredUsers();
   const cleanEmail = email.trim().toLowerCase();
@@ -103,9 +127,9 @@ export function createAccountByAdmin(
     name: name.trim(),
     email: cleanEmail,
     role,
-    station: station.trim() || 'General Station',
+    station: station.trim() || 'Partner Station',
     department: 'Scanning Dept',
-    avatarColor: 'bg-emerald-600',
+    avatarColor: role === 'super_admin' ? 'bg-cyan-600' : 'bg-indigo-600',
     status: 'active',
     createdAt: new Date().toISOString(),
   };
@@ -115,19 +139,16 @@ export function createAccountByAdmin(
   return { success: true, user: newUser };
 }
 
-// 2. Team Subsheet Entries Storage
+// 2. Team Subsheet Entries Storage (Clean Slate: Empty by default)
 export function getStoredTeamEntries(): TeamSubsheetEntry[] {
-  if (typeof window === 'undefined') return DEFAULT_TEAM_ENTRIES;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(TEAM_ENTRIES_KEY);
-    if (!raw) {
-      localStorage.setItem(TEAM_ENTRIES_KEY, JSON.stringify(DEFAULT_TEAM_ENTRIES));
-      return DEFAULT_TEAM_ENTRIES;
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_TEAM_ENTRIES;
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return DEFAULT_TEAM_ENTRIES;
+    return [];
   }
 }
 
@@ -140,22 +161,16 @@ export function saveStoredTeamEntries(entries: TeamSubsheetEntry[]): void {
   }
 }
 
-// 3. Portal Exam Slots Storage
+// 3. Portal Exam Slots Storage (Clean Slate: Empty by default)
 export function getStoredPortalSlots(): PortalExamSlot[] {
-  if (typeof window === 'undefined') return parsePortalData(DEFAULT_PORTAL_CSV);
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(PORTAL_SLOTS_KEY);
-    if (!raw) {
-      const initial = parsePortalData(DEFAULT_PORTAL_CSV);
-      localStorage.setItem(PORTAL_SLOTS_KEY, JSON.stringify(initial));
-      return initial;
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0
-      ? parsed
-      : parsePortalData(DEFAULT_PORTAL_CSV);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return parsePortalData(DEFAULT_PORTAL_CSV);
+    return [];
   }
 }
 
@@ -168,7 +183,7 @@ export function saveStoredPortalSlots(slots: PortalExamSlot[]): void {
   }
 }
 
-// 4. Saved Google Sheet URL & Subsheet Names
+// 4. Saved Google Sheet URL & Subsheet Names (Clean Slate: Empty by default)
 export function getStoredSheetUrl(): string {
   if (typeof window === 'undefined') return '';
   return localStorage.getItem(GOOGLE_SHEET_URL_KEY) || '';
@@ -200,7 +215,7 @@ export function saveStoredSheetNames(names: string[]): void {
 
 // 5. Last Sync Timestamp
 export function getLastSyncTime(): string {
-  if (typeof window === 'undefined') return 'Never';
+  if (typeof window === 'undefined') return 'Ready to sync';
   return localStorage.getItem(LAST_SYNCED_KEY) || 'Ready to sync';
 }
 

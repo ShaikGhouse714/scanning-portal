@@ -21,9 +21,11 @@ const noCacheHeaders = {
 export async function GET(request: Request) {
   try {
     const _url = request.url;
-    const entries = getServerTeamEntries();
-    const sheetUrl = getServerSheetUrl();
-    const sheetNames = getServerSheetNames();
+    const [entries, sheetUrl, sheetNames] = await Promise.all([
+      getServerTeamEntries(),
+      getServerSheetUrl(),
+      getServerSheetNames(),
+    ]);
     return NextResponse.json(
       { success: true, data: entries, total: entries.length, sheetUrl, sheetNames },
       { status: 200, headers: noCacheHeaders }
@@ -43,13 +45,13 @@ export async function POST(request: Request) {
     if (contentType.includes('application/json')) {
       const body = await request.json();
       if (body.sheetUrl) {
-        saveServerSheetUrl(body.sheetUrl);
+        await saveServerSheetUrl(body.sheetUrl);
       }
       if (Array.isArray(body.sheetNames)) {
-        saveServerSheetNames(body.sheetNames);
+        await saveServerSheetNames(body.sheetNames);
       }
       if (Array.isArray(body.entries)) {
-        saveServerTeamEntries(body.entries);
+        await saveServerTeamEntries(body.entries);
         return NextResponse.json(
           { success: true, message: `Saved ${body.entries.length} team entries`, total: body.entries.length },
           { status: 200, headers: noCacheHeaders }
@@ -60,8 +62,8 @@ export async function POST(request: Request) {
     // Binary file upload (.xlsx)
     const arrayBuffer = await request.arrayBuffer();
     const parsed = parseTeamGoogleSheet(arrayBuffer);
-    saveServerTeamEntries(parsed.teammateEntries);
-    saveServerSheetNames(parsed.sheetNames);
+    await saveServerTeamEntries(parsed.teammateEntries);
+    await saveServerSheetNames(parsed.sheetNames);
 
     return NextResponse.json(
       {
@@ -79,4 +81,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
