@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerUsers, addServerUser } from '@/lib/serverStore';
+import { getServerUsers, addServerUser, updateServerUser } from '@/lib/serverStore';
 import { SUPER_ADMIN_EMAIL } from '@/lib/mockData';
 
 const noCacheHeaders = {
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, station } = body;
+    const { name, email, station, role } = body;
 
     if (!email || !name) {
       return NextResponse.json(
@@ -46,17 +46,24 @@ export async function POST(request: Request) {
     const cleanEmail = email.trim().toLowerCase();
     const isSuperAdminEmail = cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase();
 
+    // Default partner role is Basic Admin ('admin')
+    const assignedRole: 'super_admin' | 'admin' | 'operator' = isSuperAdminEmail
+      ? 'super_admin'
+      : role === 'super_admin'
+      ? 'super_admin'
+      : 'admin';
+
     const newUser = {
       id: body.id || `user_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       name: name.trim(),
       email: cleanEmail,
-      role: (isSuperAdminEmail ? 'super_admin' : 'operator') as 'super_admin' | 'operator',
+      role: assignedRole,
       station: isSuperAdminEmail
         ? 'HQ / Scanning Dept Management'
-        : station?.trim() || 'General Station',
+        : station?.trim() || 'Partner Admin Station',
       department: 'Scanning Dept',
-      avatarColor: isSuperAdminEmail ? 'bg-cyan-600' : 'bg-slate-700',
-      status: 'active' as const,
+      avatarColor: isSuperAdminEmail ? 'bg-cyan-600' : 'bg-indigo-600',
+      status: (body.status || 'active') as 'active' | 'inactive',
       createdAt: body.createdAt || new Date().toISOString(),
     };
 
@@ -78,6 +85,51 @@ export async function POST(request: Request) {
         error: String(error),
       },
       { status: 400, headers: noCacheHeaders }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, email, role, status } = body;
+    const targetKey = id || email;
+
+    if (!targetKey) {
+      return NextResponse.json(
+        { success: false, message: 'User id or email is required' },
+        { status: 400, headers: noCacheHeaders }
+      );
+    }
+
+    const updated = updateServerUser(targetKey, {
+      ...(role ? { role } : {}),
+      ...(status ? { status } : {}),
+    });
+
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, message: 'User not found' },
+        { status: 404, headers: noCacheHeaders }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'User updated successfully',
+        data: updated,
+      },
+      { status: 200, headers: noCacheHeaders }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Error updating user',
+        error: String(error),
+      },
+      { status: 500, headers: noCacheHeaders }
     );
   }
 }

@@ -28,6 +28,7 @@ import {
   DEFAULT_TEAM_ENTRIES,
   DEFAULT_PORTAL_CSV,
   INITIAL_USERS,
+  SUPER_ADMIN_EMAIL,
 } from '../lib/mockData';
 import { Sidebar } from '../components/Sidebar';
 import { ReconciliationDashboard } from '../components/ReconciliationDashboard';
@@ -319,13 +320,15 @@ export default function Home() {
   };
 
   // Toggle user active status
-  const handleToggleUserStatus = (userId: string) => {
+  const handleToggleUserStatus = async (userId: string) => {
+    let newStatus: 'active' | 'inactive' = 'active';
     setUsers((prev) => {
       const updated = prev.map((u) => {
         if (u.id === userId) {
+          newStatus = (u.status === 'active' ? 'inactive' : 'active') as 'active' | 'inactive';
           return {
             ...u,
-            status: (u.status === 'active' ? 'inactive' : 'active') as 'active' | 'inactive',
+            status: newStatus,
           };
         }
         return u;
@@ -333,12 +336,59 @@ export default function Home() {
       saveStoredUsers(updated);
       return updated;
     });
+
+    try {
+      await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId, status: newStatus }),
+      });
+    } catch (e) {
+      console.warn('Failed to toggle status on server:', e);
+    }
+  };
+
+  // Promote / Demote user role (Basic Admin <-> Super Admin)
+  const handleUpdateUserRole = async (userId: string, newRole: 'super_admin' | 'admin') => {
+    setUsers((prev) => {
+      const updated = prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u));
+      saveStoredUsers(updated);
+      return updated;
+    });
+
+    // If updating current user's role, update state
+    if (currentUser && currentUser.id === userId) {
+      setCurrentUser((prev) => (prev ? { ...prev, role: newRole } : null));
+    }
+
+    try {
+      await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId, role: newRole }),
+      });
+    } catch (e) {
+      console.warn('Failed to update role on server:', e);
+    }
   };
 
   const handleSignOut = () => {
     setCurrentUser(null);
     setActiveUser(null);
   };
+
+  const isSuperAdmin =
+    currentUser?.role === 'super_admin' ||
+    currentUser?.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+
+  // Enforce access control: Basic admins can ONLY access 'reconciliation' and 'data_sources'
+  useEffect(() => {
+    if (currentUser && !isSuperAdmin) {
+      if (activeTab === 'teammates' || activeTab === 'portal_exams') {
+        setActiveTab('reconciliation');
+      }
+    }
+  }, [currentUser, isSuperAdmin, activeTab]);
 
   if (!isClient) {
     return (
@@ -371,7 +421,7 @@ export default function Home() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onSignOut={handleSignOut}
-        onOpenAccountModal={() => setIsAccountModalOpen(true)}
+        onOpenAccountModal={isSuperAdmin ? () => setIsAccountModalOpen(true) : undefined}
         netDiscrepancy={metrics.netDiscrepancy}
         isSyncing={isSyncing}
       />
@@ -400,14 +450,17 @@ export default function Home() {
         </main>
       </div>
 
-      {/* Admin User Management Modal */}
-      <UserManagementModal
-        isOpen={isAccountModalOpen}
-        onClose={() => setIsAccountModalOpen(false)}
-        users={users}
-        onSaveUser={handleSaveUser}
-        onToggleStatus={handleToggleUserStatus}
-      />
+      {/* Admin User Management Modal - Only for Super Admin */}
+      {isSuperAdmin && (
+        <UserManagementModal
+          isOpen={isAccountModalOpen}
+          onClose={() => setIsAccountModalOpen(false)}
+          users={users}
+          onSaveUser={handleSaveUser}
+          onToggleStatus={handleToggleUserStatus}
+          onUpdateRole={handleUpdateUserRole}
+        />
+      )}
     </div>
   );
 }

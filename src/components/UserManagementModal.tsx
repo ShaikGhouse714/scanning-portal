@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { X, UserPlus, Power, ShieldCheck, UserCheck, Trash2 } from 'lucide-react';
+import { X, UserPlus, Power, ShieldCheck, Crown, Shield, UserCheck, ArrowUpRight } from 'lucide-react';
 import { SUPER_ADMIN_EMAIL } from '../lib/mockData';
 
 interface UserManagementModalProps {
@@ -11,6 +11,7 @@ interface UserManagementModalProps {
   users: User[];
   onSaveUser: (user: User) => void;
   onToggleStatus: (userId: string) => void;
+  onUpdateRole: (userId: string, newRole: 'super_admin' | 'admin') => void;
 }
 
 export const UserManagementModal: React.FC<UserManagementModalProps> = ({
@@ -19,11 +20,12 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   users,
   onSaveUser,
   onToggleStatus,
+  onUpdateRole,
 }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'operator'>('operator');
+  const [role, setRole] = useState<'super_admin' | 'admin'>('admin');
   const [station, setStation] = useState('');
 
   if (!isOpen) return null;
@@ -37,9 +39,9 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       name: name.trim(),
       email: email.trim().toLowerCase(),
       role,
-      station: station.trim() || 'Central Scanning Dept',
+      station: station.trim() || 'Partner Admin Station',
       department: 'Scanning Dept',
-      avatarColor: role === 'admin' ? 'bg-indigo-600' : 'bg-slate-700',
+      avatarColor: role === 'super_admin' ? 'bg-cyan-600' : 'bg-indigo-600',
       status: 'active',
       createdAt: new Date().toISOString(),
     };
@@ -127,8 +129,8 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                     onChange={(e) => setRole(e.target.value as any)}
                     className="w-full text-xs px-3 py-2 bg-[#0E121A] border border-[#212836] rounded-lg text-white focus:outline-none"
                   >
-                    <option value="operator">Operator (Read-Only / Scanning)</option>
-                    <option value="admin">Admin (Full Access)</option>
+                    <option value="admin">Basic Admin (Intake &amp; Live Sync)</option>
+                    <option value="super_admin">Super Admin (Full Master Console)</option>
                   </select>
                 </div>
                 <div>
@@ -156,11 +158,13 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
           {/* User List */}
           <div className="space-y-2">
             {users.map((u) => {
-              const isSuper = u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+              const isOwner = u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+              const isSuper = u.role === 'super_admin' || isOwner;
+
               return (
                 <div
                   key={u.id}
-                  className="flex items-center justify-between p-3.5 rounded-xl bg-[#121620] border border-[#1E2430] hover:border-[#273244] transition-all"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-[#121620] border border-[#1E2430] hover:border-[#273244] transition-all gap-3"
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 rounded-full bg-[#18202E] border border-[#28354A] flex items-center justify-center font-bold text-white text-xs">
@@ -169,23 +173,54 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                     <div>
                       <div className="flex items-center space-x-2">
                         <span className="text-xs font-semibold text-white">{u.name}</span>
-                        {isSuper ? (
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        {isOwner ? (
+                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                            Owner / Super Admin
+                          </span>
+                        ) : isSuper ? (
+                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
                             Super Admin
                           </span>
                         ) : (
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                            {u.role.toUpperCase()}
+                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                            Basic Admin
                           </span>
                         )}
                       </div>
                       <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        {u.email} • {u.station || 'General'}
+                        {u.email} • {u.station || 'Partner Station'}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2 shrink-0">
+                    {/* Role Promotion / Demotion for non-owner accounts */}
+                    {!isOwner && (
+                      <>
+                        {u.role === 'admin' ? (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateRole(u.id, 'super_admin')}
+                            title="Promote to Super Admin"
+                            className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 font-medium transition-all flex items-center space-x-1"
+                          >
+                            <Crown className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Promote to Super Admin</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateRole(u.id, 'admin')}
+                            title="Demote to Basic Admin"
+                            className="text-[11px] px-2.5 py-1 rounded-lg bg-[#161C27] hover:bg-[#202737] text-slate-300 border border-[#242C3D] font-medium transition-all flex items-center space-x-1"
+                          >
+                            <Shield className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Demote to Basic Admin</span>
+                          </button>
+                        )}
+                      </>
+                    )}
+
                     <span
                       className={`text-[10px] font-mono px-2 py-0.5 rounded ${
                         u.status === 'active'
@@ -196,10 +231,10 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                       {u.status === 'active' ? 'Active' : 'Inactive'}
                     </span>
 
-                    {!isSuper && (
+                    {!isOwner && (
                       <button
                         onClick={() => onToggleStatus(u.id)}
-                        title="Toggle Status"
+                        title="Toggle Active Status"
                         className="p-1.5 text-slate-500 hover:text-white rounded hover:bg-[#1C2433] transition-colors"
                       >
                         <Power className="w-3.5 h-3.5" />

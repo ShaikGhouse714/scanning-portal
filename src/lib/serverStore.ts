@@ -94,6 +94,25 @@ export function addServerUser(user: User): User {
   return index >= 0 ? updated[index] : user;
 }
 
+export function updateServerUser(idOrEmail: string, updates: Partial<User>): User | null {
+  const users = getServerUsers();
+  const cleanKey = idOrEmail.toLowerCase().trim();
+  const index = users.findIndex(
+    (u) => u.id === idOrEmail || u.email.toLowerCase().trim() === cleanKey
+  );
+  if (index === -1) return null;
+  const isSuperOwner = users[index].email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase();
+  const finalRole = isSuperOwner ? 'super_admin' : (updates.role || users[index].role);
+  const updatedUser: User = {
+    ...users[index],
+    ...updates,
+    role: finalRole,
+  };
+  users[index] = updatedUser;
+  saveServerUsers(users);
+  return updatedUser;
+}
+
 // 2. Team Subsheet Entries
 export function getServerTeamEntries(): TeamSubsheetEntry[] {
   try {
