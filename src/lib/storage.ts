@@ -55,7 +55,7 @@ export function saveStoredUsers(users: User[]): void {
 }
 
 export function getActiveUser(): User | null {
-  if (typeof window === 'undefined') return INITIAL_USERS[0];
+  if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(CURRENT_USER_KEY);
     if (raw) {
@@ -68,8 +68,7 @@ export function getActiveUser(): User | null {
       return matched || parsed;
     }
   } catch {}
-  // Default to Super Admin Shaik Ghouse
-  return INITIAL_USERS[0];
+  return null;
 }
 
 export function setActiveUser(user: User | null): void {
