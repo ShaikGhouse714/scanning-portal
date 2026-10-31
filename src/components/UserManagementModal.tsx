@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { User } from '../types';
 import { X, UserPlus, Power, ShieldCheck, Crown, Shield, RefreshCw } from 'lucide-react';
 import { SUPER_ADMIN_EMAIL } from '../lib/mockData';
+import { CustomDropdown } from './CustomDropdown';
 
 interface UserManagementModalProps {
   isOpen: boolean;
@@ -192,15 +193,27 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Role</label>
-                  <select
+                  <label className="block text-[11px] text-slate-400 mb-1">Assigned Role</label>
+                  <CustomDropdown
                     value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
-                    className="w-full text-xs px-3 py-2 bg-[#0E121A] border border-[#212836] rounded-lg text-white focus:outline-none"
-                  >
-                    <option value="admin">Basic Admin (Intake &amp; Live Sync)</option>
-                    <option value="super_admin">Super Admin (Full Master Console)</option>
-                  </select>
+                    options={[
+                      {
+                        value: 'admin',
+                        label: 'Basic Admin (Intake & Live Sync)',
+                        badge: 'Scoped',
+                        badgeColor: 'bg-indigo-500/20 text-indigo-300',
+                      },
+                      {
+                        value: 'super_admin',
+                        label: 'Super Admin (Full Console)',
+                        badge: 'Master',
+                        badgeColor: 'bg-amber-500/20 text-amber-300',
+                      },
+                    ]}
+                    onChange={(val) => setRole(val as any)}
+                    className="w-full"
+                    minMenuWidth="w-full"
+                  />
                 </div>
                 <div>
                   <label className="block text-[11px] text-slate-400 mb-1">Station / Center</label>

@@ -40,6 +40,8 @@ import {
   FileCheck2,
 } from 'lucide-react';
 import { exportReconciliationToCSV } from '../lib/storage';
+import { CustomDropdown, DropdownOption } from './CustomDropdown';
+import { SCHOOL_CODE_MAP } from '../lib/mockData';
 
 interface ReconciliationDashboardProps {
   matrix: ReconciledDateSchool[];
@@ -243,6 +245,46 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
     return Array.from(new Set(matrix.map((m) => m.schoolCode))).sort();
   }, [matrix]);
 
+  // Clean Options for Custom Dropdowns
+  const dateOptions: DropdownOption[] = useMemo(() => [
+    { value: 'all', label: `All Dates (${availableDates.length})` },
+    ...availableDates.map((d) => ({ value: d, label: d })),
+  ], [availableDates]);
+
+  const schoolOptions: DropdownOption[] = useMemo(() => [
+    { value: 'all', label: `All Schools (${availableSchools.length})` },
+    ...availableSchools.map((s) => ({
+      value: s,
+      label: s,
+      sublabel: SCHOOL_CODE_MAP[s] || undefined,
+    })),
+  ], [availableSchools]);
+
+  const statusOptions: DropdownOption[] = useMemo(() => [
+    { value: 'all', label: 'All Statuses' },
+    {
+      value: 'discrepancy',
+      label: 'Discrepancy / Backlog Only',
+      badge: 'Backlog',
+      badgeColor: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
+    },
+    {
+      value: 'matched',
+      label: '100% Synchronized Only',
+      badge: 'All Clear',
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
+    },
+  ], []);
+
+  const teammateSortOptions: DropdownOption[] = useMemo(() => [
+    { value: 'date_desc', label: 'Daywise: Newest First' },
+    { value: 'date_asc', label: 'Daywise: Oldest First' },
+    { value: 'school_asc', label: 'School: A → Z' },
+    { value: 'school_desc', label: 'School: Z → A' },
+    { value: 'scanned_desc', label: 'Volume: Highest Scanned' },
+    { value: 'received_desc', label: 'Volume: Highest Received' },
+  ], []);
+
   // Filtered matrix for Intake vs Portal view
   const filteredMatrix = useMemo(() => {
     return matrix.filter((item) => {
@@ -347,16 +389,16 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
           </div>
 
-          {/* Active Data Source Connections Banner (Exact style from screenshot) */}
-          <div className="bg-[#0E121A] rounded-2xl border border-[#1E2430] p-4 shadow-xl">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1A202C] mb-3 text-xs">
-              <div className="flex items-center space-x-2">
-                <Layers className="w-4 h-4 text-slate-400" />
-                <span className="font-semibold text-white uppercase tracking-wider text-[11px]">
+          {/* Active Data Source Connections Banner */}
+          <div className="bg-[#0C101C]/80 backdrop-blur-xl rounded-2xl border border-[#1A2234] p-4 shadow-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#182030] mb-3 text-xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] animate-pulse" />
+                <span className="font-bold text-white uppercase tracking-wider text-[11px] font-mono">
                   Active Data Source Connections
                 </span>
               </div>
-              <span className="text-[11px] text-slate-400 font-mono">
+              <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-semibold">
                 {teamEntries.length > 0 && portalSlots.length > 0
                   ? '2 / 2 connected'
                   : teamEntries.length > 0 || portalSlots.length > 0
@@ -365,60 +407,77 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
               {/* Card 1: Google Sheet */}
-              <div className="p-3 rounded-xl bg-[#121620] border border-[#212836] flex flex-col justify-between space-y-2">
+              <div className="relative group overflow-hidden rounded-2xl bg-gradient-to-b from-[#0F1626] to-[#0A0E18] border border-[#1E2638] hover:border-cyan-500/40 p-4 shadow-lg shadow-black/30 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5">
+                <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-[11px] font-semibold text-white block">
-                      1. Team Google Sheet
-                    </span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">
-                      {teammates.length > 0
-                        ? `${teammates.length} Subsheets (${teamEntries.length} logs)`
-                        : 'No subsheet loaded'}
-                    </span>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0 mt-0.5">
+                      <Link2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        1. Team Google Sheet
+                      </span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">
+                        {teammates.length > 0
+                          ? `${teammates.length} Subsheets (${teamEntries.length} logs)`
+                          : 'No subsheet loaded'}
+                      </span>
+                    </div>
                   </div>
-                  <Clock className="w-3.5 h-3.5 text-slate-500" />
+                  <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 </div>
 
-                <div className="flex items-center justify-between pt-1 border-t border-[#1A202C]">
+                <div className="flex items-center justify-between pt-2.5 border-t border-[#182030]">
                   <span
-                    className="text-[10px] text-slate-400 font-mono truncate max-w-[110px]"
+                    className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]"
                     title={lastSyncedTime}
                   >
                     {lastSyncedTime}
                   </span>
                   <button
                     onClick={onSyncGoogleSheet}
-                    className="text-[11px] px-2 py-0.5 rounded bg-[#181E2B] hover:bg-[#222B3D] text-slate-200 border border-[#2D384D] transition-colors"
+                    disabled={isSyncing}
+                    className="text-xs px-3 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 font-semibold border border-cyan-500/30 transition-all shadow-sm"
                   >
-                    Sync
+                    {isSyncing ? 'Syncing...' : 'Sync'}
                   </button>
                 </div>
               </div>
 
               {/* Card 2: Portal Excel */}
-              <div className="p-3 rounded-xl bg-[#121620] border border-[#212836] flex flex-col justify-between space-y-2">
+              <div className="relative group overflow-hidden rounded-2xl bg-gradient-to-b from-[#0F1626] to-[#0A0E18] border border-[#1E2638] hover:border-emerald-500/40 p-4 shadow-lg shadow-black/30 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5">
+                <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-[11px] font-semibold text-white block">
-                      2. Portal Excel / CSV
-                    </span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">
-                      {portalSlots.length > 0
-                        ? `${portalSlots.length} Exam Slots (${metrics.totalPortalCompleted} Uploaded)`
-                        : 'No portal file staged'}
-                    </span>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        2. Portal Excel / CSV
+                      </span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">
+                        {portalSlots.length > 0
+                          ? `${portalSlots.length} Exam Slots (${metrics.totalPortalCompleted} Uploaded)`
+                          : 'No portal file staged'}
+                      </span>
+                    </div>
                   </div>
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 </div>
 
-                <div className="flex items-center justify-between pt-1 border-t border-[#1A202C]">
-                  <span className="text-[10px] text-emerald-400 font-mono">
+                <div className="flex items-center justify-between pt-2.5 border-t border-[#182030]">
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    portalSlots.length > 0
+                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}>
                     {portalSlots.length > 0 ? 'File active' : 'Awaiting file'}
                   </span>
-                  <label className="text-[11px] px-2 py-0.5 rounded bg-[#181E2B] hover:bg-[#222B3D] text-slate-200 border border-[#2D384D] transition-colors cursor-pointer">
+                  <label className="text-xs px-3 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-semibold border border-emerald-500/30 transition-all cursor-pointer shadow-sm">
                     <span>Upload</span>
                     <input
                       type="file"
@@ -434,42 +493,46 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
 
               {/* Card 3: Discrepancy Status */}
-              <div className="p-3 rounded-xl bg-[#121620] border border-[#212836] flex flex-col justify-between space-y-2">
+              <div className={`relative group overflow-hidden rounded-2xl bg-gradient-to-b from-[#0F1626] to-[#0A0E18] border ${
+                metrics.netDiscrepancy > 0 ? 'border-rose-500/30 hover:border-rose-500/50' : 'border-[#1E2638] hover:border-emerald-500/40'
+              } p-4 shadow-lg shadow-black/30 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5`}>
+                <div className={`absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent ${
+                  metrics.netDiscrepancy > 0 ? 'via-rose-500/50' : 'via-emerald-500/50'
+                } to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />
                 <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-[11px] font-semibold text-white block">
-                      3. Matching Variance
-                    </span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">
-                      {metrics.netDiscrepancy === 0
-                        ? '100% Synchronized'
-                        : metrics.netDiscrepancy > 0
-                        ? `${metrics.netDiscrepancy} pending in portal`
-                        : `Portal exceeds by ${Math.abs(metrics.netDiscrepancy)}`}
-                    </span>
+                  <div className="flex items-start space-x-3">
+                    <div className={`w-9 h-9 rounded-xl ${
+                      metrics.netDiscrepancy > 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                    } border flex items-center justify-center shrink-0 mt-0.5`}>
+                      <AlertOctagon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        3. Matching Variance
+                      </span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">
+                        {metrics.netDiscrepancy === 0
+                          ? '100% Synchronized'
+                          : metrics.netDiscrepancy > 0
+                          ? `${metrics.netDiscrepancy} pending in portal`
+                          : `Portal exceeds by ${Math.abs(metrics.netDiscrepancy)}`}
+                      </span>
+                    </div>
                   </div>
-                  <AlertOctagon
-                    className={`w-3.5 h-3.5 ${
-                      metrics.netDiscrepancy > 0 ? 'text-rose-400' : 'text-emerald-400'
-                    }`}
-                  />
+                  <AlertOctagon className={`w-3.5 h-3.5 ${metrics.netDiscrepancy > 0 ? 'text-rose-400' : 'text-emerald-400'} shrink-0`} />
                 </div>
 
-                <div className="flex items-center justify-between pt-1 border-t border-[#1A202C]">
-                  <span
-                    className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
-                      metrics.netDiscrepancy > 0
-                        ? 'bg-rose-500/20 text-rose-300'
-                        : 'bg-emerald-500/20 text-emerald-300'
-                    }`}
-                  >
+                <div className="flex items-center justify-between pt-2.5 border-t border-[#182030]">
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    metrics.netDiscrepancy > 0
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  }`}>
                     {metrics.netDiscrepancy > 0 ? 'Backlog Alert' : 'All Clear'}
                   </span>
                   <button
-                    onClick={() =>
-                      setStatusFilter(metrics.netDiscrepancy > 0 ? 'discrepancy' : 'all')
-                    }
-                    className="text-[11px] text-slate-400 hover:text-white underline font-mono"
+                    onClick={() => setStatusFilter(metrics.netDiscrepancy > 0 ? 'discrepancy' : 'all')}
+                    className="text-xs text-slate-300 hover:text-white underline font-mono transition-colors"
                   >
                     Inspect
                   </button>
@@ -506,142 +569,164 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
           )}
 
-          {/* 4 Core Telemetry Cards (Only in Reconciliation view) */}
+          {/* 4 Core Telemetry Cards (Enhanced Hardware-Telemetry Styling) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            {/* Tile 1: Total Physical Received */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-sky-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-sky-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Total Physical Received
                 </span>
-                <FileText className="w-4 h-4 text-slate-400" />
+                <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                  <FileText className="w-4 h-4" />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-white font-mono">
+              <div className="text-3xl font-extrabold text-white font-mono tracking-tight">
                 {metrics.totalTeamReceived.toLocaleString()}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                Across {teammates.length} teammate subsheets
-              </span>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Across {teammates.length} teammate subsheets
+                </span>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            {/* Tile 2: Total Scanned by Team */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Total Scanned by Team
                 </span>
-                <UploadCloud className="w-4 h-4 text-emerald-400" />
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <UploadCloud className="w-4 h-4" />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-emerald-400 font-mono">
+              <div className="text-3xl font-extrabold text-emerald-400 font-mono tracking-tight">
                 {metrics.totalTeamScanned.toLocaleString()}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                Logged in Google Sheet subsheets
-              </span>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Logged in Google Sheet subsheets
+                </span>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            {/* Tile 3: Portal Uploaded */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-indigo-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Portal Uploaded (Completed)
                 </span>
-                <FileSpreadsheet className="w-4 h-4 text-slate-300" />
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                  <FileSpreadsheet className="w-4 h-4" />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-slate-200 font-mono">
+              <div className="text-3xl font-extrabold text-indigo-200 font-mono tracking-tight">
                 {metrics.totalPortalCompleted.toLocaleString()}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                From {portalSlots.length} portal exam slots
-              </span>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  From {portalSlots.length} portal exam slots
+                </span>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                  Net Discrepancy (Scanned - Portal)
+            {/* Tile 4: Net Discrepancy */}
+            <div className={`relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border ${
+              metrics.netDiscrepancy > 0
+                ? 'border-rose-500/40 hover:border-rose-500/60 bg-gradient-to-b from-rose-950/20 to-[#0A0E1A]'
+                : 'border-[#1E273A] hover:border-emerald-500/40'
+            } shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5`}>
+              <div className={`absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent ${
+                metrics.netDiscrepancy > 0 ? 'via-rose-500' : 'via-emerald-500'
+              } to-transparent opacity-50 group-hover:opacity-100 transition-opacity`} />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Net Discrepancy (Variance)
                 </span>
-                <TrendingUp
-                  className={`w-4 h-4 ${
-                    metrics.netDiscrepancy > 0 ? 'text-rose-400' : 'text-slate-400'
-                  }`}
-                />
+                <div className={`w-8 h-8 rounded-xl ${
+                  metrics.netDiscrepancy > 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                } border flex items-center justify-center`}>
+                  <TrendingUp className="w-4 h-4" />
+                </div>
               </div>
-              <div
-                className={`text-2xl font-bold font-mono ${
-                  metrics.netDiscrepancy > 0 ? 'text-rose-400' : 'text-slate-300'
-                }`}
-              >
-                {metrics.netDiscrepancy > 0 ? `+${metrics.netDiscrepancy}` : metrics.netDiscrepancy}
+              <div className={`text-3xl font-extrabold font-mono tracking-tight ${
+                metrics.netDiscrepancy > 0 ? 'text-rose-400' : 'text-emerald-400'
+              }`}>
+                {metrics.netDiscrepancy > 0 ? `+${metrics.netDiscrepancy.toLocaleString()}` : metrics.netDiscrepancy.toLocaleString()}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                {metrics.discrepancyBatchesCount} school batches flagged
-              </span>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className={`w-1.5 h-1.5 rounded-full ${metrics.netDiscrepancy > 0 ? 'bg-rose-400 animate-pulse' : 'bg-emerald-400'}`} />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {metrics.discrepancyBatchesCount} school batches flagged
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Dynamic Filters Bar */}
-          <div className="bg-[#0E121A] rounded-xl border border-[#1E2430] p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+          {/* Clean Dynamic Filters Bar with Custom Dropdowns */}
+          <div className="bg-[#0C101C]/90 backdrop-blur-xl rounded-2xl border border-[#1A2234] p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xl">
             <div className="flex items-center space-x-2.5">
-              <div className="flex items-center space-x-1.5 text-slate-300">
-                <Filter className="w-3.5 h-3.5 text-slate-400" />
-                <span className="font-medium">Dynamic Filters</span>
+              <div className="w-7 h-7 rounded-lg bg-[#141A28] border border-[#222C42] flex items-center justify-center text-slate-300">
+                <Filter className="w-3.5 h-3.5 text-cyan-400" />
               </div>
-              <span className="px-2 py-0.5 rounded-full bg-[#181F2C] border border-[#2A3447] text-[11px] text-slate-300 font-mono">
-                {selectedDate !== 'all' || selectedSchool !== 'all' || statusFilter !== 'all'
-                  ? 'Filters Active'
-                  : '1 active / 1 total'}
-              </span>
+              <div>
+                <span className="text-xs font-bold text-white block leading-tight">Dynamic Filters</span>
+                <span className="text-[10px] text-slate-400 font-mono block leading-tight">
+                  {selectedDate !== 'all' || selectedSchool !== 'all' || statusFilter !== 'all'
+                    ? 'Active Filters Applied'
+                    : 'All Data Shown'}
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* Date Filter */}
-              <select
+              {/* Clean Date Filter */}
+              <CustomDropdown
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="text-xs px-2.5 py-1.5 bg-[#121620] border border-[#212836] rounded-lg text-slate-200 focus:outline-none"
-              >
-                <option value="all">All Dates ({availableDates.length})</option>
-                {availableDates.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+                options={dateOptions}
+                onChange={setSelectedDate}
+                icon={Calendar}
+                minMenuWidth="min-w-[190px]"
+              />
 
-              {/* School Filter */}
-              <select
+              {/* Clean School Filter with Search */}
+              <CustomDropdown
                 value={selectedSchool}
-                onChange={(e) => setSelectedSchool(e.target.value)}
-                className="text-xs px-2.5 py-1.5 bg-[#121620] border border-[#212836] rounded-lg text-slate-200 focus:outline-none"
-              >
-                <option value="all">All Schools ({availableSchools.length})</option>
-                {availableSchools.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                options={schoolOptions}
+                onChange={setSelectedSchool}
+                icon={GraduationCap}
+                minMenuWidth="min-w-[270px]"
+              />
 
-              {/* Status Filter */}
-              <select
+              {/* Clean Status Filter */}
+              <CustomDropdown
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="text-xs px-2.5 py-1.5 bg-[#121620] border border-[#212836] rounded-lg text-slate-200 focus:outline-none"
-              >
-                <option value="all">All Statuses</option>
-                <option value="discrepancy">Discrepancy / Backlog Only</option>
-                <option value="matched">100% Matched Only</option>
-              </select>
+                options={statusOptions}
+                onChange={(val) => setStatusFilter(val as any)}
+                icon={AlertOctagon}
+                minMenuWidth="min-w-[210px]"
+              />
 
-              <button
-                onClick={() => {
-                  setSelectedDate('all');
-                  setSelectedSchool('all');
-                  setStatusFilter('all');
-                  setSearchQuery('');
-                }}
-                className="px-2.5 py-1.5 bg-[#161C27] hover:bg-[#202737] text-slate-300 rounded-lg border border-[#283244] text-xs transition-colors"
-              >
-                Reset
-              </button>
+              {(selectedDate !== 'all' || selectedSchool !== 'all' || statusFilter !== 'all' || searchQuery.trim()) && (
+                <button
+                  onClick={() => {
+                    setSelectedDate('all');
+                    setSelectedSchool('all');
+                    setStatusFilter('all');
+                    setSearchQuery('');
+                  }}
+                  className="px-3 py-1.5 bg-[#141B2B] hover:bg-[#1E283C] text-slate-300 hover:text-white rounded-xl border border-[#253248] text-xs font-medium transition-colors"
+                >
+                  Reset Filters
+                </button>
+              )}
             </div>
           </div>
 
@@ -837,62 +922,90 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
           {/* Teammate Specific Telemetry Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            {/* Tile 1: Total Connected Subsheets */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Total Connected Subsheets
                 </span>
-                <Users2 className="w-4 h-4 text-slate-300" />
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                  <Users2 className="w-4 h-4" />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-white font-mono">{teammates.length}</div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                Discovered in Google Sheet workbook
-              </span>
+              <div className="text-3xl font-extrabold text-white font-mono tracking-tight">{teammates.length}</div>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Discovered in Google Sheet workbook
+                </span>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            {/* Tile 2: Active With Logged Data */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Active With Logged Data
                 </span>
-                <UserCheck className="w-4 h-4 text-emerald-400" />
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <UserCheck className="w-4 h-4" />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-emerald-400 font-mono">
+              <div className="text-3xl font-extrabold text-emerald-400 font-mono tracking-tight">
                 {activeTeammatesCount}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                Subsheets containing script rows
-              </span>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Subsheets containing script rows
+                </span>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            {/* Tile 3: Awaiting Data (Empty) */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-amber-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Awaiting Data (Empty)
                 </span>
-                <AlertCircle className="w-4 h-4 text-amber-400" />
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                  <AlertCircle className="w-4 h-4" />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-amber-400 font-mono">
+              <div className="text-3xl font-extrabold text-amber-400 font-mono tracking-tight">
                 {emptyTeammatesCount}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                Created subsheets with no rows yet
-              </span>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Created subsheets with no rows yet
+                </span>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            {/* Tile 4: Total Scripts Scanned */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-indigo-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Total Scripts Scanned
                 </span>
-                <UploadCloud className="w-4 h-4 text-slate-200" />
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                  <UploadCloud className="w-4 h-4" />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-white font-mono">
+              <div className="text-3xl font-extrabold text-white font-mono tracking-tight">
                 {metrics.totalTeamScanned.toLocaleString()}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                Cumulative across all teammates
-              </span>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Cumulative across all teammates
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1119,62 +1232,90 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
           {/* Portal Specific Telemetry Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            {/* Tile 1: Total Exam Slots Staged */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Total Exam Slots Staged
                 </span>
-                <FileSpreadsheet className="w-4 h-4 text-slate-400" />
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                  <FileSpreadsheet className="w-4 h-4" />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-white font-mono">{portalSlots.length}</div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                Individual slot schedules
-              </span>
+              <div className="text-3xl font-extrabold text-white font-mono tracking-tight">{portalSlots.length}</div>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Individual slot schedules
+                </span>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            {/* Tile 2: Total Completed Uploads */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Total Completed Uploads
                 </span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-emerald-400 font-mono">
+              <div className="text-3xl font-extrabold text-emerald-400 font-mono tracking-tight">
                 {metrics.totalPortalCompleted.toLocaleString()}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                Sum of &apos;Completed&apos; column
-              </span>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Sum of &apos;Completed&apos; column
+                </span>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            {/* Tile 3: Schools with Exams */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-indigo-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Schools with Exams
                 </span>
-                <GraduationCap className="w-4 h-4 text-slate-300" />
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                  <GraduationCap className="w-4 h-4" />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-slate-200 font-mono">
+              <div className="text-3xl font-extrabold text-indigo-200 font-mono tracking-tight">
                 {metrics.totalSchoolsCount}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                Faculties in schedule
-              </span>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Faculties in schedule
+                </span>
+              </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-[#0E121A] border border-[#1E2430] shadow-md">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+            {/* Tile 4: Examination Dates */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-amber-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Examination Dates
                 </span>
-                <Calendar className="w-4 h-4 text-slate-300" />
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                  <Calendar className="w-4 h-4" />
+                </div>
               </div>
-              <div className="text-2xl font-bold text-slate-200 font-mono">
+              <div className="text-3xl font-extrabold text-amber-400 font-mono tracking-tight">
                 {metrics.totalDatesCount}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono mt-1 block">
-                Unique exam days
-              </span>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Unique exam days
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1714,35 +1855,14 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
               {/* Sort Selector & Search Bar */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Sort Option Dropdown */}
-                <div className="flex items-center space-x-1.5 bg-[#121622] px-2.5 py-1.5 rounded-xl border border-[#1F2636]">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                  <span className="text-[10px] text-slate-400 uppercase font-mono">Sort:</span>
-                  <select
-                    value={teammateSortBy}
-                    onChange={(e) => setTeammateSortBy(e.target.value as any)}
-                    className="bg-transparent text-xs text-white focus:outline-none cursor-pointer font-medium"
-                  >
-                    <option value="date_desc" className="bg-[#10141E] text-white">
-                      Daywise: Newest First
-                    </option>
-                    <option value="date_asc" className="bg-[#10141E] text-white">
-                      Daywise: Oldest First
-                    </option>
-                    <option value="school_asc" className="bg-[#10141E] text-white">
-                      School: A → Z
-                    </option>
-                    <option value="school_desc" className="bg-[#10141E] text-white">
-                      School: Z → A
-                    </option>
-                    <option value="scanned_desc" className="bg-[#10141E] text-white">
-                      Volume: Highest Scanned
-                    </option>
-                    <option value="received_desc" className="bg-[#10141E] text-white">
-                      Volume: Highest Received
-                    </option>
-                  </select>
-                </div>
+                {/* Clean Custom Sort Dropdown */}
+                <CustomDropdown
+                  value={teammateSortBy}
+                  options={teammateSortOptions}
+                  onChange={(val) => setTeammateSortBy(val as any)}
+                  icon={ArrowUpDown}
+                  minMenuWidth="min-w-[210px]"
+                />
 
                 {/* Filter Search */}
                 <div className="relative">

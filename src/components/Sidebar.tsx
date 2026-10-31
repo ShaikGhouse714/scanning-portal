@@ -73,16 +73,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="w-64 bg-[#0A0D14] border-r border-[#1B202A] flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none font-sans">
       {/* Top Header */}
       <div>
-        <div className="h-16 px-4 flex items-center border-b border-[#1B202A]">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#141822] border border-[#232936] flex items-center justify-center">
-              <Layers className="w-4 h-4 text-slate-200" />
+        <div className="h-16 px-4 flex items-center border-b border-[#18202E] bg-[#080B12]">
+          <div className="flex items-center space-x-3">
+            <div className="w-9 h-9 rounded-xl bg-[#0F1424] border border-[#1F2942] flex items-center justify-center p-1.5 shadow-md shadow-black/40">
+              <svg className="w-5 h-5" viewBox="0 0 64 64" fill="none">
+                <rect x="13" y="34" width="10" height="22" rx="5" fill="#00A3FF" />
+                <rect x="27" y="22" width="10" height="34" rx="5" fill="#6E44FF" />
+                <rect x="41" y="10" width="10" height="46" rx="5" fill="#9E00FF" />
+              </svg>
             </div>
             <div>
-              <span className="font-semibold text-sm text-slate-100 tracking-tight block leading-tight">
+              <span className="font-bold text-sm text-white tracking-tight block leading-tight">
                 Scanning Tracker
               </span>
-              <span className="text-[10px] text-slate-500 font-mono block leading-tight">
+              <span className="text-[10px] text-cyan-400 font-mono block leading-tight mt-0.5">
                 Exam Ops Reconciler
               </span>
             </div>
@@ -90,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Navigation Items */}
-        <nav className="p-3 space-y-1">
+        <nav className="p-3 space-y-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -98,15 +102,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all relative overflow-hidden ${
                   isActive
-                    ? 'bg-[#181E2B] text-white shadow-sm border border-[#273142]'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#121620]'
+                    ? 'bg-gradient-to-r from-cyan-500/15 via-[#161F32] to-[#121828] text-white shadow-md border border-cyan-500/30'
+                    : 'text-slate-400 hover:text-white hover:bg-[#111726] border border-transparent'
                 }`}
               >
+                {isActive && (
+                  <span className="absolute left-0 inset-y-1 w-1 bg-cyan-400 rounded-r-full" />
+                )}
                 <div className="flex items-center space-x-3">
                   <Icon
-                    className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500'}`}
+                    className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-slate-500'}`}
                   />
                   <span>{item.label}</span>
                 </div>
@@ -125,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isSuperAdmin && onOpenAccountModal && (
             <button
               onClick={onOpenAccountModal}
-              className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-[#121620] transition-all"
+              className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-[#111726] transition-all border border-transparent"
             >
               <UserPlus className="w-4 h-4 text-cyan-400" />
               <span>User Access &amp; Roles</span>
