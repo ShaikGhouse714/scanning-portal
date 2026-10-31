@@ -5,7 +5,9 @@ export const metadata: Metadata = {
   title: "ScanTrack Core // Scanning Department Portal",
   description: "Scanning Department Intake, Verification & Real-time Audit Network",
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
     shortcut: "/favicon.svg",
     apple: "/favicon.svg",
   },

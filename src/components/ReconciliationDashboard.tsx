@@ -32,6 +32,12 @@ import {
   ExternalLink,
   UserCheck,
   AlertCircle,
+  Maximize2,
+  ArrowUpDown,
+  X,
+  Building2,
+  CalendarDays,
+  FileCheck2,
 } from 'lucide-react';
 import { exportReconciliationToCSV } from '../lib/storage';
 
@@ -88,6 +94,142 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
   // Drilldown modal
   const [expandedItem, setExpandedItem] = useState<ReconciledDateSchool | null>(null);
+
+  // Large Teammate Expansion Modal & Sorting State
+  const [selectedTeammateModal, setSelectedTeammateModal] = useState<TeammateSummary | null>(null);
+  const [teammateSortBy, setTeammateSortBy] = useState<
+    'date_desc' | 'date_asc' | 'school_asc' | 'school_desc' | 'scanned_desc' | 'received_desc'
+  >('date_desc');
+  const [teammateModalTab, setTeammateModalTab] = useState<'entries' | 'daywise' | 'schoolwise'>('entries');
+  const [teammateModalSearch, setTeammateModalSearch] = useState<string>('');
+
+  // Keep modal data reactive with latest synced data
+  const activeModalTeammate = useMemo(() => {
+    if (!selectedTeammateModal) return null;
+    return teammates.find((t) => t.name === selectedTeammateModal.name) || selectedTeammateModal;
+  }, [selectedTeammateModal, teammates]);
+
+  // Sorted & Filtered entries for selected teammate
+  const sortedTeammateEntries = useMemo(() => {
+    if (!activeModalTeammate) return [];
+    let list = [...activeModalTeammate.entries];
+
+    if (teammateModalSearch.trim()) {
+      const q = teammateModalSearch.toLowerCase();
+      list = list.filter(
+        (e) =>
+          e.date.toLowerCase().includes(q) ||
+          e.school.toLowerCase().includes(q) ||
+          e.schoolCode.toLowerCase().includes(q) ||
+          (e.notes && e.notes.toLowerCase().includes(q))
+      );
+    }
+
+    switch (teammateSortBy) {
+      case 'date_desc':
+        return list.sort((a, b) => b.date.localeCompare(a.date));
+      case 'date_asc':
+        return list.sort((a, b) => a.date.localeCompare(b.date));
+      case 'school_asc':
+        return list.sort((a, b) => (a.schoolCode || a.school).localeCompare(b.schoolCode || b.school));
+      case 'school_desc':
+        return list.sort((a, b) => (b.schoolCode || b.school).localeCompare(a.schoolCode || a.school));
+      case 'scanned_desc':
+        return list.sort((a, b) => b.scannedCount - a.scannedCount);
+      case 'received_desc':
+        return list.sort((a, b) => b.receivedCount - a.receivedCount);
+      default:
+        return list;
+    }
+  }, [activeModalTeammate, teammateSortBy, teammateModalSearch]);
+
+  // Day-wise Aggregation for selected teammate
+  const daywiseAggregation = useMemo(() => {
+    if (!activeModalTeammate) return [];
+    const map = new Map<
+      string,
+      { date: string; received: number; scanned: number; schools: Set<string>; count: number }
+    >();
+    for (const e of activeModalTeammate.entries) {
+      const existing = map.get(e.date) || {
+        date: e.date,
+        received: 0,
+        scanned: 0,
+        schools: new Set<string>(),
+        count: 0,
+      };
+      existing.received += e.receivedCount;
+      existing.scanned += e.scannedCount;
+      if (e.schoolCode || e.school) existing.schools.add(e.schoolCode || e.school);
+      existing.count += 1;
+      map.set(e.date, existing);
+    }
+    const list = Array.from(map.values()).map((item) => ({
+      date: item.date,
+      received: item.received,
+      scanned: item.scanned,
+      schools: Array.from(item.schools),
+      batchesCount: item.count,
+      backlog: item.received - item.scanned,
+      completion: item.received > 0 ? (item.scanned / item.received) * 100 : 0,
+    }));
+
+    if (teammateSortBy === 'date_asc') {
+      list.sort((a, b) => a.date.localeCompare(b.date));
+    } else {
+      list.sort((a, b) => b.date.localeCompare(a.date));
+    }
+    return list;
+  }, [activeModalTeammate, teammateSortBy]);
+
+  // School-wise Aggregation for selected teammate
+  const schoolwiseAggregation = useMemo(() => {
+    if (!activeModalTeammate) return [];
+    const map = new Map<
+      string,
+      {
+        schoolCode: string;
+        schoolName: string;
+        received: number;
+        scanned: number;
+        dates: Set<string>;
+        count: number;
+      }
+    >();
+    for (const e of activeModalTeammate.entries) {
+      const code = e.schoolCode || e.school || 'UNKNOWN';
+      const existing = map.get(code) || {
+        schoolCode: code,
+        schoolName: e.school || code,
+        received: 0,
+        scanned: 0,
+        dates: new Set<string>(),
+        count: 0,
+      };
+      existing.received += e.receivedCount;
+      existing.scanned += e.scannedCount;
+      if (e.date) existing.dates.add(e.date);
+      existing.count += 1;
+      map.set(code, existing);
+    }
+    const list = Array.from(map.values()).map((item) => ({
+      schoolCode: item.schoolCode,
+      schoolName: item.schoolName,
+      received: item.received,
+      scanned: item.scanned,
+      dates: Array.from(item.dates),
+      batchesCount: item.count,
+      backlog: item.received - item.scanned,
+      completion: item.received > 0 ? (item.scanned / item.received) * 100 : 0,
+    }));
+
+    if (teammateSortBy === 'school_desc') {
+      list.sort((a, b) => b.schoolCode.localeCompare(a.schoolCode));
+    } else {
+      list.sort((a, b) => a.schoolCode.localeCompare(b.schoolCode));
+    }
+    return list;
+  }, [activeModalTeammate, teammateSortBy]);
 
   // Sheet URL input state inside settings
   const [sheetUrlInput, setSheetUrlInput] = useState<string>(googleSheetUrl);
@@ -223,7 +365,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
               {/* Card 1: Google Sheet */}
               <div className="p-3 rounded-xl bg-[#121620] border border-[#212836] flex flex-col justify-between space-y-2">
                 <div className="flex items-start justify-between">
@@ -330,31 +472,6 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     className="text-[11px] text-slate-400 hover:text-white underline font-mono"
                   >
                     Inspect
-                  </button>
-                </div>
-              </div>
-
-              {/* Card 4: Reference Data */}
-              <div className="p-3 rounded-xl bg-[#121620] border border-[#212836] flex flex-col justify-between space-y-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="text-[11px] font-semibold text-white block">
-                      4. Reference Portal Data
-                    </span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">
-                      Pre-configured sample dataset
-                    </span>
-                  </div>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                </div>
-
-                <div className="flex items-center justify-between pt-1 border-t border-[#1A202C]">
-                  <span className="text-[10px] text-slate-500 font-mono">120+ rows</span>
-                  <button
-                    onClick={onResetToDemoData}
-                    className="text-[11px] px-2 py-0.5 rounded bg-[#1C1F2E] hover:bg-[#282D42] text-amber-300 border border-[#3E3A52] transition-colors"
-                  >
-                    Reset Demo
                   </button>
                 </div>
               </div>
@@ -839,7 +956,8 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 return (
                   <div
                     key={tm.name}
-                    className={`p-5 rounded-2xl border shadow-xl flex flex-col justify-between transition-all ${
+                    onClick={() => setSelectedTeammateModal(tm)}
+                    className={`p-5 rounded-2xl border shadow-xl flex flex-col justify-between transition-all cursor-pointer group hover:border-cyan-500/50 hover:bg-[#10141F] hover:shadow-cyan-500/5 ${
                       isEmpty
                         ? 'bg-[#0B0E14] border-[#181E29]'
                         : 'bg-[#0E121A] border-[#1E2430]'
@@ -921,59 +1039,27 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     </div>
 
                     {isEmpty ? (
-                      <div className="p-2.5 rounded-lg bg-[#121620] border border-[#1E2430] text-center text-[10px] text-slate-500 italic font-mono">
-                        Subsheet exists in Google Sheet. Entries will appear when updated.
+                      <div className="p-2.5 rounded-lg bg-[#121620] border border-[#1E2430] text-[10px] text-slate-500 italic font-mono flex items-center justify-between">
+                        <span>Awaiting Google Sheet rows</span>
+                        <span className="text-cyan-400 font-sans not-italic text-[10px] flex items-center space-x-1">
+                          <span>Inspect</span>
+                          <Maximize2 className="w-3 h-3" />
+                        </span>
                       </div>
                     ) : (
-                      <>
+                      <div className="space-y-2">
                         <button
-                          onClick={() => setExpandedTeammate(isExpanded ? null : tm.name)}
-                          className="w-full py-1.5 px-3 bg-[#161C27] hover:bg-[#202737] text-slate-300 rounded-lg border border-[#242C3D] text-[11px] font-medium transition-colors flex items-center justify-center space-x-1"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTeammateModal(tm);
+                          }}
+                          className="w-full py-2 px-3 bg-[#161C27] hover:bg-[#202737] group-hover:border-cyan-500/40 text-slate-200 group-hover:text-cyan-300 rounded-xl border border-[#242C3D] text-[11px] font-semibold transition-all flex items-center justify-center space-x-1.5 shadow-sm"
                         >
-                          <span>
-                            {isExpanded
-                              ? 'Hide Subsheet Rows'
-                              : `View Subsheet Rows (${tm.entriesCount})`}
-                          </span>
-                          {isExpanded ? (
-                            <ChevronUp className="w-3.5 h-3.5" />
-                          ) : (
-                            <ChevronDown className="w-3.5 h-3.5" />
-                          )}
+                          <Maximize2 className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Expand Full Sheet & Sort ({tm.entriesCount} rows)</span>
                         </button>
-
-                        {/* Expanded Subsheet Rows */}
-                        {isExpanded && (
-                          <div className="mt-3 pt-3 border-t border-[#1E2430] space-y-2 max-h-56 overflow-y-auto pr-1">
-                            {tm.entries.map((entry) => (
-                              <div
-                                key={entry.id}
-                                className="p-2 rounded-lg bg-[#121620] border border-[#1E2430] text-[11px]"
-                              >
-                                <div className="flex items-center justify-between font-mono mb-1">
-                                  <span className="text-slate-300 font-semibold">{entry.date}</span>
-                                  <span className="text-slate-400">{entry.schoolCode}</span>
-                                </div>
-                                <div className="flex items-center justify-between text-slate-400 text-[10px] font-mono">
-                                  <span>
-                                    Rec: <strong className="text-white">{entry.receivedCount}</strong> |
-                                    Scan:{' '}
-                                    <strong className="text-emerald-400">{entry.scannedCount}</strong>
-                                  </span>
-                                  {entry.notes && (
-                                    <span
-                                      className="truncate max-w-[120px] text-slate-500"
-                                      title={entry.notes}
-                                    >
-                                      {entry.notes}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
+                      </div>
                     )}
                   </div>
                 );
@@ -1442,6 +1528,506 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                   ))
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Large Teammate Subsheet & Sorting Modal */}
+      {activeModalTeammate && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn"
+          onClick={() => setSelectedTeammateModal(null)}
+        >
+          <div
+            className="bg-[#0C0F17] border border-[#232B3A] rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-5 border-b border-[#1A202C] flex items-center justify-between shrink-0 bg-[#0E121C]">
+              <div className="flex items-center space-x-3.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-600 to-blue-700 flex items-center justify-center font-bold text-white shadow-lg text-sm">
+                  {activeModalTeammate.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-base font-bold text-white tracking-tight">
+                      {activeModalTeammate.name}
+                    </h3>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-500/30">
+                      Subsheet: {activeModalTeammate.name}
+                    </span>
+                    <span
+                      className={`text-[9px] font-mono px-2 py-0.5 rounded ${
+                        activeModalTeammate.entriesCount === 0
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                          : activeModalTeammate.totalReceived > 0 &&
+                            activeModalTeammate.totalScanned >= activeModalTeammate.totalReceived
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      }`}
+                    >
+                      {activeModalTeammate.entriesCount === 0
+                        ? 'Awaiting Google Sheet Rows'
+                        : activeModalTeammate.totalReceived > 0 &&
+                          activeModalTeammate.totalScanned >= activeModalTeammate.totalReceived
+                        ? '100% Reconciled'
+                        : `${(
+                            (activeModalTeammate.totalScanned /
+                              Math.max(1, activeModalTeammate.totalReceived)) *
+                            100
+                          ).toFixed(0)}% Scanned`}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                    {activeModalTeammate.entriesCount} logged entries across{' '}
+                    {activeModalTeammate.datesActive.length} dates and{' '}
+                    {activeModalTeammate.schoolsCovered.length} schools
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedTeammateModal(null)}
+                className="w-8 h-8 rounded-lg bg-[#141824] hover:bg-[#1E2436] text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                title="Close Modal (Esc)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Top Telemetry Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-[#090C12] border-b border-[#1A202C] text-xs font-mono shrink-0">
+              <div className="p-3 rounded-xl bg-[#10141E] border border-[#1C2331]">
+                <span className="text-slate-500 text-[10px] uppercase block">Physical Received</span>
+                <span className="text-lg font-bold text-slate-100">
+                  {activeModalTeammate.totalReceived.toLocaleString()}
+                </span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">Scripts handed over</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#10141E] border border-[#1C2331]">
+                <span className="text-slate-500 text-[10px] uppercase block">Scanned by Teammate</span>
+                <span className="text-lg font-bold text-emerald-400">
+                  {activeModalTeammate.totalScanned.toLocaleString()}
+                </span>
+                <span className="text-[10px] text-emerald-500/80 block mt-0.5">Digitized to portal</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#10141E] border border-[#1C2331]">
+                <span className="text-slate-500 text-[10px] uppercase block">Pending Backlog</span>
+                <span
+                  className={`text-lg font-bold ${
+                    activeModalTeammate.totalReceived - activeModalTeammate.totalScanned > 0
+                      ? 'text-rose-400'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  {(
+                    activeModalTeammate.totalReceived - activeModalTeammate.totalScanned
+                  ).toLocaleString()}
+                </span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">Scripts remaining</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#10141E] border border-[#1C2331]">
+                <span className="text-slate-500 text-[10px] uppercase block">Completion Rate</span>
+                <span className="text-lg font-bold text-cyan-400">
+                  {activeModalTeammate.totalReceived > 0
+                    ? `${(
+                        (activeModalTeammate.totalScanned / activeModalTeammate.totalReceived) *
+                        100
+                      ).toFixed(1)}%`
+                    : '0%'}
+                </span>
+                <div className="w-full bg-[#181E2B] h-1.5 rounded-full overflow-hidden mt-1.5">
+                  <div
+                    className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        activeModalTeammate.totalReceived > 0
+                          ? (activeModalTeammate.totalScanned / activeModalTeammate.totalReceived) *
+                              100
+                          : 0
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Controls Toolbar: Tabs, Sorting by Daywise / School, Search */}
+            <div className="p-4 border-b border-[#1A202C] bg-[#0E121C] flex flex-wrap items-center justify-between gap-3 shrink-0">
+              {/* View Tabs */}
+              <div className="flex items-center space-x-1 bg-[#121622] p-1 rounded-xl border border-[#1F2636]">
+                <button
+                  onClick={() => setTeammateModalTab('entries')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
+                    teammateModalTab === 'entries'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>All Subsheet Rows ({sortedTeammateEntries.length})</span>
+                </button>
+
+                <button
+                  onClick={() => setTeammateModalTab('daywise')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
+                    teammateModalTab === 'daywise'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  <span>Day-wise Breakdown ({daywiseAggregation.length})</span>
+                </button>
+
+                <button
+                  onClick={() => setTeammateModalTab('schoolwise')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
+                    teammateModalTab === 'schoolwise'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>School-wise Breakdown ({schoolwiseAggregation.length})</span>
+                </button>
+              </div>
+
+              {/* Sort Selector & Search Bar */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Sort Option Dropdown */}
+                <div className="flex items-center space-x-1.5 bg-[#121622] px-2.5 py-1.5 rounded-xl border border-[#1F2636]">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span className="text-[10px] text-slate-400 uppercase font-mono">Sort:</span>
+                  <select
+                    value={teammateSortBy}
+                    onChange={(e) => setTeammateSortBy(e.target.value as any)}
+                    className="bg-transparent text-xs text-white focus:outline-none cursor-pointer font-medium"
+                  >
+                    <option value="date_desc" className="bg-[#10141E] text-white">
+                      Daywise: Newest First
+                    </option>
+                    <option value="date_asc" className="bg-[#10141E] text-white">
+                      Daywise: Oldest First
+                    </option>
+                    <option value="school_asc" className="bg-[#10141E] text-white">
+                      School: A → Z
+                    </option>
+                    <option value="school_desc" className="bg-[#10141E] text-white">
+                      School: Z → A
+                    </option>
+                    <option value="scanned_desc" className="bg-[#10141E] text-white">
+                      Volume: Highest Scanned
+                    </option>
+                    <option value="received_desc" className="bg-[#10141E] text-white">
+                      Volume: Highest Received
+                    </option>
+                  </select>
+                </div>
+
+                {/* Filter Search */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    value={teammateModalSearch}
+                    onChange={(e) => setTeammateModalSearch(e.target.value)}
+                    placeholder="Search date, school..."
+                    className="pl-8 pr-3 py-1.5 bg-[#121622] border border-[#1F2636] rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 w-44"
+                  />
+                  {teammateModalSearch && (
+                    <button
+                      onClick={() => setTeammateModalSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Scrollable Modal Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {activeModalTeammate.entriesCount === 0 ? (
+                <div className="py-16 text-center space-y-3 bg-[#090C12] rounded-2xl border border-[#1A202C] p-8">
+                  <div className="w-12 h-12 rounded-2xl bg-[#141824] border border-[#232936] flex items-center justify-center mx-auto text-slate-400">
+                    <Clock className="w-6 h-6 text-amber-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Subsheet Connected & Awaiting Logs</h4>
+                    <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                      The sheet tab <span className="font-mono text-cyan-300">"{activeModalTeammate.name}"</span> is actively tracked from your Google Sheet.
+                      Once this teammate fills rows with Date, School, Received, and Scanned count, click
+                      <span className="text-white font-semibold"> "Sync Sheet Data"</span> to view daywise & school logs here.
+                    </p>
+                  </div>
+                </div>
+              ) : teammateModalTab === 'entries' ? (
+                /* TAB 1: ALL ROWS */
+                <div className="border border-[#1E2430] rounded-xl overflow-hidden bg-[#0A0D14]">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-[#121622] text-[10px] uppercase font-mono text-slate-400 border-b border-[#1E2430]">
+                      <tr>
+                        <th className="p-3">#</th>
+                        <th
+                          className="p-3 cursor-pointer hover:text-cyan-300"
+                          onClick={() =>
+                            setTeammateSortBy(
+                              teammateSortBy === 'date_desc' ? 'date_asc' : 'date_desc'
+                            )
+                          }
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Date</span>
+                            <ArrowUpDown className="w-3 h-3" />
+                          </div>
+                        </th>
+                        <th
+                          className="p-3 cursor-pointer hover:text-cyan-300"
+                          onClick={() =>
+                            setTeammateSortBy(
+                              teammateSortBy === 'school_asc' ? 'school_desc' : 'school_asc'
+                            )
+                          }
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>School</span>
+                            <ArrowUpDown className="w-3 h-3" />
+                          </div>
+                        </th>
+                        <th className="p-3 text-right">Physical Received</th>
+                        <th className="p-3 text-right">Scanned Count</th>
+                        <th className="p-3 text-right">Pending Backlog</th>
+                        <th className="p-3 text-center">Status</th>
+                        <th className="p-3">Shift / Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#161B26] font-mono text-[11px]">
+                      {sortedTeammateEntries.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="p-8 text-center text-slate-500">
+                            No rows match your search filter.
+                          </td>
+                        </tr>
+                      ) : (
+                        sortedTeammateEntries.map((entry, idx) => {
+                          const backlog = entry.receivedCount - entry.scannedCount;
+                          return (
+                            <tr
+                              key={entry.id || idx}
+                              className="hover:bg-[#121622]/60 transition-colors"
+                            >
+                              <td className="p-3 text-slate-500 text-[10px]">{idx + 1}</td>
+                              <td className="p-3 text-slate-200 font-semibold">{entry.date}</td>
+                              <td className="p-3">
+                                <span className="px-1.5 py-0.5 rounded bg-[#161C27] border border-[#283244] text-white font-bold text-[10px] mr-1.5">
+                                  {entry.schoolCode || entry.school}
+                                </span>
+                                {entry.school && entry.school !== entry.schoolCode && (
+                                  <span className="text-slate-400 text-[10px] font-sans truncate max-w-[150px] inline-block align-middle">
+                                    {entry.school}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right text-slate-200">{entry.receivedCount}</td>
+                              <td className="p-3 text-right font-bold text-emerald-400">
+                                {entry.scannedCount}
+                              </td>
+                              <td className="p-3 text-right">
+                                <span
+                                  className={
+                                    backlog > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'
+                                  }
+                                >
+                                  {backlog > 0 ? `+${backlog}` : backlog}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span
+                                  className={`text-[9px] px-2 py-0.5 rounded ${
+                                    backlog <= 0
+                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                  }`}
+                                >
+                                  {backlog <= 0 ? 'Matched' : 'In Backlog'}
+                                </span>
+                              </td>
+                              <td className="p-3 text-slate-400 text-[10px] font-sans">
+                                {entry.shift && (
+                                  <span className="text-[9px] font-mono px-1.5 py-0.2 bg-[#1A202C] rounded mr-1">
+                                    {entry.shift}
+                                  </span>
+                                )}
+                                <span>{entry.notes || '-'}</span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : teammateModalTab === 'daywise' ? (
+                /* TAB 2: DAY-WISE BREAKDOWN */
+                <div className="space-y-3">
+                  <div className="border border-[#1E2430] rounded-xl overflow-hidden bg-[#0A0D14]">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-[#121622] text-[10px] uppercase font-mono text-slate-400 border-b border-[#1E2430]">
+                        <tr>
+                          <th className="p-3">Date</th>
+                          <th className="p-3 text-right">Total Received</th>
+                          <th className="p-3 text-right">Total Scanned</th>
+                          <th className="p-3 text-right">Day Backlog</th>
+                          <th className="p-3 text-right">Completion Rate</th>
+                          <th className="p-3">Schools Handled on Date</th>
+                          <th className="p-3 text-right">Batches</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#161B26] font-mono text-[11px]">
+                        {daywiseAggregation.map((day) => (
+                          <tr key={day.date} className="hover:bg-[#121622]/60 transition-colors">
+                            <td className="p-3 text-white font-bold flex items-center space-x-1.5">
+                              <Calendar className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                              <span>{day.date}</span>
+                            </td>
+                            <td className="p-3 text-right text-slate-200">
+                              {day.received.toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right font-bold text-emerald-400">
+                              {day.scanned.toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right">
+                              <span
+                                className={
+                                  day.backlog > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'
+                                }
+                              >
+                                {day.backlog > 0 ? `+${day.backlog}` : day.backlog}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                  day.completion >= 100
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : 'bg-rose-500/20 text-rose-300'
+                                }`}
+                              >
+                                {day.completion.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex flex-wrap gap-1">
+                                {day.schools.map((sch) => (
+                                  <span
+                                    key={sch}
+                                    className="px-1.5 py-0.5 rounded bg-[#161C27] border border-[#283244] text-[10px] text-slate-300"
+                                  >
+                                    {sch}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-3 text-right text-slate-400">{day.batchesCount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                /* TAB 3: SCHOOL-WISE BREAKDOWN */
+                <div className="space-y-3">
+                  <div className="border border-[#1E2430] rounded-xl overflow-hidden bg-[#0A0D14]">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-[#121622] text-[10px] uppercase font-mono text-slate-400 border-b border-[#1E2430]">
+                        <tr>
+                          <th className="p-3">School Code</th>
+                          <th className="p-3">School Name</th>
+                          <th className="p-3 text-right">Total Received</th>
+                          <th className="p-3 text-right">Total Scanned</th>
+                          <th className="p-3 text-right">School Backlog</th>
+                          <th className="p-3 text-right">Completion Rate</th>
+                          <th className="p-3">Dates Active</th>
+                          <th className="p-3 text-right">Batches</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#161B26] font-mono text-[11px]">
+                        {schoolwiseAggregation.map((sch) => (
+                          <tr key={sch.schoolCode} className="hover:bg-[#121622]/60 transition-colors">
+                            <td className="p-3">
+                              <span className="px-2 py-0.5 rounded bg-[#161C27] border border-[#283244] text-white font-bold text-[11px]">
+                                {sch.schoolCode}
+                              </span>
+                            </td>
+                            <td className="p-3 text-slate-300 font-sans">{sch.schoolName}</td>
+                            <td className="p-3 text-right text-slate-200">
+                              {sch.received.toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right font-bold text-emerald-400">
+                              {sch.scanned.toLocaleString()}
+                            </td>
+                            <td className="p-3 text-right">
+                              <span
+                                className={
+                                  sch.backlog > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'
+                                }
+                              >
+                                {sch.backlog > 0 ? `+${sch.backlog}` : sch.backlog}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                  sch.completion >= 100
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : 'bg-rose-500/20 text-rose-300'
+                                }`}
+                              >
+                                {sch.completion.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex flex-wrap gap-1">
+                                {sch.dates.map((d) => (
+                                  <span
+                                    key={d}
+                                    className="px-1.5 py-0.5 rounded bg-[#161C27] border border-[#283244] text-[10px] text-slate-300"
+                                  >
+                                    {d}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-3 text-right text-slate-400">{sch.batchesCount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-[#1A202C] bg-[#0E121C] flex items-center justify-between text-xs font-mono text-slate-400 shrink-0">
+              <div className="flex items-center space-x-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Live Google Sheet Subsheet Synchronizer</span>
+              </div>
+              <button
+                onClick={() => setSelectedTeammateModal(null)}
+                className="px-4 py-1.5 rounded-lg bg-[#181E2B] hover:bg-[#222B3D] text-white border border-[#2A3447] text-xs font-semibold transition-colors"
+              >
+                Close Inspector
+              </button>
             </div>
           </div>
         </div>

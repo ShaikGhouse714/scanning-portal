@@ -10,7 +10,6 @@ import {
   Link2,
   UserPlus,
   LogOut,
-  ChevronLeft,
   CheckCircle2,
   AlertOctagon,
   RefreshCw,
@@ -64,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="w-64 bg-[#0A0D14] border-r border-[#1B202A] flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none font-sans">
       {/* Top Header */}
       <div>
-        <div className="h-16 px-4 flex items-center justify-between border-b border-[#1B202A]">
+        <div className="h-16 px-4 flex items-center border-b border-[#1B202A]">
           <div className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-lg bg-[#141822] border border-[#232936] flex items-center justify-center">
               <Layers className="w-4 h-4 text-slate-200" />
@@ -78,12 +77,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </div>
           </div>
-          <button
-            title="Collapse"
-            className="w-7 h-7 rounded-md hover:bg-[#181E29] flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
         </div>
 
         {/* Navigation Items */}
