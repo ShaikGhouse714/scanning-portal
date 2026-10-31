@@ -28,7 +28,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col bg-[#060912] text-[#F1F5F9] antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+      <body className="min-h-full flex flex-col bg-[#000000] text-[#EDEDED] antialiased selection:bg-white/20 selection:text-white">
         {children}
       </body>
     </html>

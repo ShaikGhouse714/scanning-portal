@@ -362,43 +362,43 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               <button
                 onClick={onSyncGoogleSheet}
                 disabled={isSyncing}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#141822] hover:bg-[#1E2433] border border-[#242C3D] text-xs font-medium text-slate-200 transition-colors disabled:opacity-50"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#121212] hover:bg-[#1E1E1E] border border-[#262626] text-xs font-medium text-neutral-200 transition-colors disabled:opacity-50"
                 title="Sync latest entries from published Google Sheet"
               >
                 <RotateCw
-                  className={`w-3.5 h-3.5 text-slate-400 ${isSyncing ? 'animate-spin text-white' : ''}`}
+                  className={`w-3.5 h-3.5 text-neutral-400 ${isSyncing ? 'animate-spin text-white' : ''}`}
                 />
                 <span>{isSyncing ? 'Syncing Sheet...' : 'Sync Sheet Data'}</span>
               </button>
 
               <button
                 onClick={() => exportReconciliationToCSV(filteredMatrix)}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#141822] hover:bg-[#1E2433] border border-[#242C3D] text-xs font-medium text-slate-300 transition-colors"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#121212] hover:bg-[#1E1E1E] border border-[#262626] text-xs font-medium text-neutral-300 transition-colors"
               >
-                <Download className="w-3.5 h-3.5 text-slate-400" />
+                <Download className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Export CSV</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('data_sources')}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1D2434] hover:bg-[#283248] text-white text-xs font-semibold border border-[#313E57] shadow-sm transition-all"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-neutral-200 text-black text-xs font-semibold border border-white shadow-sm transition-all"
               >
-                <Link2 className="w-3.5 h-3.5 text-slate-300" />
+                <Link2 className="w-3.5 h-3.5 text-black" />
                 <span>Connect Sources</span>
               </button>
             </div>
           </div>
 
           {/* Active Data Source Connections Banner */}
-          <div className="bg-[#0C101C]/80 backdrop-blur-xl rounded-2xl border border-[#1A2234] p-4 shadow-xl">
-            <div className="flex items-center justify-between pb-3 border-b border-[#182030] mb-3 text-xs">
+          <div className="bg-[#0A0A0A] backdrop-blur-xl rounded-2xl border border-[#1F1F1F] p-4 shadow-xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1F1F1F] mb-3 text-xs">
               <div className="flex items-center space-x-2.5">
-                <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] animate-pulse" />
+                <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] animate-pulse" />
                 <span className="font-bold text-white uppercase tracking-wider text-[11px] font-mono">
                   Active Data Source Connections
                 </span>
               </div>
-              <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-semibold">
+              <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-white/10 text-white border border-white/20 font-semibold">
                 {teamEntries.length > 0 && portalSlots.length > 0
                   ? '2 / 2 connected'
                   : teamEntries.length > 0 || portalSlots.length > 0
@@ -409,30 +409,30 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
               {/* Card 1: Google Sheet */}
-              <div className="relative group overflow-hidden rounded-2xl bg-gradient-to-b from-[#0F1626] to-[#0A0E18] border border-[#1E2638] hover:border-cyan-500/40 p-4 shadow-lg shadow-black/30 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5">
-                <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative group overflow-hidden rounded-2xl bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] p-4 shadow-lg shadow-black/40 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5">
+                <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3">
-                    <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0 mt-0.5">
+                    <div className="w-9 h-9 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-white shrink-0 mt-0.5">
                       <Link2 className="w-4 h-4" />
                     </div>
                     <div>
                       <span className="text-xs font-bold text-white block">
                         1. Team Google Sheet
                       </span>
-                      <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">
+                      <span className="text-[11px] text-neutral-400 block mt-0.5 font-mono">
                         {teammates.length > 0
                           ? `${teammates.length} Subsheets (${teamEntries.length} logs)`
                           : 'No subsheet loaded'}
                       </span>
                     </div>
                   </div>
-                  <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <Clock className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
                 </div>
 
-                <div className="flex items-center justify-between pt-2.5 border-t border-[#182030]">
+                <div className="flex items-center justify-between pt-2.5 border-t border-[#1F1F1F]">
                   <span
-                    className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]"
+                    className="text-[10px] text-neutral-400 font-mono truncate max-w-[120px]"
                     title={lastSyncedTime}
                   >
                     {lastSyncedTime}
@@ -440,7 +440,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                   <button
                     onClick={onSyncGoogleSheet}
                     disabled={isSyncing}
-                    className="text-xs px-3 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 font-semibold border border-cyan-500/30 transition-all shadow-sm"
+                    className="text-xs px-3 py-1 rounded-lg bg-[#181818] hover:bg-[#222222] text-white font-medium border border-[#2E2E2E] transition-all shadow-sm"
                   >
                     {isSyncing ? 'Syncing...' : 'Sync'}
                   </button>
@@ -448,36 +448,36 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
 
               {/* Card 2: Portal Excel */}
-              <div className="relative group overflow-hidden rounded-2xl bg-gradient-to-b from-[#0F1626] to-[#0A0E18] border border-[#1E2638] hover:border-emerald-500/40 p-4 shadow-lg shadow-black/30 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5">
-                <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative group overflow-hidden rounded-2xl bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] p-4 shadow-lg shadow-black/40 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5">
+                <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+                    <div className="w-9 h-9 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-white shrink-0 mt-0.5">
                       <FileSpreadsheet className="w-4 h-4" />
                     </div>
                     <div>
                       <span className="text-xs font-bold text-white block">
                         2. Portal Excel / CSV
                       </span>
-                      <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">
+                      <span className="text-[11px] text-neutral-400 block mt-0.5 font-mono">
                         {portalSlots.length > 0
                           ? `${portalSlots.length} Exam Slots (${metrics.totalPortalCompleted} Uploaded)`
                           : 'No portal file staged'}
                       </span>
                     </div>
                   </div>
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
                 </div>
 
-                <div className="flex items-center justify-between pt-2.5 border-t border-[#182030]">
+                <div className="flex items-center justify-between pt-2.5 border-t border-[#1F1F1F]">
                   <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
                     portalSlots.length > 0
-                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                      : 'bg-slate-800 text-slate-400'
+                      ? 'bg-white/10 text-neutral-200 border border-white/20'
+                      : 'bg-[#181818] text-neutral-400 border border-[#282828]'
                   }`}>
                     {portalSlots.length > 0 ? 'File active' : 'Awaiting file'}
                   </span>
-                  <label className="text-xs px-3 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-semibold border border-emerald-500/30 transition-all cursor-pointer shadow-sm">
+                  <label className="text-xs px-3 py-1 rounded-lg bg-[#181818] hover:bg-[#222222] text-white font-medium border border-[#2E2E2E] transition-all cursor-pointer shadow-sm">
                     <span>Upload</span>
                     <input
                       type="file"
@@ -493,16 +493,16 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
 
               {/* Card 3: Discrepancy Status */}
-              <div className={`relative group overflow-hidden rounded-2xl bg-gradient-to-b from-[#0F1626] to-[#0A0E18] border ${
-                metrics.netDiscrepancy > 0 ? 'border-rose-500/30 hover:border-rose-500/50' : 'border-[#1E2638] hover:border-emerald-500/40'
-              } p-4 shadow-lg shadow-black/30 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5`}>
+              <div className={`relative group overflow-hidden rounded-2xl bg-[#0D0D0D] border ${
+                metrics.netDiscrepancy > 0 ? 'border-rose-500/30 hover:border-rose-500/50' : 'border-[#222222] hover:border-[#383838]'
+              } p-4 shadow-lg shadow-black/40 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5`}>
                 <div className={`absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent ${
-                  metrics.netDiscrepancy > 0 ? 'via-rose-500/50' : 'via-emerald-500/50'
+                  metrics.netDiscrepancy > 0 ? 'via-rose-500/50' : 'via-white/30'
                 } to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3">
                     <div className={`w-9 h-9 rounded-xl ${
-                      metrics.netDiscrepancy > 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                      metrics.netDiscrepancy > 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-[#161616] border-[#282828] text-white'
                     } border flex items-center justify-center shrink-0 mt-0.5`}>
                       <AlertOctagon className="w-4 h-4" />
                     </div>
@@ -510,7 +510,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                       <span className="text-xs font-bold text-white block">
                         3. Matching Variance
                       </span>
-                      <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">
+                      <span className="text-[11px] text-neutral-400 block mt-0.5 font-mono">
                         {metrics.netDiscrepancy === 0
                           ? '100% Synchronized'
                           : metrics.netDiscrepancy > 0
@@ -519,10 +519,10 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                       </span>
                     </div>
                   </div>
-                  <AlertOctagon className={`w-3.5 h-3.5 ${metrics.netDiscrepancy > 0 ? 'text-rose-400' : 'text-emerald-400'} shrink-0`} />
+                  <AlertOctagon className={`w-3.5 h-3.5 ${metrics.netDiscrepancy > 0 ? 'text-rose-400' : 'text-neutral-400'} shrink-0`} />
                 </div>
 
-                <div className="flex items-center justify-between pt-2.5 border-t border-[#182030]">
+                <div className="flex items-center justify-between pt-2.5 border-t border-[#1F1F1F]">
                   <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
                     metrics.netDiscrepancy > 0
                       ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
@@ -532,7 +532,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                   </span>
                   <button
                     onClick={() => setStatusFilter(metrics.netDiscrepancy > 0 ? 'discrepancy' : 'all')}
-                    className="text-xs text-slate-300 hover:text-white underline font-mono transition-colors"
+                    className="text-xs text-neutral-300 hover:text-white underline font-mono transition-colors"
                   >
                     Inspect
                   </button>
@@ -572,13 +572,13 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           {/* 4 Core Telemetry Cards (Enhanced Hardware-Telemetry Styling) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Tile 1: Total Physical Received */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-sky-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-sky-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Total Physical Received
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                <div className="w-8 h-8 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-white">
                   <FileText className="w-4 h-4" />
                 </div>
               </div>
@@ -586,21 +586,21 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 {metrics.totalTeamReceived.toLocaleString()}
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                <span className="text-[10px] text-neutral-400 font-mono">
                   Across {teammates.length} teammate subsheets
                 </span>
               </div>
             </div>
 
             {/* Tile 2: Total Scanned by Team */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Total Scanned by Team
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <div className="w-8 h-8 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-emerald-400">
                   <UploadCloud className="w-4 h-4" />
                 </div>
               </div>
@@ -609,49 +609,49 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="text-[10px] text-neutral-400 font-mono">
                   Logged in Google Sheet subsheets
                 </span>
               </div>
             </div>
 
             {/* Tile 3: Portal Uploaded */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-indigo-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Portal Uploaded (Completed)
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <div className="w-8 h-8 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-white">
                   <FileSpreadsheet className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-indigo-200 font-mono tracking-tight">
+              <div className="text-3xl font-extrabold text-white font-mono tracking-tight">
                 {metrics.totalPortalCompleted.toLocaleString()}
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
+                <span className="text-[10px] text-neutral-400 font-mono">
                   From {portalSlots.length} portal exam slots
                 </span>
               </div>
             </div>
 
             {/* Tile 4: Net Discrepancy */}
-            <div className={`relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border ${
+            <div className={`relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border ${
               metrics.netDiscrepancy > 0
-                ? 'border-rose-500/40 hover:border-rose-500/60 bg-gradient-to-b from-rose-950/20 to-[#0A0E1A]'
-                : 'border-[#1E273A] hover:border-emerald-500/40'
-            } shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5`}>
+                ? 'border-rose-500/40 hover:border-rose-500/60'
+                : 'border-[#222222] hover:border-[#383838]'
+            } shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5`}>
               <div className={`absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent ${
-                metrics.netDiscrepancy > 0 ? 'via-rose-500' : 'via-emerald-500'
+                metrics.netDiscrepancy > 0 ? 'via-rose-500' : 'via-white/30'
               } to-transparent opacity-50 group-hover:opacity-100 transition-opacity`} />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Net Discrepancy (Variance)
                 </span>
                 <div className={`w-8 h-8 rounded-xl ${
-                  metrics.netDiscrepancy > 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                  metrics.netDiscrepancy > 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-[#161616] border-[#282828] text-white'
                 } border flex items-center justify-center`}>
                   <TrendingUp className="w-4 h-4" />
                 </div>
@@ -663,7 +663,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
                 <span className={`w-1.5 h-1.5 rounded-full ${metrics.netDiscrepancy > 0 ? 'bg-rose-400 animate-pulse' : 'bg-emerald-400'}`} />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="text-[10px] text-neutral-400 font-mono">
                   {metrics.discrepancyBatchesCount} school batches flagged
                 </span>
               </div>
@@ -671,14 +671,14 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           </div>
 
           {/* Clean Dynamic Filters Bar with Custom Dropdowns */}
-          <div className="bg-[#0C101C]/90 backdrop-blur-xl rounded-2xl border border-[#1A2234] p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+          <div className="bg-[#0A0A0A] backdrop-blur-xl rounded-2xl border border-[#1F1F1F] p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xl">
             <div className="flex items-center space-x-2.5">
-              <div className="w-7 h-7 rounded-lg bg-[#141A28] border border-[#222C42] flex items-center justify-center text-slate-300">
-                <Filter className="w-3.5 h-3.5 text-cyan-400" />
+              <div className="w-7 h-7 rounded-lg bg-[#141414] border border-[#262626] flex items-center justify-center text-white">
+                <Filter className="w-3.5 h-3.5 text-white" />
               </div>
               <div>
                 <span className="text-xs font-bold text-white block leading-tight">Dynamic Filters</span>
-                <span className="text-[10px] text-slate-400 font-mono block leading-tight">
+                <span className="text-[10px] text-neutral-400 font-mono block leading-tight">
                   {selectedDate !== 'all' || selectedSchool !== 'all' || statusFilter !== 'all'
                     ? 'Active Filters Applied'
                     : 'All Data Shown'}
@@ -722,7 +722,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     setStatusFilter('all');
                     setSearchQuery('');
                   }}
-                  className="px-3 py-1.5 bg-[#141B2B] hover:bg-[#1E283C] text-slate-300 hover:text-white rounded-xl border border-[#253248] text-xs font-medium transition-colors"
+                  className="px-3 py-1.5 bg-[#161616] hover:bg-[#222222] text-neutral-300 hover:text-white rounded-xl border border-[#282828] text-xs font-medium transition-colors"
                 >
                   Reset Filters
                 </button>
@@ -731,32 +731,32 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           </div>
 
           {/* Master Reconciliation Table */}
-          <div className="bg-[#0E121A] rounded-2xl border border-[#1E2430] overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-[#1A202C] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="bg-[#0A0A0A] rounded-2xl border border-[#1F1F1F] overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-[#1F1F1F] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center space-x-2">
                 <span className="text-xs font-semibold text-white">
                   Date-Wise &amp; School-Wise Reconciliation Matrix
                 </span>
-                <span className="text-[11px] text-slate-500 font-mono">
+                <span className="text-[11px] text-neutral-500 font-mono">
                   ({filteredMatrix.length} batches)
                 </span>
               </div>
 
               <div className="relative w-56">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search school, course, teammate..."
-                  className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#121620] border border-[#212836] rounded-lg text-slate-200 focus:outline-none"
+                  className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#121212] border border-[#262626] rounded-lg text-white focus:outline-none focus:border-white transition-colors"
                 />
               </div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#0B0E14] text-slate-400 font-semibold uppercase tracking-wider text-[10px] border-b border-[#1A202C]">
+                <thead className="bg-[#050505] text-neutral-400 font-semibold uppercase tracking-wider text-[10px] border-b border-[#1F1F1F]">
                   <tr>
                     <th className="py-3 px-4">DATE</th>
                     <th className="py-3 px-4">SCHOOL / FACULTY</th>
@@ -769,10 +769,10 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     <th className="py-3 px-4 text-right">EXAM SLOTS</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#181E29]">
+                <tbody className="divide-y divide-[#181818]">
                   {filteredMatrix.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-16 text-center text-slate-500 text-xs">
+                      <td colSpan={9} className="py-16 text-center text-neutral-500 text-xs">
                         {teamEntries.length === 0 && portalSlots.length === 0
                           ? 'No data loaded yet. Connect your Google Sheet or upload the Central Portal Excel in Data Sources & Live Sync to begin reconciliation.'
                           : 'No reconciliation batches found matching your filter criteria.'}
@@ -785,16 +785,16 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                         <tr
                           key={item.key}
                           onClick={() => setExpandedItem(item)}
-                          className={`hover:bg-[#121620] cursor-pointer transition-colors ${
+                          className={`hover:bg-[#121212] cursor-pointer transition-colors ${
                             hasDiscrepancy ? 'bg-rose-950/10' : ''
                           }`}
                         >
-                          <td className="py-3 px-4 font-mono text-slate-300 whitespace-nowrap">
+                          <td className="py-3 px-4 font-mono text-neutral-300 whitespace-nowrap">
                             {item.date}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center space-x-2">
-                              <span className="font-mono font-bold text-slate-200 px-1.5 py-0.5 rounded bg-[#161C27] border border-[#242C3D] text-[10px]">
+                              <span className="font-mono font-bold text-white px-1.5 py-0.5 rounded bg-[#161616] border border-[#282828] text-[10px]">
                                 {item.schoolCode}
                               </span>
                               <span
@@ -805,7 +805,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                               </span>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-right font-mono text-slate-300">
+                          <td className="py-3 px-4 text-right font-mono text-neutral-300">
                             {item.teamReceived.toLocaleString()}
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold text-white">
@@ -816,7 +816,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold">
                             {item.discrepancyScannedVsPortal === 0 ? (
-                              <span className="text-slate-500">0</span>
+                              <span className="text-neutral-500">0</span>
                             ) : item.discrepancyScannedVsPortal > 0 ? (
                               <span className="text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/30">
                                 +{item.discrepancyScannedVsPortal}
@@ -836,7 +836,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                                   : item.status === 'portal_exceeds'
                                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                  : 'bg-slate-800 text-slate-400'
+                                  : 'bg-neutral-800 text-neutral-400'
                               }`}
                             >
                               {item.status === 'matched'
@@ -853,12 +853,12 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           <td className="py-3 px-4">
                             <div className="flex flex-wrap gap-1 max-w-xs">
                               {item.teammates.length === 0 ? (
-                                <span className="text-slate-600 italic text-[10px]">None</span>
+                                <span className="text-neutral-600 italic text-[10px]">None</span>
                               ) : (
                                 item.teammates.map((t) => (
                                   <span
                                     key={t}
-                                    className="px-1.5 py-0.2 rounded bg-[#161C27] text-slate-300 text-[10px] font-mono border border-[#212836]"
+                                    className="px-1.5 py-0.2 rounded bg-[#161616] text-neutral-300 text-[10px] font-mono border border-[#242424]"
                                   >
                                     {t}
                                   </span>
@@ -866,7 +866,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                               )}
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-right font-mono text-slate-400">
+                          <td className="py-3 px-4 text-right font-mono text-neutral-400">
                             {item.portalSlotsCount} slots
                           </td>
                         </tr>
@@ -889,10 +889,10 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
-                <Users2 className="w-5 h-5 text-slate-300" />
+                <Users2 className="w-5 h-5 text-white" />
                 <span>Team Subsheets &amp; Operator Status</span>
               </h1>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-neutral-400 mt-1">
                 Cards are generated for all teammate subsheets in your Google Sheet, even if entries
                 are not yet logged.
               </p>
@@ -902,19 +902,19 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               <button
                 onClick={onSyncGoogleSheet}
                 disabled={isSyncing}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#141822] hover:bg-[#1E2433] border border-[#242C3D] text-xs font-medium text-slate-200 transition-colors disabled:opacity-50"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#121212] hover:bg-[#1E1E1E] border border-[#262626] text-xs font-medium text-neutral-200 transition-colors disabled:opacity-50"
               >
                 <RotateCw
-                  className={`w-3.5 h-3.5 text-slate-400 ${isSyncing ? 'animate-spin text-white' : ''}`}
+                  className={`w-3.5 h-3.5 text-neutral-400 ${isSyncing ? 'animate-spin text-white' : ''}`}
                 />
                 <span>{isSyncing ? 'Syncing...' : 'Sync Subsheets'}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('data_sources')}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1D2434] hover:bg-[#283248] text-white text-xs font-semibold border border-[#313E57] shadow-sm transition-all"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-neutral-200 text-black text-xs font-semibold border border-white shadow-sm transition-all"
               >
-                <Link2 className="w-3.5 h-3.5 text-slate-300" />
+                <Link2 className="w-3.5 h-3.5 text-black" />
                 <span>Configure Sheet URL</span>
               </button>
             </div>
@@ -923,33 +923,33 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           {/* Teammate Specific Telemetry Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Tile 1: Total Connected Subsheets */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Total Connected Subsheets
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                <div className="w-8 h-8 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-white">
                   <Users2 className="w-4 h-4" />
                 </div>
               </div>
               <div className="text-3xl font-extrabold text-white font-mono tracking-tight">{teammates.length}</div>
               <div className="flex items-center space-x-1.5 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                <span className="text-[10px] text-neutral-400 font-mono">
                   Discovered in Google Sheet workbook
                 </span>
               </div>
             </div>
 
             {/* Tile 2: Active With Logged Data */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Active With Logged Data
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <div className="w-8 h-8 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-emerald-400">
                   <UserCheck className="w-4 h-4" />
                 </div>
               </div>
@@ -958,20 +958,20 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="text-[10px] text-neutral-400 font-mono">
                   Subsheets containing script rows
                 </span>
               </div>
             </div>
 
             {/* Tile 3: Awaiting Data (Empty) */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-amber-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Awaiting Data (Empty)
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <div className="w-8 h-8 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-amber-400">
                   <AlertCircle className="w-4 h-4" />
                 </div>
               </div>
@@ -980,20 +980,20 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="text-[10px] text-neutral-400 font-mono">
                   Created subsheets with no rows yet
                 </span>
               </div>
             </div>
 
             {/* Tile 4: Total Scripts Scanned */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-indigo-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Total Scripts Scanned
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <div className="w-8 h-8 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-white">
                   <UploadCloud className="w-4 h-4" />
                 </div>
               </div>
@@ -1001,8 +1001,8 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 {metrics.totalTeamScanned.toLocaleString()}
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
+                <span className="text-[10px] text-neutral-400 font-mono">
                   Cumulative across all teammates
                 </span>
               </div>
@@ -1010,34 +1010,34 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           </div>
 
           {/* Teammates Search & Filter Bar */}
-          <div className="bg-[#0E121A] rounded-xl border border-[#1E2430] p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="bg-[#0A0A0A] rounded-xl border border-[#1F1F1F] p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setTeammateFilter('all')}
-                className={`px-3 py-1.5 rounded-lg transition-all font-medium ${
+                className={`px-3 py-1.5 rounded-lg transition-all font-semibold ${
                   teammateFilter === 'all'
-                    ? 'bg-[#181E2B] text-white border border-[#273142]'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-white text-black border border-white'
+                    : 'text-neutral-400 hover:text-white bg-[#121212] border border-[#222222]'
                 }`}
               >
                 All Teammates ({teammates.length})
               </button>
               <button
                 onClick={() => setTeammateFilter('active')}
-                className={`px-3 py-1.5 rounded-lg transition-all font-medium ${
+                className={`px-3 py-1.5 rounded-lg transition-all font-semibold ${
                   teammateFilter === 'active'
-                    ? 'bg-[#181E2B] text-white border border-[#273142]'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-white text-black border border-white'
+                    : 'text-neutral-400 hover:text-white bg-[#121212] border border-[#222222]'
                 }`}
               >
                 Active with Logs ({activeTeammatesCount})
               </button>
               <button
                 onClick={() => setTeammateFilter('empty')}
-                className={`px-3 py-1.5 rounded-lg transition-all font-medium ${
+                className={`px-3 py-1.5 rounded-lg transition-all font-semibold ${
                   teammateFilter === 'empty'
-                    ? 'bg-[#181E2B] text-white border border-[#273142]'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-white text-black border border-white'
+                    : 'text-neutral-400 hover:text-white bg-[#121212] border border-[#222222]'
                 }`}
               >
                 Awaiting Data ({emptyTeammatesCount})
@@ -1045,13 +1045,13 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             <div className="relative w-64">
-              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={teammateSearch}
                 onChange={(e) => setTeammateSearch(e.target.value)}
                 placeholder="Search teammate name, school..."
-                className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#121620] border border-[#212836] rounded-lg text-slate-200 focus:outline-none"
+                className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#121212] border border-[#262626] rounded-lg text-white focus:outline-none focus:border-white transition-colors"
               />
             </div>
           </div>
@@ -1059,7 +1059,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           {/* Cards Grid of All Teammates (Both with data AND empty ones!) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredTeammates.length === 0 ? (
-              <div className="col-span-full py-16 text-center text-slate-500 text-xs bg-[#0E121A] rounded-2xl border border-[#1E2430]">
+              <div className="col-span-full py-16 text-center text-neutral-500 text-xs bg-[#0A0A0A] rounded-2xl border border-[#1F1F1F]">
                 {teammates.length === 0
                   ? 'No teammate subsheets detected yet. Connect your Google Sheet or upload the workbook in Data Sources & Live Sync.'
                   : 'No teammate subsheets match your search or filter.'}
@@ -1069,15 +1069,14 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 const isEmpty = tm.entriesCount === 0;
                 const completion =
                   tm.totalReceived > 0 ? (tm.totalScanned / tm.totalReceived) * 100 : 0;
-                const isExpanded = expandedTeammate === tm.name;
                 return (
                   <div
                     key={tm.name}
                     onClick={() => setSelectedTeammateModal(tm)}
-                    className={`p-5 rounded-2xl border shadow-xl flex flex-col justify-between transition-all cursor-pointer group hover:border-cyan-500/50 hover:bg-[#10141F] hover:shadow-cyan-500/5 ${
+                    className={`p-5 rounded-2xl border shadow-xl flex flex-col justify-between transition-all cursor-pointer group hover:border-neutral-500 hover:bg-[#121212] ${
                       isEmpty
-                        ? 'bg-[#0B0E14] border-[#181E29]'
-                        : 'bg-[#0E121A] border-[#1E2430]'
+                        ? 'bg-[#070707] border-[#1C1C1C]'
+                        : 'bg-[#0D0D0D] border-[#222222]'
                     }`}
                   >
                     <div>
@@ -1086,15 +1085,15 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           <div
                             className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs ${
                               isEmpty
-                                ? 'bg-[#141822] border-[#222836] text-slate-500'
-                                : 'bg-[#1A2230] border-[#28354A] text-white'
+                                ? 'bg-[#141414] border-[#222222] text-neutral-500'
+                                : 'bg-[#181818] border-[#2A2A2A] text-white'
                             }`}
                           >
                             {tm.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <h3 className="text-xs font-bold text-white">{tm.name}</h3>
-                            <span className="text-[10px] text-slate-500 font-mono block">
+                            <span className="text-[10px] text-neutral-500 font-mono block">
                               Subsheet Tab: {tm.name}
                             </span>
                           </div>
@@ -1114,22 +1113,22 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                       </div>
 
                       {/* Counts Box */}
-                      <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#121620] border border-[#212836] text-[11px] font-mono mb-3">
+                      <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#080808] border border-[#222222] text-[11px] font-mono mb-3">
                         <div>
-                          <span className="text-slate-500 text-[9px] block uppercase">Received</span>
-                          <span className="font-bold text-slate-200">{tm.totalReceived}</span>
+                          <span className="text-neutral-500 text-[9px] block uppercase">Received</span>
+                          <span className="font-bold text-neutral-200">{tm.totalReceived}</span>
                         </div>
                         <div>
-                          <span className="text-slate-500 text-[9px] block uppercase">Scanned</span>
+                          <span className="text-neutral-500 text-[9px] block uppercase">Scanned</span>
                           <span className="font-bold text-emerald-400">{tm.totalScanned}</span>
                         </div>
                         <div>
-                          <span className="text-slate-500 text-[9px] block uppercase">Backlog</span>
+                          <span className="text-neutral-500 text-[9px] block uppercase">Backlog</span>
                           <span
                             className={`font-bold ${
                               tm.totalReceived - tm.totalScanned > 0
                                 ? 'text-rose-400'
-                                : 'text-slate-400'
+                                : 'text-neutral-400'
                             }`}
                           >
                             {tm.totalReceived - tm.totalScanned}
@@ -1137,15 +1136,15 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                         </div>
                       </div>
 
-                      <div className="text-[11px] text-slate-400 space-y-1 mb-3">
+                      <div className="text-[11px] text-neutral-400 space-y-1 mb-3">
                         <div>
-                          <strong className="text-slate-300">Active Dates:</strong>{' '}
+                          <strong className="text-neutral-300">Active Dates:</strong>{' '}
                           <span className="font-mono">
                             {tm.datesActive.length > 0 ? tm.datesActive.join(', ') : 'None logged yet'}
                           </span>
                         </div>
                         <div>
-                          <strong className="text-slate-300">Schools Handled:</strong>{' '}
+                          <strong className="text-neutral-300">Schools Handled:</strong>{' '}
                           <span className="font-mono">
                             {tm.schoolsCovered.length > 0
                               ? tm.schoolsCovered.join(', ')
@@ -1156,9 +1155,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     </div>
 
                     {isEmpty ? (
-                      <div className="p-2.5 rounded-lg bg-[#121620] border border-[#1E2430] text-[10px] text-slate-500 italic font-mono flex items-center justify-between">
+                      <div className="p-2.5 rounded-lg bg-[#080808] border border-[#1E1E1E] text-[10px] text-neutral-500 italic font-mono flex items-center justify-between">
                         <span>Awaiting Google Sheet rows</span>
-                        <span className="text-cyan-400 font-sans not-italic text-[10px] flex items-center space-x-1">
+                        <span className="text-white font-sans not-italic text-[10px] flex items-center space-x-1">
                           <span>Inspect</span>
                           <Maximize2 className="w-3 h-3" />
                         </span>
@@ -1171,10 +1170,10 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                             e.stopPropagation();
                             setSelectedTeammateModal(tm);
                           }}
-                          className="w-full py-2 px-3 bg-[#161C27] hover:bg-[#202737] group-hover:border-cyan-500/40 text-slate-200 group-hover:text-cyan-300 rounded-xl border border-[#242C3D] text-[11px] font-semibold transition-all flex items-center justify-center space-x-1.5 shadow-sm"
+                          className="w-full py-2 px-3 bg-[#141414] hover:bg-[#1E1E1E] text-neutral-200 hover:text-white rounded-xl border border-[#262626] text-[11px] font-semibold transition-all flex items-center justify-center space-x-1.5 shadow-sm"
                         >
-                          <Maximize2 className="w-3.5 h-3.5 text-cyan-400" />
-                          <span>Expand Full Sheet & Sort ({tm.entriesCount} rows)</span>
+                          <Maximize2 className="w-3.5 h-3.5 text-white" />
+                          <span>Expand Full Sheet &amp; Sort ({tm.entriesCount} rows)</span>
                         </button>
                       </div>
                     )}
@@ -1195,10 +1194,10 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
-                <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                <FileSpreadsheet className="w-5 h-5 text-white" />
                 <span>Central Portal Exam Schedules Master</span>
               </h1>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-neutral-400 mt-1">
                 Extracted from your uploaded portal file ({portalSlots.length} exam slots). Script
                 uploads are counted from the{' '}
                 <code className="text-emerald-400 font-mono">Completed</code> column.
@@ -1206,8 +1205,8 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             <div className="flex items-center space-x-2">
-              <label className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1E2536] hover:bg-[#283248] text-white text-xs font-semibold border border-[#303D57] shadow-sm transition-all cursor-pointer">
-                <UploadCloud className="w-3.5 h-3.5 text-slate-300" />
+              <label className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-neutral-200 text-black text-xs font-semibold border border-white shadow-sm transition-all cursor-pointer">
+                <UploadCloud className="w-3.5 h-3.5 text-black" />
                 <span>Upload New Portal File</span>
                 <input
                   type="file"
@@ -1222,9 +1221,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
               <button
                 onClick={() => exportReconciliationToCSV(matrix, 'Portal_Exam_Master.csv')}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#141822] hover:bg-[#1E2433] border border-[#242C3D] text-xs font-medium text-slate-300 transition-colors"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#121212] hover:bg-[#1E1E1E] border border-[#262626] text-xs font-medium text-neutral-300 transition-colors"
               >
-                <Download className="w-3.5 h-3.5 text-slate-400" />
+                <Download className="w-3.5 h-3.5 text-neutral-400" />
                 <span>Export CSV</span>
               </button>
             </div>
@@ -1233,33 +1232,33 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           {/* Portal Specific Telemetry Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Tile 1: Total Exam Slots Staged */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Total Exam Slots Staged
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                <div className="w-8 h-8 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-white">
                   <FileSpreadsheet className="w-4 h-4" />
                 </div>
               </div>
               <div className="text-3xl font-extrabold text-white font-mono tracking-tight">{portalSlots.length}</div>
               <div className="flex items-center space-x-1.5 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                <span className="text-[10px] text-neutral-400 font-mono">
                   Individual slot schedules
                 </span>
               </div>
             </div>
 
             {/* Tile 2: Total Completed Uploads */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Total Completed Uploads
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <div className="w-8 h-8 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-emerald-400">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
               </div>
@@ -1268,42 +1267,42 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="text-[10px] text-neutral-400 font-mono">
                   Sum of &apos;Completed&apos; column
                 </span>
               </div>
             </div>
 
             {/* Tile 3: Schools with Exams */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-indigo-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Schools with Exams
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <div className="w-8 h-8 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-white">
                   <GraduationCap className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-indigo-200 font-mono tracking-tight">
+              <div className="text-3xl font-extrabold text-white font-mono tracking-tight">
                 {metrics.totalSchoolsCount}
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
+                <span className="text-[10px] text-neutral-400 font-mono">
                   Faculties in schedule
                 </span>
               </div>
             </div>
 
             {/* Tile 4: Examination Dates */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-amber-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#0D0D0D] border border-[#222222] hover:border-[#383838] shadow-xl shadow-black/40 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                   Examination Dates
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <div className="w-8 h-8 rounded-xl bg-[#161616] border border-[#282828] flex items-center justify-center text-amber-400">
                   <Calendar className="w-4 h-4" />
                 </div>
               </div>
@@ -1312,7 +1311,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
+                <span className="text-[10px] text-neutral-400 font-mono">
                   Unique exam days
                 </span>
               </div>
@@ -1320,32 +1319,32 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           </div>
 
           {/* Portal Table */}
-          <div className="bg-[#0E121A] rounded-2xl border border-[#1E2430] overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-[#1A202C] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="bg-[#0A0A0A] rounded-2xl border border-[#1F1F1F] overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-[#1F1F1F] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center space-x-2">
                 <span className="text-xs font-semibold text-white">
                   Portal Timetable &amp; Upload Status
                 </span>
-                <span className="text-[11px] text-slate-500 font-mono">
+                <span className="text-[11px] text-neutral-500 font-mono">
                   ({portalSlots.length} records)
                 </span>
               </div>
 
               <div className="relative w-64">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={portalSearch}
                   onChange={(e) => setPortalSearch(e.target.value)}
                   placeholder="Search course title, code, school, id..."
-                  className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#121620] border border-[#212836] rounded-lg text-slate-200 focus:outline-none"
+                  className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#121212] border border-[#262626] rounded-lg text-white focus:outline-none focus:border-white transition-colors"
                 />
               </div>
             </div>
 
             <div className="overflow-x-auto max-h-[600px]">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#0B0E14] text-slate-400 font-semibold uppercase tracking-wider text-[10px] border-b border-[#1A202C] sticky top-0 z-10">
+                <thead className="bg-[#050505] text-neutral-400 font-semibold uppercase tracking-wider text-[10px] border-b border-[#1F1F1F] sticky top-0 z-10">
                   <tr>
                     <th className="py-3 px-4">SCHED ID</th>
                     <th className="py-3 px-4">DATE</th>
@@ -1357,10 +1356,10 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     <th className="py-3 px-4 text-right">NOT STARTED</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#181E29]">
+                <tbody className="divide-y divide-[#181818]">
                   {portalSlots.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-16 text-center text-slate-500 text-xs">
+                      <td colSpan={8} className="py-16 text-center text-neutral-500 text-xs">
                         No portal exam records uploaded yet. Upload your central portal Excel file in Data Sources &amp; Live Sync.
                       </td>
                     </tr>
@@ -1378,26 +1377,26 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                         );
                       })
                       .map((s) => (
-                        <tr key={s.scheduleId} className="hover:bg-[#121620] transition-colors">
-                          <td className="py-2.5 px-4 font-mono text-slate-400">{s.scheduleId}</td>
-                          <td className="py-2.5 px-4 font-mono text-slate-300">{s.date}</td>
+                        <tr key={s.scheduleId} className="hover:bg-[#121212] transition-colors">
+                          <td className="py-2.5 px-4 font-mono text-neutral-400">{s.scheduleId}</td>
+                          <td className="py-2.5 px-4 font-mono text-neutral-300">{s.date}</td>
                           <td className="py-2.5 px-4">
-                            <span className="font-mono font-bold text-slate-200 px-1.5 py-0.5 rounded bg-[#161C27] border border-[#242C3D] text-[10px]">
+                            <span className="font-mono font-bold text-white px-1.5 py-0.5 rounded bg-[#161616] border border-[#282828] text-[10px]">
                               {s.schoolCode}
                             </span>
                           </td>
-                          <td className="py-2.5 px-4 font-mono text-slate-300">{s.courseCode}</td>
+                          <td className="py-2.5 px-4 font-mono text-neutral-300">{s.courseCode}</td>
                           <td
                             className="py-2.5 px-4 font-medium text-white max-w-xs truncate"
                             title={s.courseTitle}
                           >
                             {s.courseTitle}
                           </td>
-                          <td className="py-2.5 px-4 text-slate-400 text-[11px]">{s.programme}</td>
+                          <td className="py-2.5 px-4 text-neutral-400 text-[11px]">{s.programme}</td>
                           <td className="py-2.5 px-4 text-right font-mono font-bold text-emerald-400">
                             {s.completed.toLocaleString()}
                           </td>
-                          <td className="py-2.5 px-4 text-right font-mono text-slate-500">
+                          <td className="py-2.5 px-4 text-right font-mono text-neutral-500">
                             {s.notStarted}
                           </td>
                         </tr>
@@ -1419,10 +1418,10 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
-                <Link2 className="w-5 h-5 text-slate-300" />
+                <Link2 className="w-5 h-5 text-white" />
                 <span>Data Source Integrations &amp; Live Sync</span>
               </h1>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-neutral-400 mt-1">
                 Configure your published Google Sheet URL and central portal Excel/CSV file.
               </p>
             </div>
@@ -1431,7 +1430,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               <button
                 onClick={onSyncGoogleSheet}
                 disabled={isSyncing}
-                className="py-1.5 px-3 rounded-lg bg-[#1E2536] hover:bg-[#283248] text-white text-xs font-semibold border border-[#303D57] transition-all flex items-center space-x-1.5 disabled:opacity-50"
+                className="py-1.5 px-3 rounded-lg bg-white hover:bg-neutral-200 text-black text-xs font-semibold border border-white transition-all flex items-center space-x-1.5 disabled:opacity-50 shadow-sm"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                 <span>{isSyncing ? 'Syncing...' : 'Sync Google Sheet Now'}</span>
@@ -1442,28 +1441,28 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           {/* 2 Configuration Boxes */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Box 1: Google Sheet Publish to Web Configuration */}
-            <div className="p-6 rounded-2xl bg-[#0E121A] border border-[#1E2430] shadow-xl space-y-4">
-              <div className="flex items-center space-x-2 pb-2 border-b border-[#1A202C]">
-                <Link2 className="w-4 h-4 text-slate-300" />
+            <div className="p-6 rounded-2xl bg-[#0A0A0A] border border-[#1F1F1F] shadow-xl space-y-4">
+              <div className="flex items-center space-x-2 pb-2 border-b border-[#1F1F1F]">
+                <Link2 className="w-4 h-4 text-white" />
                 <h2 className="text-sm font-semibold text-white">
                   Team Google Sheet (Publish to Web)
                 </h2>
               </div>
 
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-neutral-400 leading-relaxed">
                 In your Google Sheet containing subsheets for each teammate:
                 <br />
                 1. Click <strong className="text-white">File → Share → Publish to the web</strong>.
                 <br />
                 2. Select <strong className="text-white">Entire Document</strong> and choose{' '}
-                <strong className="text-emerald-400 font-mono">Microsoft Excel (.xlsx)</strong> or
+                <strong className="text-white font-mono">Microsoft Excel (.xlsx)</strong> or
                 Web page.
                 <br />
                 3. Click <strong className="text-white">Publish</strong> and paste the link below:
               </p>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-300 block">
+                <label className="text-xs font-semibold text-neutral-300 block">
                   Published Google Sheet URL
                 </label>
                 <input
@@ -1471,7 +1470,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                   value={sheetUrlInput}
                   onChange={(e) => setSheetUrlInput(e.target.value)}
                   placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=xlsx"
-                  className="w-full text-xs p-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white font-mono focus:outline-none focus:border-slate-500"
+                  className="w-full text-xs p-2.5 bg-[#121212] border border-[#262626] rounded-xl text-white font-mono focus:outline-none focus:border-white transition-colors"
                 />
               </div>
 
@@ -1482,19 +1481,19 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     onSyncGoogleSheet();
                   }}
                   disabled={isSyncing || !sheetUrlInput.trim()}
-                  className="py-2 px-4 rounded-xl bg-[#1E2536] hover:bg-[#283248] text-white text-xs font-semibold border border-[#303D57] transition-all flex items-center space-x-1.5 disabled:opacity-50"
+                  className="py-2 px-4 rounded-xl bg-white hover:bg-neutral-200 text-black text-xs font-semibold border border-white transition-all flex items-center space-x-1.5 disabled:opacity-50 shadow-sm"
                 >
                   <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                   <span>{isSyncing ? 'Connecting...' : 'Save & Sync Sheet'}</span>
                 </button>
 
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[11px] text-neutral-500">
                   Or upload the downloaded .xlsx directly below.
                 </span>
               </div>
 
-              <div className="pt-4 border-t border-[#1A202C]">
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <div className="pt-4 border-t border-[#1F1F1F]">
+                <label className="block text-xs font-semibold text-neutral-300 mb-1">
                   Upload Google Sheet (.xlsx) Directly
                 </label>
                 <input
@@ -1504,19 +1503,19 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     const f = e.target.files?.[0];
                     if (f) onUploadTeamSheetFile(f);
                   }}
-                  className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#1E2536] file:text-white hover:file:bg-[#283248] cursor-pointer"
+                  className="w-full text-xs text-neutral-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#181818] file:text-white hover:file:bg-[#222222] cursor-pointer"
                 />
               </div>
             </div>
 
             {/* Box 2: Portal Excel Upload Configuration */}
-            <div className="p-6 rounded-2xl bg-[#0E121A] border border-[#1E2430] shadow-xl space-y-4">
-              <div className="flex items-center space-x-2 pb-2 border-b border-[#1A202C]">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <div className="p-6 rounded-2xl bg-[#0A0A0A] border border-[#1F1F1F] shadow-xl space-y-4">
+              <div className="flex items-center space-x-2 pb-2 border-b border-[#1F1F1F]">
+                <FileSpreadsheet className="w-4 h-4 text-white" />
                 <h2 className="text-sm font-semibold text-white">Central Portal Uploads File</h2>
               </div>
 
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-neutral-400 leading-relaxed">
                 Upload the timetable &amp; upload status export from your central portal.
                 <br />
                 The system automatically parses the{' '}
@@ -1524,16 +1523,16 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 scripts uploaded per school and date.
               </p>
 
-              <div className="p-5 rounded-xl bg-[#121620] border-2 border-dashed border-[#242C3D] text-center space-y-3">
-                <UploadCloud className="w-8 h-8 text-slate-400 mx-auto" />
+              <div className="p-5 rounded-xl bg-[#0D0D0D] border-2 border-dashed border-[#262626] text-center space-y-3">
+                <UploadCloud className="w-8 h-8 text-neutral-400 mx-auto" />
                 <div>
                   <p className="text-xs font-semibold text-white">
                     Drop your Portal Excel / CSV here
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Supports .xlsx, .xls, .csv</p>
+                  <p className="text-[11px] text-neutral-500 mt-0.5">Supports .xlsx, .xls, .csv</p>
                 </div>
 
-                <label className="inline-block py-1.5 px-4 rounded-xl bg-[#1E2536] hover:bg-[#283248] text-white text-xs font-semibold border border-[#303D57] transition-all cursor-pointer">
+                <label className="inline-block py-1.5 px-4 rounded-xl bg-white hover:bg-neutral-200 text-black text-xs font-semibold border border-white transition-all cursor-pointer shadow-sm">
                   <span>Select File from Computer</span>
                   <input
                     type="file"
@@ -1547,7 +1546,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 </label>
               </div>
 
-              <div className="pt-2 flex items-center justify-between text-xs text-slate-400">
+              <div className="pt-2 flex items-center justify-between text-xs text-neutral-400">
                 <span>
                   Current Staged Slots: <strong className="text-white">{portalSlots.length}</strong>
                 </span>
@@ -1567,47 +1566,47 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
       {/* Drilldown Modal (When clicking any batch in the matrix) */}
       {expandedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-[#0E121A] border border-[#212838] rounded-2xl w-full max-w-4xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between pb-3 border-b border-[#1A202C]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-[#0A0A0A] border border-[#222222] rounded-2xl w-full max-w-4xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between pb-3 border-b border-[#1F1F1F]">
               <div>
                 <div className="flex items-center space-x-2">
-                  <span className="font-mono font-bold text-white px-2 py-0.5 rounded bg-[#161C27] border border-[#283244] text-xs">
+                  <span className="font-mono font-bold text-white px-2 py-0.5 rounded bg-[#161616] border border-[#282828] text-xs">
                     {expandedItem.schoolCode}
                   </span>
                   <h3 className="text-sm font-bold text-white">{expandedItem.schoolName}</h3>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5 font-mono">Date: {expandedItem.date}</p>
+                <p className="text-xs text-neutral-400 mt-0.5 font-mono">Date: {expandedItem.date}</p>
               </div>
               <button
                 onClick={() => setExpandedItem(null)}
-                className="text-slate-400 hover:text-white text-xs font-mono px-2 py-1 rounded bg-[#181E2B]"
+                className="text-neutral-300 hover:text-white text-xs font-mono px-2.5 py-1 rounded-lg bg-[#141414] hover:bg-[#202020] border border-[#262626] transition-colors"
               >
                 ✕ Close
               </button>
             </div>
 
             {/* Reconciliation Comparison Summary */}
-            <div className="grid grid-cols-4 gap-3 text-xs font-mono p-3 rounded-xl bg-[#121620] border border-[#212836]">
+            <div className="grid grid-cols-4 gap-3 text-xs font-mono p-3 rounded-xl bg-[#0D0D0D] border border-[#222222]">
               <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Physical Received</span>
-                <span className="font-bold text-slate-200">{expandedItem.teamReceived}</span>
+                <span className="text-neutral-500 block text-[9px] uppercase">Physical Received</span>
+                <span className="font-bold text-neutral-200">{expandedItem.teamReceived}</span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Team Scanned</span>
+                <span className="text-neutral-500 block text-[9px] uppercase">Team Scanned</span>
                 <span className="font-bold text-white">{expandedItem.teamScanned}</span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Portal Uploaded</span>
+                <span className="text-neutral-500 block text-[9px] uppercase">Portal Uploaded</span>
                 <span className="font-bold text-emerald-400">{expandedItem.portalCompleted}</span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Variance</span>
+                <span className="text-neutral-500 block text-[9px] uppercase">Variance</span>
                 <span
                   className={`font-bold ${
                     expandedItem.discrepancyScannedVsPortal !== 0
                       ? 'text-rose-400'
-                      : 'text-slate-400'
+                      : 'text-neutral-400'
                   }`}
                 >
                   {expandedItem.discrepancyScannedVsPortal > 0
@@ -1621,29 +1620,29 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               {/* Left: Teammates Subsheet Entries */}
               <div className="space-y-2">
-                <h4 className="font-semibold text-white uppercase text-[10px] tracking-wider text-slate-400 flex items-center space-x-1">
+                <h4 className="font-semibold text-white uppercase text-[10px] tracking-wider flex items-center space-x-1">
                   <Users2 className="w-3.5 h-3.5" />
                   <span>Teammate Entries ({expandedItem.teamEntries.length})</span>
                 </h4>
                 {expandedItem.teamEntries.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic p-3 bg-[#121620] rounded-xl">
+                  <p className="text-xs text-neutral-500 italic p-3 bg-[#0D0D0D] rounded-xl border border-[#222222]">
                     No entries logged in team sheet for this date and school.
                   </p>
                 ) : (
                   expandedItem.teamEntries.map((e) => (
                     <div
                       key={e.id}
-                      className="p-3 rounded-xl bg-[#121620] border border-[#212836] space-y-1 text-xs"
+                      className="p-3 rounded-xl bg-[#0D0D0D] border border-[#222222] space-y-1 text-xs"
                     >
                       <div className="flex items-center justify-between font-semibold text-white">
                         <span>{e.teammateName}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">{e.shift}</span>
+                        <span className="text-[10px] text-neutral-400 font-mono">{e.shift}</span>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-300 font-mono">
+                      <div className="flex items-center justify-between text-[11px] text-neutral-300 font-mono">
                         <span>Rec: {e.receivedCount}</span>
                         <span className="text-emerald-400 font-bold">Scanned: {e.scannedCount}</span>
                       </div>
-                      {e.notes && <p className="text-[10px] text-slate-500 italic">{e.notes}</p>}
+                      {e.notes && <p className="text-[10px] text-neutral-500 italic">{e.notes}</p>}
                     </div>
                   ))
                 )}
@@ -1651,19 +1650,19 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
               {/* Right: Portal Exam Slots */}
               <div className="space-y-2">
-                <h4 className="font-semibold text-white uppercase text-[10px] tracking-wider text-slate-400 flex items-center space-x-1">
+                <h4 className="font-semibold text-white uppercase text-[10px] tracking-wider flex items-center space-x-1">
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   <span>Portal Exam Slots ({expandedItem.portalSlots.length})</span>
                 </h4>
                 {expandedItem.portalSlots.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic p-3 bg-[#121620] rounded-xl">
+                  <p className="text-xs text-neutral-500 italic p-3 bg-[#0D0D0D] rounded-xl border border-[#222222]">
                     No matching exams found in portal file for this date and school.
                   </p>
                 ) : (
                   expandedItem.portalSlots.map((s) => (
                     <div
                       key={s.scheduleId}
-                      className="p-3 rounded-xl bg-[#121620] border border-[#212836] space-y-1 text-xs"
+                      className="p-3 rounded-xl bg-[#0D0D0D] border border-[#222222] space-y-1 text-xs"
                     >
                       <div className="flex items-center justify-between font-semibold text-white">
                         <span className="truncate max-w-[200px]" title={s.courseTitle}>
@@ -1673,7 +1672,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           {s.completed} uploaded
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                      <div className="flex items-center justify-between text-[10px] text-neutral-400 font-mono">
                         <span>
                           {s.courseCode} ({s.semester})
                         </span>
@@ -1695,13 +1694,13 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           onClick={() => setSelectedTeammateModal(null)}
         >
           <div
-            className="bg-[#0C0F17] border border-[#232B3A] rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
+            className="bg-[#0A0A0A] border border-[#222222] rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="p-5 border-b border-[#1A202C] flex items-center justify-between shrink-0 bg-[#0E121C]">
+            <div className="p-5 border-b border-[#1F1F1F] flex items-center justify-between shrink-0 bg-[#050505]">
               <div className="flex items-center space-x-3.5">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-600 to-blue-700 flex items-center justify-center font-bold text-white shadow-lg text-sm">
+                <div className="w-10 h-10 rounded-xl bg-[#181818] border border-[#2A2A2A] flex items-center justify-center font-bold text-white shadow-lg text-sm">
                   {activeModalTeammate.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
@@ -1709,7 +1708,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     <h3 className="text-base font-bold text-white tracking-tight">
                       {activeModalTeammate.name}
                     </h3>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-500/30">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-white border border-white/20 font-semibold">
                       Subsheet: {activeModalTeammate.name}
                     </span>
                     <span
@@ -1734,7 +1733,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           ).toFixed(0)}% Scanned`}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                  <p className="text-xs text-neutral-400 mt-0.5 font-mono">
                     {activeModalTeammate.entriesCount} logged entries across{' '}
                     {activeModalTeammate.datesActive.length} dates and{' '}
                     {activeModalTeammate.schoolsCovered.length} schools
@@ -1744,7 +1743,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
               <button
                 onClick={() => setSelectedTeammateModal(null)}
-                className="w-8 h-8 rounded-lg bg-[#141824] hover:bg-[#1E2436] text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-lg bg-[#141414] hover:bg-[#202020] text-neutral-400 hover:text-white flex items-center justify-center transition-colors border border-[#262626]"
                 title="Close Modal (Esc)"
               >
                 <X className="w-4 h-4" />
@@ -1752,42 +1751,42 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Top Telemetry Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-[#090C12] border-b border-[#1A202C] text-xs font-mono shrink-0">
-              <div className="p-3 rounded-xl bg-[#10141E] border border-[#1C2331]">
-                <span className="text-slate-500 text-[10px] uppercase block">Physical Received</span>
-                <span className="text-lg font-bold text-slate-100">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-[#070707] border-b border-[#1F1F1F] text-xs font-mono shrink-0">
+              <div className="p-3 rounded-xl bg-[#0D0D0D] border border-[#222222]">
+                <span className="text-neutral-500 text-[10px] uppercase block">Physical Received</span>
+                <span className="text-lg font-bold text-white">
                   {activeModalTeammate.totalReceived.toLocaleString()}
                 </span>
-                <span className="text-[10px] text-slate-500 block mt-0.5">Scripts handed over</span>
+                <span className="text-[10px] text-neutral-500 block mt-0.5">Scripts handed over</span>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#10141E] border border-[#1C2331]">
-                <span className="text-slate-500 text-[10px] uppercase block">Scanned by Teammate</span>
+              <div className="p-3 rounded-xl bg-[#0D0D0D] border border-[#222222]">
+                <span className="text-neutral-500 text-[10px] uppercase block">Scanned by Teammate</span>
                 <span className="text-lg font-bold text-emerald-400">
                   {activeModalTeammate.totalScanned.toLocaleString()}
                 </span>
                 <span className="text-[10px] text-emerald-500/80 block mt-0.5">Digitized to portal</span>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#10141E] border border-[#1C2331]">
-                <span className="text-slate-500 text-[10px] uppercase block">Pending Backlog</span>
+              <div className="p-3 rounded-xl bg-[#0D0D0D] border border-[#222222]">
+                <span className="text-neutral-500 text-[10px] uppercase block">Pending Backlog</span>
                 <span
                   className={`text-lg font-bold ${
                     activeModalTeammate.totalReceived - activeModalTeammate.totalScanned > 0
                       ? 'text-rose-400'
-                      : 'text-slate-400'
+                      : 'text-neutral-400'
                   }`}
                 >
                   {(
                     activeModalTeammate.totalReceived - activeModalTeammate.totalScanned
                   ).toLocaleString()}
                 </span>
-                <span className="text-[10px] text-slate-500 block mt-0.5">Scripts remaining</span>
+                <span className="text-[10px] text-neutral-500 block mt-0.5">Scripts remaining</span>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#10141E] border border-[#1C2331]">
-                <span className="text-slate-500 text-[10px] uppercase block">Completion Rate</span>
-                <span className="text-lg font-bold text-cyan-400">
+              <div className="p-3 rounded-xl bg-[#0D0D0D] border border-[#222222]">
+                <span className="text-neutral-500 text-[10px] uppercase block">Completion Rate</span>
+                <span className="text-lg font-bold text-white">
                   {activeModalTeammate.totalReceived > 0
                     ? `${(
                         (activeModalTeammate.totalScanned / activeModalTeammate.totalReceived) *
@@ -1795,9 +1794,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                       ).toFixed(1)}%`
                     : '0%'}
                 </span>
-                <div className="w-full bg-[#181E2B] h-1.5 rounded-full overflow-hidden mt-1.5">
+                <div className="w-full bg-[#181818] h-1.5 rounded-full overflow-hidden mt-1.5">
                   <div
-                    className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all"
+                    className="bg-white h-full rounded-full transition-all"
                     style={{
                       width: `${Math.min(
                         100,
@@ -1813,15 +1812,15 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Controls Toolbar: Tabs, Sorting by Daywise / School, Search */}
-            <div className="p-4 border-b border-[#1A202C] bg-[#0E121C] flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="p-4 border-b border-[#1F1F1F] bg-[#070707] flex flex-wrap items-center justify-between gap-3 shrink-0">
               {/* View Tabs */}
-              <div className="flex items-center space-x-1 bg-[#121622] p-1 rounded-xl border border-[#1F2636]">
+              <div className="flex items-center space-x-1 bg-[#121212] p-1 rounded-xl border border-[#262626]">
                 <button
                   onClick={() => setTeammateModalTab('entries')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                     teammateModalTab === 'entries'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-white text-black border border-white'
+                      : 'text-neutral-400 hover:text-white'
                   }`}
                 >
                   <FileText className="w-3.5 h-3.5" />
@@ -1832,8 +1831,8 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                   onClick={() => setTeammateModalTab('daywise')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                     teammateModalTab === 'daywise'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-white text-black border border-white'
+                      : 'text-neutral-400 hover:text-white'
                   }`}
                 >
                   <CalendarDays className="w-3.5 h-3.5" />
@@ -1844,8 +1843,8 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                   onClick={() => setTeammateModalTab('schoolwise')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                     teammateModalTab === 'schoolwise'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-white text-black border border-white'
+                      : 'text-neutral-400 hover:text-white'
                   }`}
                 >
                   <Building2 className="w-3.5 h-3.5" />
@@ -1866,18 +1865,18 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
                 {/* Filter Search */}
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
                   <input
                     type="text"
                     value={teammateModalSearch}
                     onChange={(e) => setTeammateModalSearch(e.target.value)}
                     placeholder="Search date, school..."
-                    className="pl-8 pr-3 py-1.5 bg-[#121622] border border-[#1F2636] rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 w-44"
+                    className="pl-8 pr-3 py-1.5 bg-[#121212] border border-[#262626] rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white w-44 transition-colors"
                   />
                   {teammateModalSearch && (
                     <button
                       onClick={() => setTeammateModalSearch('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white text-xs"
                     >
                       ✕
                     </button>
@@ -1889,28 +1888,28 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             {/* Scrollable Modal Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {activeModalTeammate.entriesCount === 0 ? (
-                <div className="py-16 text-center space-y-3 bg-[#090C12] rounded-2xl border border-[#1A202C] p-8">
-                  <div className="w-12 h-12 rounded-2xl bg-[#141824] border border-[#232936] flex items-center justify-center mx-auto text-slate-400">
-                    <Clock className="w-6 h-6 text-amber-400" />
+                <div className="py-16 text-center space-y-3 bg-[#070707] rounded-2xl border border-[#1F1F1F] p-8">
+                  <div className="w-12 h-12 rounded-2xl bg-[#141414] border border-[#262626] flex items-center justify-center mx-auto text-neutral-400">
+                    <Clock className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white">Subsheet Connected & Awaiting Logs</h4>
-                    <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                      The sheet tab <span className="font-mono text-cyan-300">"{activeModalTeammate.name}"</span> is actively tracked from your Google Sheet.
+                    <h4 className="text-sm font-bold text-white">Subsheet Connected &amp; Awaiting Logs</h4>
+                    <p className="text-xs text-neutral-400 mt-1 max-w-md mx-auto">
+                      The sheet tab <span className="font-mono text-white font-semibold">&quot;{activeModalTeammate.name}&quot;</span> is actively tracked from your Google Sheet.
                       Once this teammate fills rows with Date, School, Received, and Scanned count, click
-                      <span className="text-white font-semibold"> "Sync Sheet Data"</span> to view daywise & school logs here.
+                      <span className="text-white font-semibold"> &quot;Sync Sheet Data&quot;</span> to view daywise &amp; school logs here.
                     </p>
                   </div>
                 </div>
               ) : teammateModalTab === 'entries' ? (
                 /* TAB 1: ALL ROWS */
-                <div className="border border-[#1E2430] rounded-xl overflow-hidden bg-[#0A0D14]">
+                <div className="border border-[#222222] rounded-xl overflow-hidden bg-[#070707]">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-[#121622] text-[10px] uppercase font-mono text-slate-400 border-b border-[#1E2430]">
+                    <thead className="bg-[#0D0D0D] text-[10px] uppercase font-mono text-neutral-400 border-b border-[#222222]">
                       <tr>
                         <th className="p-3">#</th>
                         <th
-                          className="p-3 cursor-pointer hover:text-cyan-300"
+                          className="p-3 cursor-pointer hover:text-white transition-colors"
                           onClick={() =>
                             setTeammateSortBy(
                               teammateSortBy === 'date_desc' ? 'date_asc' : 'date_desc'
@@ -1923,7 +1922,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           </div>
                         </th>
                         <th
-                          className="p-3 cursor-pointer hover:text-cyan-300"
+                          className="p-3 cursor-pointer hover:text-white transition-colors"
                           onClick={() =>
                             setTeammateSortBy(
                               teammateSortBy === 'school_asc' ? 'school_desc' : 'school_asc'
@@ -1942,10 +1941,10 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                         <th className="p-3">Shift / Notes</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#161B26] font-mono text-[11px]">
+                    <tbody className="divide-y divide-[#181818] font-mono text-[11px]">
                       {sortedTeammateEntries.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="p-8 text-center text-slate-500">
+                          <td colSpan={8} className="p-8 text-center text-neutral-500">
                             No rows match your search filter.
                           </td>
                         </tr>
@@ -1955,28 +1954,28 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           return (
                             <tr
                               key={entry.id || idx}
-                              className="hover:bg-[#121622]/60 transition-colors"
+                              className="hover:bg-[#121212] transition-colors"
                             >
-                              <td className="p-3 text-slate-500 text-[10px]">{idx + 1}</td>
-                              <td className="p-3 text-slate-200 font-semibold">{entry.date}</td>
+                              <td className="p-3 text-neutral-500 text-[10px]">{idx + 1}</td>
+                              <td className="p-3 text-neutral-200 font-semibold">{entry.date}</td>
                               <td className="p-3">
-                                <span className="px-1.5 py-0.5 rounded bg-[#161C27] border border-[#283244] text-white font-bold text-[10px] mr-1.5">
+                                <span className="px-1.5 py-0.5 rounded bg-[#161616] border border-[#282828] text-white font-bold text-[10px] mr-1.5">
                                   {entry.schoolCode || entry.school}
                                 </span>
                                 {entry.school && entry.school !== entry.schoolCode && (
-                                  <span className="text-slate-400 text-[10px] font-sans truncate max-w-[150px] inline-block align-middle">
+                                  <span className="text-neutral-400 text-[10px] font-sans truncate max-w-[150px] inline-block align-middle">
                                     {entry.school}
                                   </span>
                                 )}
                               </td>
-                              <td className="p-3 text-right text-slate-200">{entry.receivedCount}</td>
+                              <td className="p-3 text-right text-neutral-200">{entry.receivedCount}</td>
                               <td className="p-3 text-right font-bold text-emerald-400">
                                 {entry.scannedCount}
                               </td>
                               <td className="p-3 text-right">
                                 <span
                                   className={
-                                    backlog > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'
+                                    backlog > 0 ? 'text-rose-400 font-bold' : 'text-neutral-500'
                                   }
                                 >
                                   {backlog > 0 ? `+${backlog}` : backlog}
@@ -1993,9 +1992,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                                   {backlog <= 0 ? 'Matched' : 'In Backlog'}
                                 </span>
                               </td>
-                              <td className="p-3 text-slate-400 text-[10px] font-sans">
+                              <td className="p-3 text-neutral-400 text-[10px] font-sans">
                                 {entry.shift && (
-                                  <span className="text-[9px] font-mono px-1.5 py-0.2 bg-[#1A202C] rounded mr-1">
+                                  <span className="text-[9px] font-mono px-1.5 py-0.2 bg-[#1A1A1A] rounded mr-1">
                                     {entry.shift}
                                   </span>
                                 )}
@@ -2011,9 +2010,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               ) : teammateModalTab === 'daywise' ? (
                 /* TAB 2: DAY-WISE BREAKDOWN */
                 <div className="space-y-3">
-                  <div className="border border-[#1E2430] rounded-xl overflow-hidden bg-[#0A0D14]">
+                  <div className="border border-[#222222] rounded-xl overflow-hidden bg-[#070707]">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-[#121622] text-[10px] uppercase font-mono text-slate-400 border-b border-[#1E2430]">
+                      <thead className="bg-[#0D0D0D] text-[10px] uppercase font-mono text-neutral-400 border-b border-[#222222]">
                         <tr>
                           <th className="p-3">Date</th>
                           <th className="p-3 text-right">Total Received</th>
@@ -2024,14 +2023,14 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           <th className="p-3 text-right">Batches</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#161B26] font-mono text-[11px]">
+                      <tbody className="divide-y divide-[#181818] font-mono text-[11px]">
                         {daywiseAggregation.map((day) => (
-                          <tr key={day.date} className="hover:bg-[#121622]/60 transition-colors">
+                          <tr key={day.date} className="hover:bg-[#121212] transition-colors">
                             <td className="p-3 text-white font-bold flex items-center space-x-1.5">
-                              <Calendar className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                              <Calendar className="w-3.5 h-3.5 text-white shrink-0" />
                               <span>{day.date}</span>
                             </td>
-                            <td className="p-3 text-right text-slate-200">
+                            <td className="p-3 text-right text-neutral-200">
                               {day.received.toLocaleString()}
                             </td>
                             <td className="p-3 text-right font-bold text-emerald-400">
@@ -2040,7 +2039,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                             <td className="p-3 text-right">
                               <span
                                 className={
-                                  day.backlog > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'
+                                  day.backlog > 0 ? 'text-rose-400 font-bold' : 'text-neutral-500'
                                 }
                               >
                                 {day.backlog > 0 ? `+${day.backlog}` : day.backlog}
@@ -2062,14 +2061,14 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                                 {day.schools.map((sch) => (
                                   <span
                                     key={sch}
-                                    className="px-1.5 py-0.5 rounded bg-[#161C27] border border-[#283244] text-[10px] text-slate-300"
+                                    className="px-1.5 py-0.5 rounded bg-[#161616] border border-[#282828] text-[10px] text-neutral-300"
                                   >
                                     {sch}
                                   </span>
                                 ))}
                               </div>
                             </td>
-                            <td className="p-3 text-right text-slate-400">{day.batchesCount}</td>
+                            <td className="p-3 text-right text-neutral-400">{day.batchesCount}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2079,9 +2078,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               ) : (
                 /* TAB 3: SCHOOL-WISE BREAKDOWN */
                 <div className="space-y-3">
-                  <div className="border border-[#1E2430] rounded-xl overflow-hidden bg-[#0A0D14]">
+                  <div className="border border-[#222222] rounded-xl overflow-hidden bg-[#070707]">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-[#121622] text-[10px] uppercase font-mono text-slate-400 border-b border-[#1E2430]">
+                      <thead className="bg-[#0D0D0D] text-[10px] uppercase font-mono text-neutral-400 border-b border-[#222222]">
                         <tr>
                           <th className="p-3">School Code</th>
                           <th className="p-3">School Name</th>
@@ -2093,16 +2092,16 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           <th className="p-3 text-right">Batches</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#161B26] font-mono text-[11px]">
+                      <tbody className="divide-y divide-[#181818] font-mono text-[11px]">
                         {schoolwiseAggregation.map((sch) => (
-                          <tr key={sch.schoolCode} className="hover:bg-[#121622]/60 transition-colors">
+                          <tr key={sch.schoolCode} className="hover:bg-[#121212] transition-colors">
                             <td className="p-3">
-                              <span className="px-2 py-0.5 rounded bg-[#161C27] border border-[#283244] text-white font-bold text-[11px]">
+                              <span className="px-2 py-0.5 rounded bg-[#161616] border border-[#282828] text-white font-bold text-[11px]">
                                 {sch.schoolCode}
                               </span>
                             </td>
-                            <td className="p-3 text-slate-300 font-sans">{sch.schoolName}</td>
-                            <td className="p-3 text-right text-slate-200">
+                            <td className="p-3 text-neutral-300 font-sans">{sch.schoolName}</td>
+                            <td className="p-3 text-right text-neutral-200">
                               {sch.received.toLocaleString()}
                             </td>
                             <td className="p-3 text-right font-bold text-emerald-400">
@@ -2111,7 +2110,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                             <td className="p-3 text-right">
                               <span
                                 className={
-                                  sch.backlog > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'
+                                  sch.backlog > 0 ? 'text-rose-400 font-bold' : 'text-neutral-500'
                                 }
                               >
                                 {sch.backlog > 0 ? `+${sch.backlog}` : sch.backlog}
@@ -2133,14 +2132,14 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                                 {sch.dates.map((d) => (
                                   <span
                                     key={d}
-                                    className="px-1.5 py-0.5 rounded bg-[#161C27] border border-[#283244] text-[10px] text-slate-300"
+                                    className="px-1.5 py-0.5 rounded bg-[#161616] border border-[#282828] text-[10px] text-neutral-300"
                                   >
                                     {d}
                                   </span>
                                 ))}
                               </div>
                             </td>
-                            <td className="p-3 text-right text-slate-400">{sch.batchesCount}</td>
+                            <td className="p-3 text-right text-neutral-400">{sch.batchesCount}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2151,14 +2150,14 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-[#1A202C] bg-[#0E121C] flex items-center justify-between text-xs font-mono text-slate-400 shrink-0">
+            <div className="p-4 border-t border-[#1F1F1F] bg-[#050505] flex items-center justify-between text-xs font-mono text-neutral-400 shrink-0">
               <div className="flex items-center space-x-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span>Live Google Sheet Subsheet Synchronizer</span>
               </div>
               <button
                 onClick={() => setSelectedTeammateModal(null)}
-                className="px-4 py-1.5 rounded-lg bg-[#181E2B] hover:bg-[#222B3D] text-white border border-[#2A3447] text-xs font-semibold transition-colors"
+                className="px-4 py-1.5 rounded-lg bg-white hover:bg-neutral-200 text-black border border-white text-xs font-semibold transition-colors shadow-sm"
               >
                 Close Inspector
               </button>
