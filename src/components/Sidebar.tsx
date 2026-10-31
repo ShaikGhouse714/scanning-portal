@@ -80,7 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div>
               <span className="font-semibold text-sm text-slate-100 tracking-tight block leading-tight">
-                ScanTrack
+                Scanning Tracker
               </span>
               <span className="text-[10px] text-slate-500 font-mono block leading-tight">
                 Exam Ops Reconciler

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { SUPER_ADMIN_EMAIL, INITIAL_USERS } from '../lib/mockData';
 import { getStoredUsers, saveStoredUsers } from '../lib/storage';
-import { Layers, ShieldCheck, ArrowRight, Lock, UserPlus, LogIn, Shield, Sparkles } from 'lucide-react';
+import { ShieldCheck, ArrowRight } from 'lucide-react';
 
 interface AuthScreenProps {
   onLoginSuccess: (user: User) => void;
@@ -31,26 +31,32 @@ const GoogleIcon = () => (
   </svg>
 );
 
+// Format readable name from email prefix (e.g. ghousemohiuddin774@gmail.com -> Ghouse Mohiuddin)
+function formatNameFromEmail(email: string): string {
+  const handle = email.split('@')[0] || 'Team Member';
+  const clean = handle.replace(/[0-9_.-]+/g, ' ').trim();
+  if (!clean) return handle;
+  return clean
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
-  // Default to Sign Up so new visitors are asked to sign up using Google account
-  const [mode, setMode] = useState<'signup' | 'signin'>('signup');
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [station, setStation] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const cleanEmail = email.trim().toLowerCase();
 
-  // Handle Google Sign Up (New users join as Basic Admin)
-  const handleSignUp = async (e: React.FormEvent) => {
+  // Unified Google Sign In
+  const handleGoogleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setInfoMsg(null);
 
-    if (!cleanEmail || !name.trim()) {
-      setError('Please enter your Google account email and your Full Name.');
+    if (!cleanEmail) {
+      setError('Please enter your Google account email.');
       return;
     }
 
@@ -59,84 +65,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
     try {
       const isSuper = cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase();
 
-      // Check if user already exists
-      const checkRes = await fetch('/api/users', { cache: 'no-store' });
-      if (checkRes.ok) {
-        const json = await checkRes.json();
-        if (Array.isArray(json.data)) {
-          const existing = json.data.find(
-            (u: User) => u.email.toLowerCase() === cleanEmail
-          );
-          if (existing) {
-            setIsLoading(false);
-            onLoginSuccess(existing);
-            return;
-          }
-        }
-      }
-
-      // Create new user (Non-owner accounts are strictly 'admin' = Basic Admin)
-      const newUser: User = {
-        id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        name: name.trim(),
-        email: cleanEmail,
-        role: isSuper ? 'super_admin' : 'admin',
-        station: station.trim() || (isSuper ? 'HQ / Scanning Ops' : 'Partner Admin Station'),
-        department: 'Scanning Dept',
-        avatarColor: isSuper ? 'bg-cyan-600' : 'bg-indigo-600',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      };
-
-      // 1. Save to server store so Super Admin sees them
-      const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUser),
-      });
-
-      let savedUser = newUser;
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data) savedUser = json.data;
-      }
-
-      // 2. Save to local storage
-      const localUsers = getStoredUsers();
-      if (!localUsers.some((u) => u.email.toLowerCase() === cleanEmail)) {
-        saveStoredUsers([savedUser, ...localUsers]);
-      }
-
-      setIsLoading(false);
-      onLoginSuccess(savedUser);
-    } catch (err) {
-      setIsLoading(false);
-      setError('Error creating account on server. Please try again.');
-    }
-  };
-
-  // Handle Google Sign In
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setInfoMsg(null);
-
-    if (!cleanEmail) {
-      setError('Please enter your Google Account email.');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // 1. Check if Super Admin
-      if (cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
+      // 1. If Super Admin Shaik Ghouse, log in immediately
+      if (isSuper) {
         setIsLoading(false);
         onLoginSuccess(INITIAL_USERS[0]);
         return;
       }
 
-      // 2. Fetch server accounts
+      // 2. Check if user already exists on the server
       const res = await fetch('/api/users', { cache: 'no-store' });
       let usersList: User[] = getStoredUsers();
       if (res.ok) {
@@ -156,99 +92,78 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
         return;
       }
 
-      // Not registered yet -> Switch to Sign Up tab with prefilled email
-      setIsLoading(false);
-      setMode('signup');
-      setInfoMsg(
-        `No account found for "${cleanEmail}". Please enter your name below to complete your Google Sign Up as Basic Admin.`
-      );
-    } catch {
-      if (cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase()) {
-        setIsLoading(false);
-        onLoginSuccess(INITIAL_USERS[0]);
-      } else {
-        setIsLoading(false);
-        setError('Connection error. Please try again.');
+      // 3. New User: Automatically register as Basic Admin ('admin')
+      const derivedName = formatNameFromEmail(cleanEmail);
+      const newUser: User = {
+        id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        name: derivedName,
+        email: cleanEmail,
+        role: 'admin', // New users are strictly Basic Admin
+        station: 'Partner Admin Station',
+        department: 'Scanning Dept',
+        avatarColor: 'bg-indigo-600',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+      };
+
+      // Save to server store
+      const saveRes = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser),
+      });
+
+      let savedUser = newUser;
+      if (saveRes.ok) {
+        const json = await saveRes.json();
+        if (json.data) savedUser = json.data;
       }
+
+      // Save to local storage
+      const localUsers = getStoredUsers();
+      if (!localUsers.some((u) => u.email.toLowerCase() === cleanEmail)) {
+        saveStoredUsers([savedUser, ...localUsers]);
+      }
+
+      setIsLoading(false);
+      onLoginSuccess(savedUser);
+    } catch {
+      setIsLoading(false);
+      setError('Connection error. Please try again.');
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#07090E] text-slate-100 flex flex-col justify-center py-10 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-[#07090E] text-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
       <div className="sm:mx-auto sm:w-full sm:max-w-md px-4">
-        {/* Brand Header */}
+        {/* Brand Header with 3-bar metric icon */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#121A2E] to-[#18233C] border border-[#232F4D] flex items-center justify-center shadow-lg mx-auto">
-            <Layers className="w-6 h-6 text-cyan-400" />
+          <div className="w-14 h-14 rounded-2xl bg-[#0E1322] border border-[#1F2942] flex items-center justify-center shadow-xl mx-auto p-2">
+            <svg className="w-8 h-8" viewBox="0 0 64 64" fill="none">
+              <rect x="13" y="34" width="10" height="22" rx="5" fill="#00A3FF" />
+              <rect x="27" y="22" width="10" height="34" rx="5" fill="#6E44FF" />
+              <rect x="41" y="10" width="10" height="46" rx="5" fill="#9E00FF" />
+            </svg>
           </div>
           <h2 className="mt-3 text-xl sm:text-2xl font-bold tracking-tight text-white">
-            ScanTrack Portal
+            Scanning Tracker
           </h2>
           <p className="mt-1 text-xs text-slate-400">
-            Scanning Department Intake &amp; Portal Reconciliation Network
+            Intake Verification &amp; Portal Reconciliation Network
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-[#0E121A] py-7 px-6 sm:px-8 border border-[#1E2430] rounded-2xl shadow-2xl space-y-5">
-          {/* Mode Switcher Tabs */}
-          <div className="flex rounded-xl bg-[#121622] p-1 border border-[#1F2636]">
-            <button
-              type="button"
-              onClick={() => {
-                setMode('signup');
-                setError(null);
-                setInfoMsg(null);
-              }}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
-                mode === 'signup'
-                  ? 'bg-cyan-950/40 text-cyan-300 shadow border border-cyan-500/30'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Sign Up with Google</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode('signin');
-                setError(null);
-                setInfoMsg(null);
-              }}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
-                mode === 'signin'
-                  ? 'bg-[#1C2333] text-white shadow border border-[#2B3548]'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Sign In with Google</span>
-            </button>
-          </div>
-
+        <div className="bg-[#0E121A] py-8 px-6 sm:px-8 border border-[#1E2430] rounded-2xl shadow-2xl space-y-5">
           <div className="text-center pb-2 border-b border-[#1A202C]">
             <h3 className="text-xs font-semibold text-white flex items-center justify-center space-x-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>
-                {mode === 'signup'
-                  ? 'Sign Up using Google Account'
-                  : 'Sign In using Google Account'}
-              </span>
+              <span>Sign In using Google Account</span>
             </h3>
             <p className="text-[11px] text-slate-400 mt-1">
-              {mode === 'signup'
-                ? 'New team members sign up here as Basic Admin'
-                : 'Enter your registered Google email to access portal'}
+              Enter your Google email to access the portal
             </p>
           </div>
-
-          {infoMsg && (
-            <div className="p-3 bg-cyan-950/30 border border-cyan-500/30 rounded-xl text-xs text-cyan-300 leading-relaxed flex items-start space-x-2">
-              <Sparkles className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-              <span>{infoMsg}</span>
-            </div>
-          )}
 
           {error && (
             <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300 leading-relaxed">
@@ -256,146 +171,39 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
             </div>
           )}
 
-          {/* SIGN UP FORM (DEFAULT) */}
-          {mode === 'signup' ? (
-            <form onSubmit={handleSignUp} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Google Account Email <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="yourname@gmail.com"
-                  className="w-full text-xs px-3.5 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white font-mono focus:outline-none focus:border-cyan-500/60 transition-all"
-                />
-              </div>
+          {/* SINGLE CLEAN GOOGLE SIGN IN FORM */}
+          <form onSubmit={handleGoogleSignIn} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Google Account Email
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="yourname@gmail.com"
+                className="w-full text-xs px-3.5 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white font-mono focus:outline-none focus:border-cyan-500/60 transition-all placeholder-slate-500"
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Full Name <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Ramesh Kumar"
-                  className="w-full text-xs px-3.5 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white focus:outline-none focus:border-cyan-500/60 transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Scanning Center / Station <span className="text-slate-500 font-normal">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={station}
-                  onChange={(e) => setStation(e.target.value)}
-                  placeholder="e.g. Center Station 1"
-                  className="w-full text-xs px-3.5 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white focus:outline-none focus:border-cyan-500/60 transition-all"
-                />
-              </div>
-
-              {/* Role Scope Notice */}
-              <div className="p-2.5 rounded-xl bg-[#121622] border border-[#1F2636] text-[11px] text-slate-400 space-y-1">
-                <div className="flex items-center space-x-1.5 text-cyan-300 font-semibold text-xs">
-                  <Shield className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Assigned Role: Basic Admin</span>
-                </div>
-                <p>
-                  New accounts are granted access to <strong>Intake vs Portal Matrix</strong> and <strong>Data Sources &amp; Live Sync</strong>.
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-semibold rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-              >
-                <GoogleIcon />
-                <span>{isLoading ? 'Registering with Google...' : 'Sign Up with Google Account'}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('signin');
-                    setError(null);
-                    setInfoMsg(null);
-                  }}
-                  className="text-xs text-slate-400 hover:text-white underline font-medium"
-                >
-                  Already signed up? Sign In with Google
-                </button>
-              </div>
-            </form>
-          ) : (
-            /* SIGN IN FORM */
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Registered Google Account Email
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="yourname@gmail.com"
-                  className="w-full text-xs px-3.5 py-2.5 bg-[#121620] border border-[#212836] rounded-xl text-white font-mono focus:outline-none focus:border-cyan-500/60 transition-all"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-[#1E2536] hover:bg-[#283248] text-white text-xs font-semibold rounded-xl border border-[#303D57] transition-all flex items-center justify-center space-x-2 shadow-sm disabled:opacity-50"
-              >
-                <GoogleIcon />
-                <span>{isLoading ? 'Verifying...' : 'Sign In with Google Account'}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('signup');
-                    setError(null);
-                    setInfoMsg(null);
-                  }}
-                  className="text-xs text-cyan-400 hover:text-cyan-300 underline font-medium"
-                >
-                  New team member? Sign Up with Google Account
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Quick One-Click Super Admin Login for Shaik Ghouse */}
-          <div className="pt-2 border-t border-[#1A202C]">
             <button
-              type="button"
-              onClick={() => {
-                setEmail(SUPER_ADMIN_EMAIL);
-                onLoginSuccess(INITIAL_USERS[0]);
-              }}
-              className="w-full py-2 px-3 bg-[#131722] hover:bg-[#1A202E] text-slate-300 hover:text-white text-xs rounded-xl border border-[#232A3B] transition-all flex items-center justify-center space-x-2"
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:via-indigo-500 hover:to-purple-500 text-white text-xs font-semibold rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
             >
-              <Lock className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Quick Login: Shaik Ghouse (Super Admin)</span>
+              <GoogleIcon />
+              <span>{isLoading ? 'Authenticating...' : 'Sign In using Google'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
-          </div>
+          </form>
 
-          <div className="text-center">
-            <span className="text-[10px] text-slate-500 font-mono">
-              Protected Google Authentication • Managed by Shaik Ghouse (Super Admin)
+          <div className="pt-2 border-t border-[#1A202C] text-center">
+            <span className="text-[10px] text-slate-500 font-mono block">
+              New team members are assigned Basic Admin automatically.
+            </span>
+            <span className="text-[10px] text-slate-600 font-mono block mt-0.5">
+              Role permissions managed by Super Admin (Shaik Ghouse M).
             </span>
           </div>
         </div>

@@ -395,7 +395,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-[#07090E]">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs font-mono text-slate-400">Loading ScanTrack Reconciler...</p>
+          <p className="text-xs font-mono text-slate-400">Loading Scanning Tracker...</p>
         </div>
       </div>
     );

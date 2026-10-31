@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ScanTrack Core // Scanning Department Portal",
+  title: "Scanning Tracker",
   description: "Scanning Department Intake, Verification & Real-time Audit Network",
   icons: {
     icon: [

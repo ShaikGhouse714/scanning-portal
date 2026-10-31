@@ -1,45 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0B132B" />
-      <stop offset="100%" stop-color="#1C2541" />
+    <!-- Bar 1 Gradient: Electric Cyan to Blue -->
+    <linearGradient id="bar1Grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00A3FF" />
+      <stop offset="100%" stop-color="#0057FF" />
     </linearGradient>
-    <linearGradient id="laserGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.2" />
-      <stop offset="30%" stop-color="#00F0FF" />
-      <stop offset="50%" stop-color="#FFFFFF" />
-      <stop offset="70%" stop-color="#00F0FF" />
-      <stop offset="100%" stop-color="#00F0FF" stop-opacity="0.2" />
+
+    <!-- Bar 2 Gradient: Blue-Purple to Indigo -->
+    <linearGradient id="bar2Grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6E44FF" />
+      <stop offset="100%" stop-color="#4B22EB" />
     </linearGradient>
-    <linearGradient id="accentBorder" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00F5FF" />
-      <stop offset="50%" stop-color="#3B82F6" />
-      <stop offset="100%" stop-color="#6366F1" />
+
+    <!-- Bar 3 Gradient: Electric Indigo to Vivid Violet -->
+    <linearGradient id="bar3Grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#9E00FF" />
+      <stop offset="100%" stop-color="#7300E6" />
     </linearGradient>
+
+    <!-- Subtle Glow Filter for modern pop -->
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#7000FF" flood-opacity="0.35" />
+    </filter>
   </defs>
 
-  <!-- Futuristic Hexagonal/Shield Badge -->
-  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#shieldGrad)" />
-  <rect x="4" y="4" width="56" height="56" rx="16" stroke="url(#accentBorder)" stroke-width="2.5" />
-
-  <!-- Document / Test Script Silhouette -->
-  <path d="M19 16C19 14.8954 19.8954 14 21 14H37L45 22V48C45 49.1046 44.1046 50 43 50H21C19.8954 50 19 49.1046 19 48V16Z" fill="#131D38" stroke="#38BDF8" stroke-width="1.8" stroke-linejoin="round"/>
-  <path d="M37 14V22H45" stroke="#38BDF8" stroke-width="1.8" stroke-linejoin="round"/>
-
-  <!-- Optical Barcode / Digital Matrix Grid Lines -->
-  <line x1="24" y1="26" x2="33" y2="26" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
-  <line x1="24" y1="31" x2="40" y2="31" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
-  <line x1="24" y1="36" x2="35" y2="36" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
-  <line x1="24" y1="41" x2="39" y2="41" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>
-
-  <!-- Glowing Laser Scanning Beam -->
-  <line x1="12" y1="33" x2="52" y2="33" stroke="url(#laserGrad)" stroke-width="3.5" stroke-linecap="round"/>
-  <circle cx="32" cy="33" r="3" fill="#FFFFFF"/>
-  <circle cx="32" cy="33" r="5" stroke="#00F0FF" stroke-width="1.2"/>
-
-  <!-- Precision Scanner Reticles (Top-Left & Bottom-Right) -->
-  <path d="M10 20V12H18" stroke="#00F0FF" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M54 44V52H46" stroke="#00F0FF" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M54 20V12H46" stroke="#6366F1" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M10 44V52H18" stroke="#6366F1" stroke-width="2.5" stroke-linecap="round"/>
+  <g filter="url(#softGlow)">
+    <!-- Bar 1: Shorter Left Bar -->
+    <rect x="13" y="34" width="10" height="22" rx="5" fill="url(#bar1Grad)" />
+    
+    <!-- Bar 2: Medium Middle Bar -->
+    <rect x="27" y="22" width="10" height="34" rx="5" fill="url(#bar2Grad)" />
+    
+    <!-- Bar 3: Tallest Right Bar -->
+    <rect x="41" y="10" width="10" height="46" rx="5" fill="url(#bar3Grad)" />
+  </g>
 </svg>
