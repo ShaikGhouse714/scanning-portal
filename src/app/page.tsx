@@ -13,6 +13,8 @@ import {
   saveStoredPortalSlots,
   getStoredSheetUrl,
   saveStoredSheetUrl,
+  getStoredSheetNames,
+  saveStoredSheetNames,
   getLastSyncTime,
   setLastSyncTime,
   createAccountByAdmin,
@@ -44,6 +46,7 @@ export default function Home() {
   const [teamEntries, setTeamEntries] = useState<TeamSubsheetEntry[]>([]);
   const [portalSlots, setPortalSlots] = useState<PortalExamSlot[]>([]);
   const [googleSheetUrl, setGoogleSheetUrl] = useState<string>('');
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [lastSyncedTime, setLastSyncedTimeState] = useState<string>('Ready to sync');
 
   // Initialize data on mount
@@ -54,6 +57,7 @@ export default function Home() {
     const storedTeam = getStoredTeamEntries();
     const storedPortal = getStoredPortalSlots();
     const storedUrl = getStoredSheetUrl();
+    const storedNames = getStoredSheetNames();
     const lastTime = getLastSyncTime();
 
     setCurrentUser(active);
@@ -61,6 +65,11 @@ export default function Home() {
     setTeamEntries(storedTeam);
     setPortalSlots(storedPortal);
     setGoogleSheetUrl(storedUrl);
+    setSheetNames(
+      storedNames.length > 0
+        ? storedNames
+        : ['Shaik Ghouse', 'Ramesh Kumar', 'Priya Sharma', 'Mohit Patel']
+    );
     setLastSyncedTimeState(lastTime);
 
     // Initial server fetch to sync across devices
@@ -81,6 +90,10 @@ export default function Home() {
           if (tJson.sheetUrl) {
             setGoogleSheetUrl(tJson.sheetUrl);
             saveStoredSheetUrl(tJson.sheetUrl);
+          }
+          if (Array.isArray(tJson.sheetNames) && tJson.sheetNames.length > 0) {
+            setSheetNames(tJson.sheetNames);
+            saveStoredSheetNames(tJson.sheetNames);
           }
         }
 
@@ -105,10 +118,10 @@ export default function Home() {
     })();
   }, []);
 
-  // Compute live reconciliation
+  // Compute live reconciliation (Passing sheetNames so all teammate cards are generated even if empty!)
   const { matrix, teammates, metrics } = useMemo(() => {
-    return reconcileIntakeVsPortal(teamEntries, portalSlots);
-  }, [teamEntries, portalSlots]);
+    return reconcileIntakeVsPortal(teamEntries, portalSlots, sheetNames);
+  }, [teamEntries, portalSlots, sheetNames]);
 
   // Sync with live Google Sheet (Publish to web URL in XLSX format)
   const handleSyncGoogleSheet = useCallback(async () => {
@@ -141,8 +154,15 @@ export default function Home() {
       }
 
       const newEntries: TeamSubsheetEntry[] = json.data;
+      const discoveredSheets: string[] = json.sheetNames || [];
+
       setTeamEntries(newEntries);
       saveStoredTeamEntries(newEntries);
+
+      if (discoveredSheets.length > 0) {
+        setSheetNames(discoveredSheets);
+        saveStoredSheetNames(discoveredSheets);
+      }
 
       const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const timeMsg = `Synced at ${nowStr}`;
@@ -153,11 +173,15 @@ export default function Home() {
       await fetch('/api/team-entries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entries: newEntries, sheetUrl: googleSheetUrl }),
+        body: JSON.stringify({
+          entries: newEntries,
+          sheetUrl: googleSheetUrl,
+          sheetNames: discoveredSheets,
+        }),
       });
 
       alert(
-        `Google Sheet synchronized successfully! Loaded ${json.sheetNames?.length || 0} teammate subsheet(s) and ${newEntries.length} entries.`
+        `Google Sheet synchronized successfully! Generated cards for ${discoveredSheets.length} teammate subsheet(s) and loaded ${newEntries.length} entries.`
       );
     } catch (err) {
       console.error('Google Sheet sync error:', err);
@@ -188,9 +212,7 @@ export default function Home() {
         body: JSON.stringify({ slots: parsedSlots }),
       });
 
-      alert(
-        `Portal file uploaded! Successfully extracted ${parsedSlots.length} exam slots.`
-      );
+      alert(`Portal file uploaded! Successfully extracted ${parsedSlots.length} exam slots.`);
     } catch (e) {
       console.error('Failed to parse portal file:', e);
       alert('Error parsing portal file: ' + String(e));
@@ -201,17 +223,18 @@ export default function Home() {
   const handleUploadTeamSheetFile = async (file: File) => {
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const { teammateEntries, sheetNames } = parseTeamGoogleSheet(arrayBuffer);
+      const { teammateEntries, sheetNames: discoveredSheets } = parseTeamGoogleSheet(arrayBuffer);
 
-      if (teammateEntries.length === 0) {
-        alert(
-          'No valid subsheet rows found. Ensure each tab has columns like Date, School, Received, Scanned.'
-        );
+      if (discoveredSheets.length === 0) {
+        alert('No subsheets found in the uploaded workbook.');
         return;
       }
 
       setTeamEntries(teammateEntries);
       saveStoredTeamEntries(teammateEntries);
+
+      setSheetNames(discoveredSheets);
+      saveStoredSheetNames(discoveredSheets);
 
       const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const timeMsg = `Uploaded at ${nowStr}`;
@@ -222,11 +245,11 @@ export default function Home() {
       await fetch('/api/team-entries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entries: teammateEntries }),
+        body: JSON.stringify({ entries: teammateEntries, sheetNames: discoveredSheets }),
       });
 
       alert(
-        `Team sheet uploaded! Loaded ${sheetNames.length} teammate subsheet(s) (${sheetNames.join(', ')}) with ${teammateEntries.length} total entries.`
+        `Team sheet uploaded! Generated cards for ${discoveredSheets.length} teammate subsheet(s) (${discoveredSheets.join(', ')}) with ${teammateEntries.length} entries.`
       );
     } catch (e) {
       console.error('Failed to parse team sheet:', e);
@@ -238,12 +261,16 @@ export default function Home() {
   const handleResetToDemoData = () => {
     const demoPortal = parsePortalData(DEFAULT_PORTAL_CSV);
     const demoTeam = [...DEFAULT_TEAM_ENTRIES];
+    const demoNames = ['Shaik Ghouse', 'Ramesh Kumar', 'Priya Sharma', 'Mohit Patel'];
 
     setPortalSlots(demoPortal);
     saveStoredPortalSlots(demoPortal);
 
     setTeamEntries(demoTeam);
     saveStoredTeamEntries(demoTeam);
+
+    setSheetNames(demoNames);
+    saveStoredSheetNames(demoNames);
 
     setLastSyncedTimeState('Loaded Demo Data');
     setLastSyncTime('Loaded Demo Data');
@@ -257,7 +284,7 @@ export default function Home() {
     fetch('/api/team-entries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entries: demoTeam }),
+      body: JSON.stringify({ entries: demoTeam, sheetNames: demoNames }),
     }).catch(() => {});
 
     alert('Loaded reference portal exam slots and sample team subsheets!');
@@ -368,6 +395,7 @@ export default function Home() {
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             lastSyncedTime={lastSyncedTime}
+            sheetNames={sheetNames}
           />
         </main>
       </div>

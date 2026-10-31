@@ -4,6 +4,8 @@ import {
   saveServerTeamEntries,
   getServerSheetUrl,
   saveServerSheetUrl,
+  getServerSheetNames,
+  saveServerSheetNames,
 } from '@/lib/serverStore';
 import { parseTeamGoogleSheet } from '@/lib/excelParser';
 
@@ -21,8 +23,9 @@ export async function GET(request: Request) {
     const _url = request.url;
     const entries = getServerTeamEntries();
     const sheetUrl = getServerSheetUrl();
+    const sheetNames = getServerSheetNames();
     return NextResponse.json(
-      { success: true, data: entries, total: entries.length, sheetUrl },
+      { success: true, data: entries, total: entries.length, sheetUrl, sheetNames },
       { status: 200, headers: noCacheHeaders }
     );
   } catch (error) {
@@ -42,6 +45,9 @@ export async function POST(request: Request) {
       if (body.sheetUrl) {
         saveServerSheetUrl(body.sheetUrl);
       }
+      if (Array.isArray(body.sheetNames)) {
+        saveServerSheetNames(body.sheetNames);
+      }
       if (Array.isArray(body.entries)) {
         saveServerTeamEntries(body.entries);
         return NextResponse.json(
@@ -55,6 +61,7 @@ export async function POST(request: Request) {
     const arrayBuffer = await request.arrayBuffer();
     const parsed = parseTeamGoogleSheet(arrayBuffer);
     saveServerTeamEntries(parsed.teammateEntries);
+    saveServerSheetNames(parsed.sheetNames);
 
     return NextResponse.json(
       {
@@ -72,3 +79,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

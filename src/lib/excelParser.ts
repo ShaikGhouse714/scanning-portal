@@ -132,13 +132,16 @@ export function parseTeamGoogleSheet(data: ArrayBuffer): {
 
   for (const sheetName of workbook.SheetNames) {
     const trimmedSheetName = sheetName.trim();
+    if (!trimmedSheetName) continue;
+
+    // Track EVERY sheet name in the workbook, even if empty!
+    processedSheets.push(trimmedSheetName);
+
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) continue;
 
     const rawRows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
     if (!rawRows || rawRows.length === 0) continue;
-
-    processedSheets.push(trimmedSheetName);
 
     for (let r = 0; r < rawRows.length; r++) {
       const row = rawRows[r];
@@ -191,7 +194,8 @@ export function parseTeamGoogleSheet(data: ArrayBuffer): {
 // 3. Reconcile Team Subsheets vs Portal Uploads
 export function reconcileIntakeVsPortal(
   teamEntries: TeamSubsheetEntry[],
-  portalSlots: PortalExamSlot[]
+  portalSlots: PortalExamSlot[],
+  allTeammateNames: string[] = []
 ): {
   matrix: ReconciledDateSchool[];
   teammates: TeammateSummary[];
@@ -293,13 +297,24 @@ export function reconcileIntakeVsPortal(
     return a.schoolCode.localeCompare(b.schoolCode);
   });
 
-  // 4. Build Teammates Summary
+  // 4. Build Teammates Summary (Including all subsheet names, even if data is empty!)
   const teammateMap = new Map<string, TeamSubsheetEntry[]>();
-  for (const e of teamEntries) {
-    if (!teammateMap.has(e.teammateName)) {
-      teammateMap.set(e.teammateName, []);
+
+  // Register every discovered subsheet name so cards are generated even when data is empty
+  for (const name of allTeammateNames) {
+    const trimmed = name.trim();
+    if (trimmed && !teammateMap.has(trimmed)) {
+      teammateMap.set(trimmed, []);
     }
-    teammateMap.get(e.teammateName)!.push(e);
+  }
+
+  // Register all teammates who have entries
+  for (const e of teamEntries) {
+    const trimmed = e.teammateName.trim();
+    if (!teammateMap.has(trimmed)) {
+      teammateMap.set(trimmed, []);
+    }
+    teammateMap.get(trimmed)!.push(e);
   }
 
   const teammates: TeammateSummary[] = [];
@@ -320,7 +335,13 @@ export function reconcileIntakeVsPortal(
     });
   }
 
-  teammates.sort((a, b) => b.totalScanned - a.totalScanned);
+  // Sort teammates: active first with highest scanned count, then empty ones alphabetically
+  teammates.sort((a, b) => {
+    if (a.entriesCount > 0 && b.entriesCount === 0) return -1;
+    if (a.entriesCount === 0 && b.entriesCount > 0) return 1;
+    if (b.totalScanned !== a.totalScanned) return b.totalScanned - a.totalScanned;
+    return a.name.localeCompare(b.name);
+  });
 
   // 5. Global Metrics
   const totalTeamReceived = matrix.reduce((sum, m) => sum + m.teamReceived, 0);
@@ -381,3 +402,4 @@ export function getInitialReconciliationState() {
   const teamEntries = [...DEFAULT_TEAM_ENTRIES];
   return reconcileIntakeVsPortal(teamEntries, portalSlots);
 }
+

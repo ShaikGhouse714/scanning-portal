@@ -19,6 +19,7 @@ const CURRENT_USER_KEY = 'scantrack_active_user_v3';
 const TEAM_ENTRIES_KEY = 'scantrack_team_entries_v3';
 const PORTAL_SLOTS_KEY = 'scantrack_portal_slots_v3';
 const GOOGLE_SHEET_URL_KEY = 'scantrack_sheet_url_v3';
+const SHEET_NAMES_KEY = 'scantrack_sheet_names_v3';
 const LAST_SYNCED_KEY = 'scantrack_last_synced_v3';
 
 // 1. User Management (Only Admin Shaik Ghouse + accounts created by admin)
@@ -168,7 +169,7 @@ export function saveStoredPortalSlots(slots: PortalExamSlot[]): void {
   }
 }
 
-// 4. Saved Google Sheet URL
+// 4. Saved Google Sheet URL & Subsheet Names
 export function getStoredSheetUrl(): string {
   if (typeof window === 'undefined') return '';
   return localStorage.getItem(GOOGLE_SHEET_URL_KEY) || '';
@@ -177,6 +178,25 @@ export function getStoredSheetUrl(): string {
 export function saveStoredSheetUrl(url: string): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(GOOGLE_SHEET_URL_KEY, url);
+}
+
+export function getStoredSheetNames(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(SHEET_NAMES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredSheetNames(names: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SHEET_NAMES_KEY, JSON.stringify(names));
+  } catch (e) {
+    console.error('Failed to save sheet names', e);
+  }
 }
 
 // 5. Last Sync Timestamp

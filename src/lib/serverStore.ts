@@ -38,6 +38,7 @@ let inMemoryUsers: User[] = [...INITIAL_USERS];
 let inMemoryTeamEntries: TeamSubsheetEntry[] = [...DEFAULT_TEAM_ENTRIES];
 let inMemoryPortalSlots: PortalExamSlot[] = parsePortalData(DEFAULT_PORTAL_CSV);
 let inMemorySheetUrl: string = '';
+let inMemorySheetNames: string[] = ['Shaik Ghouse', 'Ramesh Kumar', 'Priya Sharma', 'Mohit Patel'];
 
 // 1. Users
 export function getServerUsers(): User[] {
@@ -167,5 +168,27 @@ export function saveServerSheetUrl(url: string): void {
     fs.writeFileSync(getFilePath('sheet_url.txt'), url, 'utf-8');
   } catch (err) {
     console.warn('Error saving sheet URL:', err);
+  }
+}
+
+// 5. Subsheet Names
+export function getServerSheetNames(): string[] {
+  try {
+    const filePath = getFilePath('sheet_names.json');
+    if (fs.existsSync(filePath)) {
+      return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    }
+    return inMemorySheetNames;
+  } catch {
+    return inMemorySheetNames;
+  }
+}
+
+export function saveServerSheetNames(names: string[]): void {
+  inMemorySheetNames = names;
+  try {
+    fs.writeFileSync(getFilePath('sheet_names.json'), JSON.stringify(names, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Error saving sheet names:', err);
   }
 }
