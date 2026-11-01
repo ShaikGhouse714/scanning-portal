@@ -267,3 +267,48 @@ export function exportReconciliationToCSV(
   link.click();
   document.body.removeChild(link);
 }
+
+export function exportPortalSlotsToCSV(
+  slots: PortalExamSlot[],
+  fileName: string = 'Portal_Exam_Schedules.csv'
+) {
+  const headers = [
+    'Schedule ID',
+    'Date',
+    'School Code',
+    'School Name',
+    'Course Code',
+    'Course Title',
+    'Programme',
+    'Semester',
+    'Completed',
+    'Not Started',
+    'Status',
+  ];
+
+  const rows = slots.map((s) => [
+    s.scheduleId,
+    s.date,
+    s.schoolCode,
+    `"${(s.schoolName || '').replace(/"/g, '""')}"`,
+    s.courseCode,
+    `"${(s.courseTitle || '').replace(/"/g, '""')}"`,
+    `"${(s.programme || '').replace(/"/g, '""')}"`,
+    s.semester || '',
+    s.completed,
+    s.notStarted,
+    Number(s.completed) === 0 ? 'NOT SCANNED YET' : 'SCANNED',
+  ]);
+
+  const csvContent =
+    'data:text/csv;charset=utf-8,' +
+    [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', fileName);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}

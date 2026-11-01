@@ -55,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'portal_exams',
-      label: 'Portal Exam Schedules',
+      label: 'Post Exam Schedules',
       icon: FileSpreadsheet,
       allowedRoles: ['super_admin'],
     },

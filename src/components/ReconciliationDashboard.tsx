@@ -39,7 +39,7 @@ import {
   CalendarDays,
   FileCheck2,
 } from 'lucide-react';
-import { exportReconciliationToCSV } from '../lib/storage';
+import { exportReconciliationToCSV, exportPortalSlotsToCSV } from '../lib/storage';
 import { CustomDropdown, DropdownOption } from './CustomDropdown';
 import { SCHOOL_CODE_MAP } from '../lib/mockData';
 
@@ -91,8 +91,13 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
   const [teammateFilter, setTeammateFilter] = useState<'all' | 'active' | 'empty'>('all');
   const [expandedTeammate, setExpandedTeammate] = useState<string | null>(null);
 
-  // Portal Exams Search
+  // Portal Exams Search, Sorting, and Sector Filter
   const [portalSearch, setPortalSearch] = useState<string>('');
+  const [portalSortBy, setPortalSortBy] = useState<
+    'date_desc' | 'date_asc' | 'school_asc' | 'school_desc' | 'completed_desc' | 'completed_asc' | 'code_asc'
+  >('date_desc');
+  const [portalSectorFilter, setPortalSectorFilter] = useState<'all' | 'unscanned' | 'scanned'>('all');
+  const [portalViewMode, setPortalViewMode] = useState<'table' | 'daywise' | 'schoolwise'>('table');
 
   // Drilldown modal
   const [expandedItem, setExpandedItem] = useState<ReconciledDateSchool | null>(null);
@@ -284,6 +289,214 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
     { value: 'scanned_desc', label: 'Volume: Highest Scanned' },
     { value: 'received_desc', label: 'Volume: Highest Received' },
   ], []);
+
+  // Portal Sorting Dropdown Options
+  const portalSortOptions: DropdownOption[] = useMemo(() => [
+    { value: 'date_desc', label: 'Day-wise: Newest First' },
+    { value: 'date_asc', label: 'Day-wise: Oldest First' },
+    { value: 'school_asc', label: 'School-wise: A → Z' },
+    { value: 'school_desc', label: 'School-wise: Z → A' },
+    { value: 'completed_asc', label: 'Completed: 0 First (Not Scanned)' },
+    { value: 'completed_desc', label: 'Completed: Highest First' },
+    { value: 'code_asc', label: 'Course Code: A → Z' },
+  ], []);
+
+  // Portal Slots with completed === 0 (Not scanned yet)
+  const unscannedPortalSlots = useMemo(() => {
+    return portalSlots.filter((s) => Number(s.completed) === 0);
+  }, [portalSlots]);
+
+  const scannedPortalSlots = useMemo(() => {
+    return portalSlots.filter((s) => Number(s.completed) > 0);
+  }, [portalSlots]);
+
+  const unscannedTotalNotStarted = useMemo(() => {
+    return unscannedPortalSlots.reduce((acc, s) => acc + (Number(s.notStarted) || 0), 0);
+  }, [unscannedPortalSlots]);
+
+  const unscannedSchoolsCount = useMemo(() => {
+    return new Set(unscannedPortalSlots.map((s) => s.schoolCode)).size;
+  }, [unscannedPortalSlots]);
+
+  const unscannedDatesCount = useMemo(() => {
+    return new Set(unscannedPortalSlots.map((s) => s.date)).size;
+  }, [unscannedPortalSlots]);
+
+  // Filtered and Sorted Portal Slots
+  const filteredAndSortedPortalSlots = useMemo(() => {
+    let list = [...portalSlots];
+
+    // Filter by sector
+    if (portalSectorFilter === 'unscanned') {
+      list = list.filter((s) => Number(s.completed) === 0);
+    } else if (portalSectorFilter === 'scanned') {
+      list = list.filter((s) => Number(s.completed) > 0);
+    }
+
+    // Filter by search query
+    if (portalSearch.trim()) {
+      const q = portalSearch.toLowerCase();
+      list = list.filter(
+        (s) =>
+          (s.scheduleId && s.scheduleId.toLowerCase().includes(q)) ||
+          (s.courseCode && s.courseCode.toLowerCase().includes(q)) ||
+          (s.courseTitle && s.courseTitle.toLowerCase().includes(q)) ||
+          (s.schoolCode && s.schoolCode.toLowerCase().includes(q)) ||
+          (s.schoolName && s.schoolName.toLowerCase().includes(q)) ||
+          (s.date && s.date.includes(q)) ||
+          (s.programme && s.programme.toLowerCase().includes(q))
+      );
+    }
+
+    // Sort
+    switch (portalSortBy) {
+      case 'date_desc':
+        return list.sort(
+          (a, b) =>
+            (b.date || '').localeCompare(a.date || '') ||
+            (a.schoolCode || '').localeCompare(b.schoolCode || '')
+        );
+      case 'date_asc':
+        return list.sort(
+          (a, b) =>
+            (a.date || '').localeCompare(b.date || '') ||
+            (a.schoolCode || '').localeCompare(b.schoolCode || '')
+        );
+      case 'school_asc':
+        return list.sort(
+          (a, b) =>
+            (a.schoolCode || '').localeCompare(b.schoolCode || '') ||
+            (b.date || '').localeCompare(a.date || '')
+        );
+      case 'school_desc':
+        return list.sort(
+          (a, b) =>
+            (b.schoolCode || '').localeCompare(a.schoolCode || '') ||
+            (b.date || '').localeCompare(a.date || '')
+        );
+      case 'completed_asc':
+        return list.sort(
+          (a, b) =>
+            Number(a.completed) - Number(b.completed) ||
+            (b.date || '').localeCompare(a.date || '')
+        );
+      case 'completed_desc':
+        return list.sort(
+          (a, b) =>
+            Number(b.completed) - Number(a.completed) ||
+            (b.date || '').localeCompare(a.date || '')
+        );
+      case 'code_asc':
+        return list.sort((a, b) => (a.courseCode || '').localeCompare(b.courseCode || ''));
+      default:
+        return list;
+    }
+  }, [portalSlots, portalSectorFilter, portalSearch, portalSortBy]);
+
+  // Day-wise Portal Aggregation
+  const portalDaywiseAggregation = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        date: string;
+        totalSlots: number;
+        completed: number;
+        notStarted: number;
+        unscannedCount: number;
+        schools: Set<string>;
+      }
+    >();
+
+    for (const s of portalSlots) {
+      const d = s.date || 'Unknown';
+      const existing = map.get(d) || {
+        date: d,
+        totalSlots: 0,
+        completed: 0,
+        notStarted: 0,
+        unscannedCount: 0,
+        schools: new Set<string>(),
+      };
+      existing.totalSlots += 1;
+      existing.completed += Number(s.completed) || 0;
+      existing.notStarted += Number(s.notStarted) || 0;
+      if (Number(s.completed) === 0) {
+        existing.unscannedCount += 1;
+      }
+      if (s.schoolCode) existing.schools.add(s.schoolCode);
+      map.set(d, existing);
+    }
+
+    const list = Array.from(map.values()).map((item) => ({
+      date: item.date,
+      totalSlots: item.totalSlots,
+      completed: item.completed,
+      notStarted: item.notStarted,
+      unscannedCount: item.unscannedCount,
+      schools: Array.from(item.schools),
+    }));
+
+    if (portalSortBy === 'date_asc') {
+      list.sort((a, b) => a.date.localeCompare(b.date));
+    } else {
+      list.sort((a, b) => b.date.localeCompare(a.date));
+    }
+    return list;
+  }, [portalSlots, portalSortBy]);
+
+  // School-wise Portal Aggregation
+  const portalSchoolwiseAggregation = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        schoolCode: string;
+        schoolName: string;
+        totalSlots: number;
+        completed: number;
+        notStarted: number;
+        unscannedCount: number;
+        dates: Set<string>;
+      }
+    >();
+
+    for (const s of portalSlots) {
+      const code = s.schoolCode || 'UNKNOWN';
+      const existing = map.get(code) || {
+        schoolCode: code,
+        schoolName: s.schoolName || SCHOOL_CODE_MAP[code] || code,
+        totalSlots: 0,
+        completed: 0,
+        notStarted: 0,
+        unscannedCount: 0,
+        dates: new Set<string>(),
+      };
+      existing.totalSlots += 1;
+      existing.completed += Number(s.completed) || 0;
+      existing.notStarted += Number(s.notStarted) || 0;
+      if (Number(s.completed) === 0) {
+        existing.unscannedCount += 1;
+      }
+      if (s.date) existing.dates.add(s.date);
+      map.set(code, existing);
+    }
+
+    const list = Array.from(map.values()).map((item) => ({
+      schoolCode: item.schoolCode,
+      schoolName: item.schoolName,
+      totalSlots: item.totalSlots,
+      completed: item.completed,
+      notStarted: item.notStarted,
+      unscannedCount: item.unscannedCount,
+      dates: Array.from(item.dates),
+    }));
+
+    if (portalSortBy === 'school_desc') {
+      list.sort((a, b) => b.schoolCode.localeCompare(a.schoolCode));
+    } else {
+      list.sort((a, b) => a.schoolCode.localeCompare(b.schoolCode));
+    }
+    return list;
+  }, [portalSlots, portalSortBy]);
 
   // Filtered matrix for Intake vs Portal view
   const filteredMatrix = useMemo(() => {
@@ -1187,7 +1400,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: PORTAL EXAM SCHEDULES MASTER (Only shows relevant portal data) */}
+      {/* TAB 3: PORTAL EXAM SCHEDULES MASTER (With Sorting, Grouping & Not Scanned Sector) */}
       {/* ========================================================================= */}
       {activeTab === 'portal_exams' && (
         <div className="space-y-6">
@@ -1196,7 +1409,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
                 <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
-                <span>Central Portal Exam Schedules Master</span>
+                <span>Post Exam Schedules &amp; Portal Master</span>
               </h1>
               <p className="text-xs text-slate-400 mt-1">
                 Extracted from your uploaded portal file ({portalSlots.length} exam slots). Script
@@ -1221,7 +1434,14 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </label>
 
               <button
-                onClick={() => exportReconciliationToCSV(matrix, 'Portal_Exam_Master.csv')}
+                onClick={() =>
+                  exportPortalSlotsToCSV(
+                    filteredAndSortedPortalSlots,
+                    portalSectorFilter === 'unscanned'
+                      ? 'Portal_Not_Scanned_Yet.csv'
+                      : 'Portal_Exam_Schedules.csv'
+                  )
+                }
                 className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#141822] hover:bg-[#1E2433] border border-[#242C3D] text-xs font-medium text-slate-300 transition-colors"
               >
                 <Download className="w-3.5 h-3.5 text-slate-400" />
@@ -1237,17 +1457,19 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Total Exam Slots Staged
+                  Total Exam Slots
                 </span>
                 <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
                   <FileSpreadsheet className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-white font-mono tracking-tight">{portalSlots.length}</div>
+              <div className="text-3xl font-extrabold text-white font-mono tracking-tight">
+                {portalSlots.length}
+              </div>
               <div className="flex items-center space-x-1.5 mt-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                 <span className="text-[10px] text-slate-400 font-mono">
-                  Individual slot schedules
+                  Schedules in uploaded portal file
                 </span>
               </div>
             </div>
@@ -1257,7 +1479,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Total Completed Uploads
+                  Completed Uploads
                 </span>
                 <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                   <CheckCircle2 className="w-4 h-4" />
@@ -1269,17 +1491,67 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               <div className="flex items-center space-x-1.5 mt-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 <span className="text-[10px] text-slate-400 font-mono">
-                  Sum of &apos;Completed&apos; column
+                  Across {scannedPortalSlots.length} scanned exam slots
                 </span>
               </div>
             </div>
 
-            {/* Tile 3: Schools with Exams */}
+            {/* Tile 3: NOT SCANNED YET (Special Place/Sector Highlight) */}
+            <div
+              onClick={() =>
+                setPortalSectorFilter(portalSectorFilter === 'unscanned' ? 'all' : 'unscanned')
+              }
+              className={`relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border cursor-pointer transition-all duration-200 hover:-translate-y-0.5 shadow-xl shadow-black/30 ${
+                unscannedPortalSlots.length > 0
+                  ? 'border-amber-500/40 hover:border-amber-500/70 hover:bg-amber-950/10'
+                  : 'border-[#1E273A] hover:border-emerald-500/40'
+              }`}
+            >
+              <div
+                className={`absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent ${
+                  unscannedPortalSlots.length > 0 ? 'via-amber-500' : 'via-emerald-500'
+                } to-transparent opacity-60 group-hover:opacity-100 transition-opacity`}
+              />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300 flex items-center space-x-1.5">
+                  <span>Not scanned yet</span>
+                  {unscannedPortalSlots.length > 0 && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  )}
+                </span>
+                <div
+                  className={`w-8 h-8 rounded-xl ${
+                    unscannedPortalSlots.length > 0
+                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                  } border flex items-center justify-center`}
+                >
+                  <AlertCircle className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-3xl font-extrabold text-amber-400 font-mono tracking-tight">
+                {unscannedPortalSlots.length}
+              </div>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    unscannedPortalSlots.length > 0 ? 'bg-amber-400' : 'bg-emerald-400'
+                  }`}
+                />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {unscannedPortalSlots.length > 0
+                    ? `${unscannedTotalNotStarted.toLocaleString()} scripts with 0 completed (click to filter)`
+                    : 'All exams have scanned scripts'}
+                </span>
+              </div>
+            </div>
+
+            {/* Tile 4: Examination Dates & Schools */}
             <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-indigo-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Schools with Exams
+                  Schools &amp; Dates
                 </span>
                 <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
                   <GraduationCap className="w-4 h-4" />
@@ -1291,122 +1563,491 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               <div className="flex items-center space-x-1.5 mt-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                 <span className="text-[10px] text-slate-400 font-mono">
-                  Faculties in schedule
-                </span>
-              </div>
-            </div>
-
-            {/* Tile 4: Examination Dates */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-amber-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Examination Dates
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-                  <Calendar className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-3xl font-extrabold text-amber-400 font-mono tracking-tight">
-                {metrics.totalDatesCount}
-              </div>
-              <div className="flex items-center space-x-1.5 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
-                  Unique exam days
+                  Schools across {metrics.totalDatesCount} exam days
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Portal Table */}
-          <div className="bg-[#0E121A] rounded-2xl border border-[#1E2430] overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-[#1A202C] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-semibold text-white">
-                  Portal Timetable &amp; Upload Status
-                </span>
-                <span className="text-[11px] text-slate-500 font-mono">
-                  ({portalSlots.length} records)
-                </span>
+          {/* ======================================================================= */}
+          {/* SPECIAL SECTOR: "NOT SCANNED YET" (Featured place for completed == 0) */}
+          {/* ======================================================================= */}
+          {unscannedPortalSlots.length > 0 && (
+            <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/20 via-[#0B0F1C] to-[#080B14] p-5 shadow-2xl shadow-black/40 space-y-4">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" />
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#222B3D]">
+                <div className="flex items-start sm:items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                    <AlertCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2.5">
+                      <h2 className="text-sm font-bold text-white tracking-wide uppercase">
+                        Not Scanned Yet
+                      </h2>
+                      <span className="text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center space-x-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <span>{unscannedPortalSlots.length} Batches with 0 Uploads</span>
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      The portal export shows <code className="text-amber-300 font-mono font-bold">Completed: 0</code> for these exams.
+                      They represent batches awaiting physical script intake and scanning.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    onClick={() =>
+                      setPortalSectorFilter(portalSectorFilter === 'unscanned' ? 'all' : 'unscanned')
+                    }
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 border ${
+                      portalSectorFilter === 'unscanned'
+                        ? 'bg-amber-500 text-black border-amber-400 shadow-lg shadow-amber-500/20'
+                        : 'bg-[#151C2C] hover:bg-[#1E273C] text-amber-300 border-amber-500/30'
+                    }`}
+                  >
+                    <span>{portalSectorFilter === 'unscanned' ? '✓ Showing Only Not Scanned' : 'Filter Sector Table'}</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="relative w-64">
+              {/* 4 Summary Micro-Tiles */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                <div className="p-3 rounded-xl bg-[#0F1524] border border-[#1E283C]">
+                  <span className="text-[10px] text-slate-400 block uppercase">Unscanned Exam Batches</span>
+                  <span className="text-lg font-bold text-amber-400">{unscannedPortalSlots.length}</span>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">Slots with 0 completed</span>
+                </div>
+                <div className="p-3 rounded-xl bg-[#0F1524] border border-[#1E283C]">
+                  <span className="text-[10px] text-slate-400 block uppercase">Candidate Scripts Pending</span>
+                  <span className="text-lg font-bold text-white">{unscannedTotalNotStarted.toLocaleString()}</span>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">Registered candidates</span>
+                </div>
+                <div className="p-3 rounded-xl bg-[#0F1524] border border-[#1E283C]">
+                  <span className="text-[10px] text-slate-400 block uppercase">Affected Schools</span>
+                  <span className="text-lg font-bold text-slate-200">{unscannedSchoolsCount}</span>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">Faculties awaiting scans</span>
+                </div>
+                <div className="p-3 rounded-xl bg-[#0F1524] border border-[#1E283C]">
+                  <span className="text-[10px] text-slate-400 block uppercase">Affected Dates</span>
+                  <span className="text-lg font-bold text-slate-200">{unscannedDatesCount}</span>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">Exam sessions impacted</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Controls Toolbar: Sector Filter, Day/School-wise Grouping, Custom Sorting, Search */}
+          <div className="bg-[#0E121A] rounded-2xl border border-[#1E2430] p-4 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+            {/* Left: Sector and View Mode Toggles */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Sector Filter Tabs */}
+              <div className="flex items-center space-x-1 bg-[#121620] p-1 rounded-xl border border-[#212836] text-xs">
+                <button
+                  onClick={() => setPortalSectorFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                    portalSectorFilter === 'all'
+                      ? 'bg-[#1D2536] text-white border border-[#303D56] shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  All ({portalSlots.length})
+                </button>
+                <button
+                  onClick={() => setPortalSectorFilter('unscanned')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 ${
+                    portalSectorFilter === 'unscanned'
+                      ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm'
+                      : 'text-slate-400 hover:text-amber-300'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span>Not Scanned Yet ({unscannedPortalSlots.length})</span>
+                </button>
+                <button
+                  onClick={() => setPortalSectorFilter('scanned')}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 ${
+                    portalSectorFilter === 'scanned'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                      : 'text-slate-400 hover:text-emerald-300'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span>Scanned ({scannedPortalSlots.length})</span>
+                </button>
+              </div>
+
+              {/* View Mode: Table vs Day-wise Grouping vs School-wise Grouping */}
+              <div className="flex items-center space-x-1 bg-[#121620] p-1 rounded-xl border border-[#212836] text-xs">
+                <button
+                  onClick={() => setPortalViewMode('table')}
+                  className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center space-x-1 ${
+                    portalViewMode === 'table'
+                      ? 'bg-[#1D2536] text-white border border-[#303D56]'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Detailed Slot-by-Slot Table"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Table View</span>
+                </button>
+                <button
+                  onClick={() => setPortalViewMode('daywise')}
+                  className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center space-x-1 ${
+                    portalViewMode === 'daywise'
+                      ? 'bg-[#1D2536] text-white border border-[#303D56]'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Group schedules by Date"
+                >
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  <span>Day-wise Grouping</span>
+                </button>
+                <button
+                  onClick={() => setPortalViewMode('schoolwise')}
+                  className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center space-x-1 ${
+                    portalViewMode === 'schoolwise'
+                      ? 'bg-[#1D2536] text-white border border-[#303D56]'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Group schedules by School"
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>School-wise Grouping</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Right: Custom Sorting Dropdown & Search */}
+            <div className="flex flex-wrap items-center gap-2">
+              <CustomDropdown
+                value={portalSortBy}
+                options={portalSortOptions}
+                onChange={(val) => setPortalSortBy(val as any)}
+                icon={ArrowUpDown}
+                minMenuWidth="min-w-[240px]"
+              />
+
+              <div className="relative w-56">
                 <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={portalSearch}
                   onChange={(e) => setPortalSearch(e.target.value)}
-                  placeholder="Search course title, code, school, id..."
-                  className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#121620] border border-[#212836] rounded-lg text-slate-200 focus:outline-none"
+                  placeholder="Search course, school, date..."
+                  className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#121620] border border-[#212836] rounded-xl text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors"
                 />
+                {portalSearch && (
+                  <button
+                    onClick={() => setPortalSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             </div>
+          </div>
 
-            <div className="overflow-x-auto max-h-[600px]">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#0B0E14] text-slate-400 font-semibold uppercase tracking-wider text-[10px] border-b border-[#1A202C] sticky top-0 z-10">
-                  <tr>
-                    <th className="py-3 px-4">SCHED ID</th>
-                    <th className="py-3 px-4">DATE</th>
-                    <th className="py-3 px-4">SCHOOL</th>
-                    <th className="py-3 px-4">COURSE CODE</th>
-                    <th className="py-3 px-4">COURSE TITLE</th>
-                    <th className="py-3 px-4">PROGRAMME</th>
-                    <th className="py-3 px-4 text-right">COMPLETED</th>
-                    <th className="py-3 px-4 text-right">NOT STARTED</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#181E29]">
-                  {portalSlots.length === 0 ? (
+          {/* VIEW 1: DETAILED TABLE */}
+          {portalViewMode === 'table' && (
+            <div className="bg-[#0E121A] rounded-2xl border border-[#1E2430] overflow-hidden shadow-2xl">
+              <div className="p-4 border-b border-[#1A202C] flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-2">
+                  <span className="font-semibold text-white">
+                    {portalSectorFilter === 'unscanned'
+                      ? 'Sector: Not Scanned Yet (Completed: 0)'
+                      : portalSectorFilter === 'scanned'
+                      ? 'Sector: Scanned / Completed Exams'
+                      : 'Central Portal Timetable & Upload Status'}
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    ({filteredAndSortedPortalSlots.length} records shown)
+                  </span>
+                </div>
+
+                <div className="text-[11px] text-slate-400 font-mono hidden sm:block">
+                  Click column headers (Date / School / Completed) to sort instantly
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-[640px]">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#0B0E14] text-slate-400 font-semibold uppercase tracking-wider text-[10px] border-b border-[#1A202C] sticky top-0 z-10">
                     <tr>
-                      <td colSpan={8} className="py-16 text-center text-slate-500 text-xs">
-                        No portal exam records uploaded yet. Upload your central portal Excel file in Data Sources &amp; Live Sync.
-                      </td>
+                      <th className="py-3 px-4">SCHED ID</th>
+                      <th
+                        className="py-3 px-4 cursor-pointer hover:text-cyan-300 transition-colors"
+                        onClick={() =>
+                          setPortalSortBy(portalSortBy === 'date_desc' ? 'date_asc' : 'date_desc')
+                        }
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>DATE</span>
+                          <ArrowUpDown className="w-3 h-3" />
+                        </div>
+                      </th>
+                      <th
+                        className="py-3 px-4 cursor-pointer hover:text-cyan-300 transition-colors"
+                        onClick={() =>
+                          setPortalSortBy(
+                            portalSortBy === 'school_asc' ? 'school_desc' : 'school_asc'
+                          )
+                        }
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>SCHOOL</span>
+                          <ArrowUpDown className="w-3 h-3" />
+                        </div>
+                      </th>
+                      <th
+                        className="py-3 px-4 cursor-pointer hover:text-cyan-300 transition-colors"
+                        onClick={() => setPortalSortBy('code_asc')}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>COURSE CODE</span>
+                          <ArrowUpDown className="w-3 h-3" />
+                        </div>
+                      </th>
+                      <th className="py-3 px-4">COURSE TITLE</th>
+                      <th className="py-3 px-4">PROGRAMME</th>
+                      <th
+                        className="py-3 px-4 text-right cursor-pointer hover:text-cyan-300 transition-colors"
+                        onClick={() =>
+                          setPortalSortBy(
+                            portalSortBy === 'completed_asc' ? 'completed_desc' : 'completed_asc'
+                          )
+                        }
+                      >
+                        <div className="flex items-center justify-end space-x-1">
+                          <span>COMPLETED</span>
+                          <ArrowUpDown className="w-3 h-3" />
+                        </div>
+                      </th>
+                      <th className="py-3 px-4 text-right">NOT STARTED</th>
+                      <th className="py-3 px-4 text-center">STATUS</th>
                     </tr>
-                  ) : (
-                    portalSlots
-                      .filter((s) => {
-                        if (!portalSearch.trim()) return true;
-                        const q = portalSearch.toLowerCase();
+                  </thead>
+                  <tbody className="divide-y divide-[#181E29]">
+                    {filteredAndSortedPortalSlots.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-16 text-center text-slate-500 text-xs">
+                          {portalSlots.length === 0
+                            ? 'No portal exam records uploaded yet. Upload your central portal Excel file in Data Sources & Live Sync.'
+                            : 'No records match your selected filter or search.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredAndSortedPortalSlots.map((s) => {
+                        const isZero = Number(s.completed) === 0;
                         return (
-                          s.scheduleId.includes(q) ||
-                          s.courseCode.toLowerCase().includes(q) ||
-                          s.courseTitle.toLowerCase().includes(q) ||
-                          s.schoolCode.toLowerCase().includes(q) ||
-                          s.date.includes(q)
+                          <tr
+                            key={s.scheduleId}
+                            className={`hover:bg-[#121620] transition-colors ${
+                              isZero ? 'bg-amber-950/10' : ''
+                            }`}
+                          >
+                            <td className="py-2.5 px-4 font-mono text-slate-400">
+                              {s.scheduleId}
+                            </td>
+                            <td className="py-2.5 px-4 font-mono text-slate-300 font-semibold whitespace-nowrap">
+                              {s.date}
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <span className="font-mono font-bold text-slate-200 px-1.5 py-0.5 rounded bg-[#161C27] border border-[#242C3D] text-[10px]">
+                                {s.schoolCode}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 font-mono text-slate-300 font-semibold">
+                              {s.courseCode}
+                            </td>
+                            <td
+                              className="py-2.5 px-4 font-medium text-white max-w-xs truncate"
+                              title={s.courseTitle}
+                            >
+                              {s.courseTitle}
+                            </td>
+                            <td className="py-2.5 px-4 text-slate-400 text-[11px] truncate max-w-[140px]">
+                              {s.programme}
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-mono font-bold">
+                              {isZero ? (
+                                <span className="text-amber-400">0</span>
+                              ) : (
+                                <span className="text-emerald-400">
+                                  {s.completed.toLocaleString()}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-mono text-slate-400">
+                              {s.notStarted}
+                            </td>
+                            <td className="py-2.5 px-4 text-center whitespace-nowrap">
+                              {isZero ? (
+                                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+                                  Not scanned yet
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                  Completed ({s.completed})
+                                </span>
+                              )}
+                            </td>
+                          </tr>
                         );
                       })
-                      .map((s) => (
-                        <tr key={s.scheduleId} className="hover:bg-[#121620] transition-colors">
-                          <td className="py-2.5 px-4 font-mono text-slate-400">{s.scheduleId}</td>
-                          <td className="py-2.5 px-4 font-mono text-slate-300">{s.date}</td>
-                          <td className="py-2.5 px-4">
-                            <span className="font-mono font-bold text-slate-200 px-1.5 py-0.5 rounded bg-[#161C27] border border-[#242C3D] text-[10px]">
-                              {s.schoolCode}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-4 font-mono text-slate-300">{s.courseCode}</td>
-                          <td
-                            className="py-2.5 px-4 font-medium text-white max-w-xs truncate"
-                            title={s.courseTitle}
-                          >
-                            {s.courseTitle}
-                          </td>
-                          <td className="py-2.5 px-4 text-slate-400 text-[11px]">{s.programme}</td>
-                          <td className="py-2.5 px-4 text-right font-mono font-bold text-emerald-400">
-                            {s.completed.toLocaleString()}
-                          </td>
-                          <td className="py-2.5 px-4 text-right font-mono text-slate-500">
-                            {s.notStarted}
-                          </td>
-                        </tr>
-                      ))
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* VIEW 2: DAY-WISE BREAKDOWN */}
+          {portalViewMode === 'daywise' && (
+            <div className="bg-[#0E121A] rounded-2xl border border-[#1E2430] overflow-hidden shadow-2xl">
+              <div className="p-4 border-b border-[#1A202C] flex items-center justify-between text-xs">
+                <span className="font-semibold text-white">
+                  Day-Wise Central Portal Schedules Summary ({portalDaywiseAggregation.length} Exam Days)
+                </span>
+                <span className="text-[11px] text-slate-500 font-mono">
+                  Aggregated across all scheduled slots
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-[#0B0E14] text-slate-400 font-semibold uppercase tracking-wider text-[10px] border-b border-[#1A202C]">
+                    <tr>
+                      <th className="py-3 px-4 font-sans">EXAMINATION DATE</th>
+                      <th className="py-3 px-4 text-right">TOTAL SLOTS</th>
+                      <th className="py-3 px-4 text-right">COMPLETED UPLOADS</th>
+                      <th className="py-3 px-4 text-right">NOT SCANNED YET</th>
+                      <th className="py-3 px-4 text-right">PENDING CANDIDATES</th>
+                      <th className="py-3 px-4 font-sans">SCHOOLS INVOLVED</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#181E29] text-[11px]">
+                    {portalDaywiseAggregation.map((day) => (
+                      <tr key={day.date} className="hover:bg-[#121620] transition-colors">
+                        <td className="py-3 px-4 font-bold text-white flex items-center space-x-2">
+                          <Calendar className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                          <span>{day.date}</span>
+                        </td>
+                        <td className="py-3 px-4 text-right text-slate-300 font-bold">
+                          {day.totalSlots} slots
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-emerald-400">
+                          {day.completed.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold">
+                          {day.unscannedCount > 0 ? (
+                            <span className="text-amber-400 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/30">
+                              {day.unscannedCount} unscanned
+                            </span>
+                          ) : (
+                            <span className="text-slate-500">0</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right text-slate-400">
+                          {day.notStarted.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4 font-sans">
+                          <div className="flex flex-wrap gap-1">
+                            {day.schools.map((sch) => (
+                              <span
+                                key={sch}
+                                className="px-1.5 py-0.5 rounded bg-[#161C27] border border-[#283244] text-[10px] text-slate-300 font-mono"
+                              >
+                                {sch}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* VIEW 3: SCHOOL-WISE BREAKDOWN */}
+          {portalViewMode === 'schoolwise' && (
+            <div className="bg-[#0E121A] rounded-2xl border border-[#1E2430] overflow-hidden shadow-2xl">
+              <div className="p-4 border-b border-[#1A202C] flex items-center justify-between text-xs">
+                <span className="font-semibold text-white">
+                  School-Wise Central Portal Schedules Summary ({portalSchoolwiseAggregation.length} Schools / Faculties)
+                </span>
+                <span className="text-[11px] text-slate-500 font-mono">
+                  Aggregated across all scheduled slots
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#0B0E14] text-slate-400 font-semibold uppercase tracking-wider text-[10px] border-b border-[#1A202C]">
+                    <tr>
+                      <th className="py-3 px-4">SCHOOL CODE</th>
+                      <th className="py-3 px-4">FACULTY NAME</th>
+                      <th className="py-3 px-4 text-right">TOTAL SLOTS</th>
+                      <th className="py-3 px-4 text-right">COMPLETED UPLOADS</th>
+                      <th className="py-3 px-4 text-right">NOT SCANNED YET</th>
+                      <th className="py-3 px-4 text-right">PENDING SCRIPTS</th>
+                      <th className="py-3 px-4">EXAM DATES</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#181E29] text-[11px] font-mono">
+                    {portalSchoolwiseAggregation.map((sch) => (
+                      <tr key={sch.schoolCode} className="hover:bg-[#121620] transition-colors">
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded bg-[#161C27] border border-[#283244] text-white font-bold text-[11px]">
+                            {sch.schoolCode}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-300 font-sans font-medium">
+                          {sch.schoolName}
+                        </td>
+                        <td className="py-3 px-4 text-right text-slate-300 font-bold">
+                          {sch.totalSlots} slots
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-emerald-400">
+                          {sch.completed.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold">
+                          {sch.unscannedCount > 0 ? (
+                            <span className="text-amber-400 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/30">
+                              {sch.unscannedCount} unscanned
+                            </span>
+                          ) : (
+                            <span className="text-slate-500">0</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right text-slate-400">
+                          {sch.notStarted.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4 font-sans">
+                          <div className="flex flex-wrap gap-1">
+                            {sch.dates.map((d) => (
+                              <span
+                                key={d}
+                                className="px-1.5 py-0.5 rounded bg-[#161C27] border border-[#283244] text-[10px] text-slate-300 font-mono"
+                              >
+                                {d}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
