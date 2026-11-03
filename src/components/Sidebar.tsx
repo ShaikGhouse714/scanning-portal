@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from '../types';
 import {
   Layers,
@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   AlertOctagon,
   RefreshCw,
+  ChevronDown,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -35,18 +36,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isSyncing = false,
 }) => {
   const isSuperAdmin = currentUser.role === 'super_admin';
+  const [isNavExpanded, setIsNavExpanded] = useState<boolean>(false);
 
-  // Navigation Items - Filtered based on role permissions
-  // Basic Admin only gets Intake vs Portal and Data Sources
-  const allNavItems = [
-    {
-      id: 'reconciliation',
-      label: 'Scanning Ops',
-      icon: LayoutDashboard,
-      badge: netDiscrepancy > 0 ? `+${netDiscrepancy}` : undefined,
-      badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
-      allowedRoles: ['super_admin', 'admin', 'operator'],
-    },
+  // Sub-navigation Items that elaborate downwards when Scanning Ops is clicked
+  const subNavItems = [
     {
       id: 'teammates',
       label: 'Team Subsheets Status',
@@ -65,9 +58,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Link2,
       allowedRoles: ['super_admin', 'admin', 'operator'],
     },
-  ];
+  ].filter((item) => item.allowedRoles.includes(currentUser.role));
 
-  const navItems = allNavItems.filter((item) => item.allowedRoles.includes(currentUser.role));
+  const isMainTabActive = activeTab === 'reconciliation';
+
+  // Find active sub-item label if any is selected
+  const activeSubItem = subNavItems.find((item) => item.id === activeTab);
 
   return (
     <aside className="w-64 bg-[#000000] border-r border-[#222222] flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none font-sans">
@@ -93,51 +89,101 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Navigation Items (Professional High-Contrast Tab Styling) */}
+        {/* Navigation Section with Downward Elaborating Toggles */}
         <nav className="p-3 space-y-1.5">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  isActive
-                    ? 'bg-white text-black shadow-md border border-white'
-                    : 'text-zinc-400 hover:text-white hover:bg-[#121214] border border-transparent'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <Icon
-                    className={`w-4 h-4 ${isActive ? 'text-black' : 'text-zinc-500'}`}
-                  />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span
-                    className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                      isActive
-                        ? 'bg-black text-white'
-                        : 'bg-zinc-800 text-zinc-200 border border-zinc-700'
-                    }`}
-                  >
-                    {item.badge}
+          {/* Main Display Tab: Scanning Ops */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('reconciliation');
+              setIsNavExpanded((prev) => !prev);
+            }}
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              isMainTabActive
+                ? 'bg-white text-black shadow-md border border-white'
+                : 'text-zinc-300 hover:text-white hover:bg-[#121214] border border-[#27272a]'
+            }`}
+          >
+            <div className="flex items-center space-x-3 min-w-0">
+              <LayoutDashboard
+                className={`w-4 h-4 shrink-0 ${isMainTabActive ? 'text-black' : 'text-zinc-400'}`}
+              />
+              <div className="text-left truncate">
+                <span className="block truncate font-bold">Scanning Ops</span>
+                {!isMainTabActive && activeSubItem && (
+                  <span className="text-[10px] font-mono text-zinc-400 block -mt-0.5 truncate">
+                    ↳ {activeSubItem.label}
                   </span>
                 )}
-              </button>
-            );
-          })}
+              </div>
+            </div>
 
-          {/* Admin Account Management: Strictly for Super Admin */}
-          {isSuperAdmin && onOpenAccountModal && (
-            <button
-              onClick={onOpenAccountModal}
-              className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white hover:bg-[#121214] transition-all border border-transparent"
-            >
-              <UserPlus className="w-4 h-4 text-zinc-300" />
-              <span>User Access &amp; Roles</span>
-            </button>
+            <div className="flex items-center space-x-2 shrink-0">
+              {netDiscrepancy > 0 && (
+                <span
+                  className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                    isMainTabActive
+                      ? 'bg-black text-white'
+                      : 'bg-zinc-800 text-zinc-200 border border-zinc-700'
+                  }`}
+                >
+                  +{netDiscrepancy}
+                </span>
+              )}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsNavExpanded((prev) => !prev);
+                }}
+                className={`p-0.5 rounded transition-transform duration-200 ${
+                  isNavExpanded ? 'rotate-180' : ''
+                }`}
+                title={isNavExpanded ? 'Collapse' : 'Elaborate options'}
+              >
+                <ChevronDown
+                  className={`w-3.5 h-3.5 ${isMainTabActive ? 'text-black' : 'text-zinc-400'}`}
+                />
+              </div>
+            </div>
+          </button>
+
+          {/* Downward Elaborating Sub-Toggles (only opens when clicked) */}
+          {isNavExpanded && (
+            <div className="pt-1.5 pl-3 space-y-1 border-l-2 border-zinc-800 ml-4 animate-in fade-in slide-in-from-top-1 duration-150">
+              {subNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveTab(item.id)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                      isActive
+                        ? 'bg-white text-black font-semibold shadow-sm'
+                        : 'text-zinc-400 hover:text-white hover:bg-[#121214]'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : 'text-zinc-500'}`} />
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {/* Admin User Access & Roles inside the elaborated list */}
+              {isSuperAdmin && onOpenAccountModal && (
+                <button
+                  type="button"
+                  onClick={onOpenAccountModal}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-[#121214] transition-all"
+                >
+                  <UserPlus className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                  <span className="truncate">User Access &amp; Roles</span>
+                </button>
+              )}
+            </div>
           )}
         </nav>
       </div>
