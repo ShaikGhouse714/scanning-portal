@@ -49,53 +49,23 @@ export default function Home() {
     setIsClient(true);
     const active = getActiveUser();
     const storedUsers = getStoredUsers();
-    const storedTeam = getStoredTeamEntries();
-    const storedPortal = getStoredPortalSlots();
     const storedUrl = getStoredSheetUrl();
-    const storedNames = getStoredSheetNames();
-    const lastTime = getLastSyncTime();
 
     setCurrentUser(active);
     setUsers(storedUsers);
-    setTeamEntries(storedTeam);
-    setPortalSlots(storedPortal);
     setGoogleSheetUrl(storedUrl);
-    setSheetNames(storedNames);
-    setLastSyncedTimeState(lastTime);
 
-    // Initial server fetch to sync across devices
+    // CLEAN SLATE ON LINK OPEN: Do NOT store or restore previous data on mount!
+    // Must be completely empty until user clicks "Sync Sheet Data" or uploads Excel.
+    setTeamEntries([]);
+    setPortalSlots([]);
+    setSheetNames([]);
+    setLastSyncedTimeState('Ready to sync');
+
+    // Only sync registered users across devices so Super Admin can manage team access
     (async () => {
       try {
-        const [teamRes, portalRes, userRes] = await Promise.all([
-          fetch(`/api/team-entries?t=${Date.now()}`, { cache: 'no-store' }),
-          fetch(`/api/portal-slots?t=${Date.now()}`, { cache: 'no-store' }),
-          fetch(`/api/users?t=${Date.now()}`, { cache: 'no-store' }),
-        ]);
-
-        if (teamRes.ok) {
-          const tJson = await teamRes.json();
-          if (Array.isArray(tJson.data)) {
-            setTeamEntries(tJson.data);
-            saveStoredTeamEntries(tJson.data);
-          }
-          if (typeof tJson.sheetUrl === 'string') {
-            setGoogleSheetUrl(tJson.sheetUrl);
-            saveStoredSheetUrl(tJson.sheetUrl);
-          }
-          if (Array.isArray(tJson.sheetNames)) {
-            setSheetNames(tJson.sheetNames);
-            saveStoredSheetNames(tJson.sheetNames);
-          }
-        }
-
-        if (portalRes.ok) {
-          const pJson = await portalRes.json();
-          if (Array.isArray(pJson.data)) {
-            setPortalSlots(pJson.data);
-            saveStoredPortalSlots(pJson.data);
-          }
-        }
-
+        const userRes = await fetch(`/api/users?t=${Date.now()}`, { cache: 'no-store' });
         if (userRes.ok) {
           const uJson = await userRes.json();
           if (Array.isArray(uJson.data) && uJson.data.length > 0) {
@@ -104,7 +74,7 @@ export default function Home() {
           }
         }
       } catch (e) {
-        console.warn('Initial server sync using local store:', e);
+        console.warn('User sync error:', e);
       }
     })();
   }, []);

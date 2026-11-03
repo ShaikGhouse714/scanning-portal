@@ -158,8 +158,8 @@ export function parseTeamGoogleSheet(data: ArrayBuffer): {
 
       const rawDate = findField(/date|day/);
       const rawSchool = findField(/school|faculty|dept|department|center/);
-      const rawReceived = findField(/received|intake|physical|received count/);
-      const rawScanned = findField(/scanned|uploaded|scan count|verified|completed/);
+      const rawReceived = findField(/received|intake|physical|received count|scripts|count|qty|total|answer sheets|booklets/);
+      const rawScanned = findField(/scanned|uploaded|scan count|verified/);
       const rawShift = findField(/shift|slot|session/);
       const rawNotes = findField(/note|remark|reason|backlog/);
 
@@ -167,10 +167,10 @@ export function parseTeamGoogleSheet(data: ArrayBuffer): {
       if (!date || date === 'Unknown') continue;
 
       const receivedCount = Math.max(0, parseInt(String(rawReceived)) || 0);
-      const scannedCount = Math.max(0, parseInt(String(rawScanned)) || 0);
+      const scannedCount = rawScanned ? Math.max(0, parseInt(String(rawScanned)) || 0) : receivedCount;
 
-      // If both counts are 0 and no school, likely empty row
-      if (!rawSchool && receivedCount === 0 && scannedCount === 0) continue;
+      // If received count is 0 and no school, likely empty row
+      if (!rawSchool && receivedCount === 0) continue;
 
       const { code: schoolCode, name: schoolName } = normalizeSchool(String(rawSchool));
 
@@ -248,11 +248,11 @@ export function reconcileIntakeVsPortal(
 
   for (const [key, item] of dateSchoolMap.entries()) {
     const teamReceived = item.teamEntries.reduce((sum, e) => sum + e.receivedCount, 0);
-    const teamScanned = item.teamEntries.reduce((sum, e) => sum + e.scannedCount, 0);
     const portalCompleted = item.portalSlots.reduce((sum, s) => sum + s.completed, 0);
+    const teamScanned = item.teamEntries.reduce((sum, e) => sum + (e.scannedCount || e.receivedCount), 0);
 
-    const discrepancyScannedVsPortal = teamScanned - portalCompleted;
-    const discrepancyReceivedVsScanned = teamReceived - teamScanned;
+    // Primary Reconciliation: Match Physical Received (Team) against Completed (Central Portal)
+    const discrepancy = teamReceived - portalCompleted;
 
     let status: ReconciledDateSchool['status'] = 'matched';
 
@@ -260,14 +260,12 @@ export function reconcileIntakeVsPortal(
       status = 'portal_only';
     } else if (item.portalSlots.length === 0 && item.teamEntries.length > 0) {
       status = 'team_only';
-    } else if (discrepancyScannedVsPortal > 0) {
-      status = 'portal_backlog'; // Scanned by team, but fewer in portal
-    } else if (discrepancyScannedVsPortal < 0) {
-      status = 'portal_exceeds';
-    } else if (discrepancyReceivedVsScanned > 0) {
-      status = 'pending_scan';
+    } else if (discrepancy > 0) {
+      status = 'portal_backlog'; // Team physically received scripts, but portal has fewer completed
+    } else if (discrepancy < 0) {
+      status = 'portal_exceeds'; // Central portal has more completed than physically received by team
     } else {
-      status = 'matched';
+      status = 'matched'; // Exact match between physical received and portal completed!
     }
 
     const teammates = Array.from(new Set(item.teamEntries.map((e) => e.teammateName)));
@@ -278,10 +276,11 @@ export function reconcileIntakeVsPortal(
       schoolCode: item.schoolCode,
       schoolName: item.schoolName,
       teamReceived,
-      teamScanned,
       portalCompleted,
-      discrepancyScannedVsPortal,
-      discrepancyReceivedVsScanned,
+      teamScanned,
+      discrepancy,
+      discrepancyScannedVsPortal: discrepancy,
+      discrepancyReceivedVsScanned: 0,
       status,
       teammates,
       portalSlotsCount: item.portalSlots.length,
@@ -345,9 +344,9 @@ export function reconcileIntakeVsPortal(
 
   // 5. Global Metrics
   const totalTeamReceived = matrix.reduce((sum, m) => sum + m.teamReceived, 0);
-  const totalTeamScanned = matrix.reduce((sum, m) => sum + m.teamScanned, 0);
   const totalPortalCompleted = matrix.reduce((sum, m) => sum + m.portalCompleted, 0);
-  const netDiscrepancy = totalTeamScanned - totalPortalCompleted;
+  const totalTeamScanned = totalTeamReceived;
+  const netDiscrepancy = totalTeamReceived - totalPortalCompleted;
 
   const matchedBatchesCount = matrix.filter((m) => m.status === 'matched').length;
   const discrepancyBatchesCount = matrix.filter(
@@ -359,8 +358,8 @@ export function reconcileIntakeVsPortal(
 
   const metrics: ReconciliationMetrics = {
     totalTeamReceived,
-    totalTeamScanned,
     totalPortalCompleted,
+    totalTeamScanned,
     netDiscrepancy,
     matchedBatchesCount,
     discrepancyBatchesCount,

@@ -46,10 +46,11 @@ export interface ReconciledDateSchool {
   schoolCode: string;
   schoolName: string;
   teamReceived: number;
-  teamScanned: number;
   portalCompleted: number;
-  discrepancyScannedVsPortal: number; // teamScanned - portalCompleted
-  discrepancyReceivedVsScanned: number; // teamReceived - teamScanned
+  discrepancy: number; // teamReceived - portalCompleted (Discrepancy between Physical Received & Portal Completed)
+  teamScanned: number; // backward compatibility
+  discrepancyScannedVsPortal: number; // backward compatibility
+  discrepancyReceivedVsScanned: number; // backward compatibility
   status: 'matched' | 'portal_backlog' | 'portal_exceeds' | 'pending_scan' | 'portal_only' | 'team_only';
   teammates: string[];
   portalSlotsCount: number;
@@ -69,12 +70,12 @@ export interface TeammateSummary {
 
 export interface ReconciliationMetrics {
   totalTeamReceived: number;
-  totalTeamScanned: number;
   totalPortalCompleted: number;
-  netDiscrepancy: number; // totalTeamScanned - totalPortalCompleted
+  netDiscrepancy: number; // totalTeamReceived - totalPortalCompleted
   matchedBatchesCount: number;
   discrepancyBatchesCount: number;
   totalTeammatesCount: number;
   totalSchoolsCount: number;
   totalDatesCount: number;
+  totalTeamScanned: number; // backward compatibility
 }

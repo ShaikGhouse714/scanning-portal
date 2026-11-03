@@ -755,20 +755,25 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           </div>
 
           {/* Discrepancy Alert Banner */}
-          {metrics.netDiscrepancy > 0 && (
-            <div className="bg-rose-950/20 border-l-4 border-rose-500 p-4 rounded-xl shadow-lg border border-rose-500/30">
+          {metrics.netDiscrepancy !== 0 && matrix.length > 0 && (
+            <div className={`p-4 rounded-xl shadow-lg border ${
+              metrics.netDiscrepancy > 0
+                ? 'bg-rose-950/20 border-l-4 border-rose-500 border-rose-500/30'
+                : 'bg-amber-950/20 border-l-4 border-amber-500 border-amber-500/30'
+            }`}>
               <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-3">
-                  <AlertOctagon className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                  <AlertOctagon className={`w-5 h-5 shrink-0 mt-0.5 ${metrics.netDiscrepancy > 0 ? 'text-rose-400' : 'text-amber-400'}`} />
                   <div>
-                    <h3 className="text-xs font-bold text-rose-200 uppercase tracking-wide">
-                      PORTAL UPLOAD BACKLOG DETECTED: {metrics.netDiscrepancy} SCRIPTS MISSING FROM
-                      PORTAL
+                    <h3 className={`text-xs font-bold uppercase tracking-wide ${metrics.netDiscrepancy > 0 ? 'text-rose-200' : 'text-amber-200'}`}>
+                      {metrics.netDiscrepancy > 0
+                        ? `PORTAL UPLOAD SHORTFALL: ${metrics.netDiscrepancy.toLocaleString()} SCRIPTS PENDING UPLOAD`
+                        : `PORTAL EXCEEDS INTAKE: ${Math.abs(metrics.netDiscrepancy).toLocaleString()} MORE SCRIPTS IN PORTAL`}
                     </h3>
-                    <p className="text-xs text-rose-300/80 mt-1">
-                      Team scanned {metrics.totalTeamScanned} scripts, but central portal has only{' '}
-                      {metrics.totalPortalCompleted} marked as{' '}
-                      <code className="text-white font-mono">Completed</code>.
+                    <p className={`text-xs mt-1 ${metrics.netDiscrepancy > 0 ? 'text-rose-300/80' : 'text-amber-300/80'}`}>
+                      {metrics.netDiscrepancy > 0
+                        ? `Team physically received ${metrics.totalTeamReceived.toLocaleString()} scripts, but central portal has only ${metrics.totalPortalCompleted.toLocaleString()} marked as Completed.`
+                        : `Central portal has ${metrics.totalPortalCompleted.toLocaleString()} marked as Completed, exceeding team physical intake of ${metrics.totalTeamReceived.toLocaleString()}.`}
                     </p>
                   </div>
                 </div>
@@ -801,83 +806,95 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               <div className="flex items-center space-x-1.5 mt-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
                 <span className="text-[10px] text-slate-400 font-mono">
-                  Across {teammates.length} teammate subsheets
+                  From Google Sheet across {teammates.length} subsheet(s)
                 </span>
               </div>
             </div>
 
-            {/* Tile 2: Total Scanned by Team */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Total Scanned by Team
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                  <UploadCloud className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-3xl font-extrabold text-emerald-400 font-mono tracking-tight">
-                {metrics.totalTeamScanned.toLocaleString()}
-              </div>
-              <div className="flex items-center space-x-1.5 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[10px] text-slate-400 font-mono">
-                  Logged in Google Sheet subsheets
-                </span>
-              </div>
-            </div>
-
-            {/* Tile 3: Portal Uploaded */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-indigo-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            {/* Tile 2: Portal Uploaded (Completed) */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Portal Uploaded (Completed)
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
                   <FileSpreadsheet className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-indigo-200 font-mono tracking-tight">
+              <div className="text-3xl font-extrabold text-cyan-300 font-mono tracking-tight">
                 {metrics.totalPortalCompleted.toLocaleString()}
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                 <span className="text-[10px] text-slate-400 font-mono">
-                  From {portalSlots.length} portal exam slots
+                  Sum of completed column ({portalSlots.length} exam slots)
                 </span>
               </div>
             </div>
 
-            {/* Tile 4: Net Discrepancy */}
+            {/* Tile 3: Net Discrepancy (Received - Portal) */}
             <div className={`relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border ${
-              metrics.netDiscrepancy > 0
-                ? 'border-rose-500/40 hover:border-rose-500/60 bg-gradient-to-b from-rose-950/20 to-[#0A0E1A]'
+              metrics.netDiscrepancy !== 0
+                ? metrics.netDiscrepancy > 0
+                  ? 'border-rose-500/40 hover:border-rose-500/60 bg-gradient-to-b from-rose-950/20 to-[#0A0E1A]'
+                  : 'border-amber-500/40 hover:border-amber-500/60 bg-gradient-to-b from-amber-950/20 to-[#0A0E1A]'
                 : 'border-[#1E273A] hover:border-emerald-500/40'
             } shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5`}>
               <div className={`absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent ${
-                metrics.netDiscrepancy > 0 ? 'via-rose-500' : 'via-emerald-500'
+                metrics.netDiscrepancy !== 0 ? (metrics.netDiscrepancy > 0 ? 'via-rose-500' : 'via-amber-500') : 'via-emerald-500'
               } to-transparent opacity-50 group-hover:opacity-100 transition-opacity`} />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Net Discrepancy (Variance)
+                  Net Discrepancy (Received - Portal)
                 </span>
                 <div className={`w-8 h-8 rounded-xl ${
-                  metrics.netDiscrepancy > 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                  metrics.netDiscrepancy !== 0
+                    ? metrics.netDiscrepancy > 0
+                      ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                      : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                    : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                 } border flex items-center justify-center`}>
                   <TrendingUp className="w-4 h-4" />
                 </div>
               </div>
               <div className={`text-3xl font-extrabold font-mono tracking-tight ${
-                metrics.netDiscrepancy > 0 ? 'text-rose-400' : 'text-emerald-400'
+                metrics.netDiscrepancy !== 0
+                  ? metrics.netDiscrepancy > 0 ? 'text-rose-400' : 'text-amber-400'
+                  : 'text-emerald-400'
               }`}>
                 {metrics.netDiscrepancy > 0 ? `+${metrics.netDiscrepancy.toLocaleString()}` : metrics.netDiscrepancy.toLocaleString()}
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
-                <span className={`w-1.5 h-1.5 rounded-full ${metrics.netDiscrepancy > 0 ? 'bg-rose-400 animate-pulse' : 'bg-emerald-400'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  metrics.netDiscrepancy !== 0 ? (metrics.netDiscrepancy > 0 ? 'bg-rose-400' : 'bg-amber-400') : 'bg-emerald-400'
+                }`} />
                 <span className="text-[10px] text-slate-400 font-mono">
-                  {metrics.discrepancyBatchesCount} school batches flagged
+                  {metrics.netDiscrepancy === 0
+                    ? 'All Clear — 100% Reconciled'
+                    : `${metrics.discrepancyBatchesCount} school batch(es) flagged`}
+                </span>
+              </div>
+            </div>
+
+            {/* Tile 4: Reconciliation Rate */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Batches Reconciled
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-3xl font-extrabold text-emerald-400 font-mono tracking-tight">
+                {metrics.matchedBatchesCount} / {matrix.length}
+              </div>
+              <div className="flex items-center space-x-1.5 mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {matrix.length > 0 ? Math.round((metrics.matchedBatchesCount / matrix.length) * 100) : 0}% batches fully matched
                 </span>
               </div>
             </div>
@@ -973,9 +990,8 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                   <tr>
                     <th className="py-3 px-4">DATE</th>
                     <th className="py-3 px-4">SCHOOL / FACULTY</th>
-                    <th className="py-3 px-4 text-right">PHYSICAL REC</th>
-                    <th className="py-3 px-4 text-right">TEAM SCANNED</th>
-                    <th className="py-3 px-4 text-right">PORTAL UPLOADED</th>
+                    <th className="py-3 px-4 text-right">PHYSICAL RECEIVED</th>
+                    <th className="py-3 px-4 text-right">PORTAL COMPLETED</th>
                     <th className="py-3 px-4 text-right">VARIANCE</th>
                     <th className="py-3 px-4 text-center">STATUS</th>
                     <th className="py-3 px-4">TEAMMATES INVOLVED</th>
@@ -985,7 +1001,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 <tbody className="divide-y divide-[#181E29]">
                   {filteredMatrix.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-16 text-center text-slate-500 text-xs">
+                      <td colSpan={8} className="py-16 text-center text-slate-500 text-xs">
                         {teamEntries.length === 0 && portalSlots.length === 0
                           ? 'No data loaded yet. Connect your Google Sheet or upload the Central Portal Excel in Data Sources & Live Sync to begin reconciliation.'
                           : 'No reconciliation batches found matching your filter criteria.'}
@@ -993,7 +1009,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     </tr>
                   ) : (
                     filteredMatrix.map((item) => {
-                      const hasDiscrepancy = item.discrepancyScannedVsPortal !== 0;
+                      const hasDiscrepancy = item.discrepancy !== 0;
                       return (
                         <tr
                           key={item.key}
@@ -1018,31 +1034,28 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                               </span>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-right font-mono text-slate-300">
+                          <td className="py-3 px-4 text-right font-mono text-white font-bold">
                             {item.teamReceived.toLocaleString()}
                           </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-white">
-                            {item.teamScanned.toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">
+                          <td className="py-3 px-4 text-right font-mono font-bold text-cyan-400">
                             {item.portalCompleted.toLocaleString()}
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold">
-                            {item.discrepancyScannedVsPortal === 0 ? (
-                              <span className="text-slate-500">0</span>
-                            ) : item.discrepancyScannedVsPortal > 0 ? (
+                            {item.discrepancy === 0 ? (
+                              <span className="text-emerald-400 font-mono">0</span>
+                            ) : item.discrepancy > 0 ? (
                               <span className="text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/30">
-                                +{item.discrepancyScannedVsPortal}
+                                +{item.discrepancy}
                               </span>
                             ) : (
                               <span className="text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
-                                {item.discrepancyScannedVsPortal}
+                                {item.discrepancy}
                               </span>
                             )}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <span
-                              className={`text-[9px] font-mono px-2 py-0.5 rounded ${
+                              className={`text-[9px] font-mono px-2 py-0.5 rounded font-semibold ${
                                 item.status === 'matched'
                                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                   : item.status === 'portal_backlog'
@@ -1053,9 +1066,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                               }`}
                             >
                               {item.status === 'matched'
-                                ? '100% Synced'
+                                ? 'Matched (All Clear)'
                                 : item.status === 'portal_backlog'
-                                ? 'Portal Backlog'
+                                ? 'Shortfall'
                                 : item.status === 'portal_exceeds'
                                 ? 'Portal Exceeds'
                                 : item.status === 'team_only'
@@ -1199,22 +1212,22 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
             </div>
 
-            {/* Tile 4: Total Scripts Scanned */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-indigo-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
+            {/* Tile 4: Total Physical Received */}
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#0F1628] to-[#0A0E1A] border border-[#1E273A] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Total Scripts Scanned
+                  Total Physical Received
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                  <UploadCloud className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                  <FileText className="w-4 h-4" />
                 </div>
               </div>
               <div className="text-3xl font-extrabold text-white font-mono tracking-tight">
-                {metrics.totalTeamScanned.toLocaleString()}
+                {metrics.totalTeamReceived.toLocaleString()}
               </div>
               <div className="flex items-center space-x-1.5 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                 <span className="text-[10px] text-slate-400 font-mono">
                   Cumulative across all teammates
                 </span>
@@ -1314,15 +1327,13 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                         </div>
 
                         <span
-                          className={`text-[9px] font-mono px-2 py-0.5 rounded ${
+                          className={`text-[9px] font-mono px-2 py-0.5 rounded font-semibold ${
                             isEmpty
                               ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                              : completion >= 98
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                           }`}
                         >
-                          {isEmpty ? 'Awaiting Data' : `${completion.toFixed(0)}% Scanned`}
+                          {isEmpty ? 'Awaiting Data' : `${tm.totalReceived.toLocaleString()} Received`}
                         </span>
                       </div>
 
@@ -1330,23 +1341,15 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                       <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#121620] border border-[#212836] text-[11px] font-mono mb-3">
                         <div>
                           <span className="text-slate-500 text-[9px] block uppercase">Received</span>
-                          <span className="font-bold text-slate-200">{tm.totalReceived}</span>
+                          <span className="font-bold text-white text-sm">{tm.totalReceived}</span>
                         </div>
                         <div>
-                          <span className="text-slate-500 text-[9px] block uppercase">Scanned</span>
-                          <span className="font-bold text-emerald-400">{tm.totalScanned}</span>
+                          <span className="text-slate-500 text-[9px] block uppercase">Batches</span>
+                          <span className="font-bold text-cyan-300 text-sm">{tm.entriesCount}</span>
                         </div>
                         <div>
-                          <span className="text-slate-500 text-[9px] block uppercase">Backlog</span>
-                          <span
-                            className={`font-bold ${
-                              tm.totalReceived - tm.totalScanned > 0
-                                ? 'text-rose-400'
-                                : 'text-slate-400'
-                            }`}
-                          >
-                            {tm.totalReceived - tm.totalScanned}
-                          </span>
+                          <span className="text-slate-500 text-[9px] block uppercase">Schools</span>
+                          <span className="font-bold text-slate-300 text-sm">{tm.schoolsCovered.length}</span>
                         </div>
                       </div>
 
@@ -2229,31 +2232,29 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Reconciliation Comparison Summary */}
-            <div className="grid grid-cols-4 gap-3 text-xs font-mono p-3 rounded-xl bg-[#121620] border border-[#212836]">
+            <div className="grid grid-cols-3 gap-3 text-xs font-mono p-3 rounded-xl bg-[#121620] border border-[#212836]">
               <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Physical Received</span>
-                <span className="font-bold text-slate-200">{expandedItem.teamReceived}</span>
+                <span className="text-slate-500 block text-[9px] uppercase">Physical Received (Team)</span>
+                <span className="font-bold text-white text-sm">{expandedItem.teamReceived}</span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Team Scanned</span>
-                <span className="font-bold text-white">{expandedItem.teamScanned}</span>
+                <span className="text-slate-500 block text-[9px] uppercase">Portal Completed (Excel)</span>
+                <span className="font-bold text-cyan-400 text-sm">{expandedItem.portalCompleted}</span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Portal Uploaded</span>
-                <span className="font-bold text-emerald-400">{expandedItem.portalCompleted}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[9px] uppercase">Variance</span>
+                <span className="text-slate-500 block text-[9px] uppercase">Variance (Received - Portal)</span>
                 <span
-                  className={`font-bold ${
-                    expandedItem.discrepancyScannedVsPortal !== 0
-                      ? 'text-rose-400'
-                      : 'text-slate-400'
+                  className={`font-bold text-sm ${
+                    expandedItem.discrepancy !== 0
+                      ? expandedItem.discrepancy > 0 ? 'text-rose-400' : 'text-amber-400'
+                      : 'text-emerald-400'
                   }`}
                 >
-                  {expandedItem.discrepancyScannedVsPortal > 0
-                    ? `+${expandedItem.discrepancyScannedVsPortal} (Portal backlog)`
-                    : expandedItem.discrepancyScannedVsPortal}
+                  {expandedItem.discrepancy === 0
+                    ? '0 (100% Matched)'
+                    : expandedItem.discrepancy > 0
+                    ? `+${expandedItem.discrepancy} (Portal Shortfall)`
+                    : `${expandedItem.discrepancy} (Portal Exceeds)`}
                 </span>
               </div>
             </div>
@@ -2264,7 +2265,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               <div className="space-y-2">
                 <h4 className="font-semibold text-white uppercase text-[10px] tracking-wider text-slate-400 flex items-center space-x-1">
                   <Users2 className="w-3.5 h-3.5" />
-                  <span>Teammate Entries ({expandedItem.teamEntries.length})</span>
+                  <span>Teammate Intake Logs ({expandedItem.teamEntries.length})</span>
                 </h4>
                 {expandedItem.teamEntries.length === 0 ? (
                   <p className="text-xs text-slate-500 italic p-3 bg-[#121620] rounded-xl">
@@ -2278,11 +2279,11 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     >
                       <div className="flex items-center justify-between font-semibold text-white">
                         <span>{e.teammateName}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">{e.shift}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">{e.shift || 'Morning'}</span>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-300 font-mono">
-                        <span>Rec: {e.receivedCount}</span>
-                        <span className="text-emerald-400 font-bold">Scanned: {e.scannedCount}</span>
+                      <div className="flex items-center justify-between text-[11px] font-mono">
+                        <span className="text-slate-400">Physical Received:</span>
+                        <span className="text-white font-bold">{e.receivedCount}</span>
                       </div>
                       {e.notes && <p className="text-[10px] text-slate-500 italic">{e.notes}</p>}
                     </div>
@@ -2577,74 +2578,47 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           </div>
                         </th>
                         <th className="p-3 text-right">Physical Received</th>
-                        <th className="p-3 text-right">Scanned Count</th>
-                        <th className="p-3 text-right">Pending Backlog</th>
-                        <th className="p-3 text-center">Status</th>
                         <th className="p-3">Shift / Notes</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#161B26] font-mono text-[11px]">
                       {sortedTeammateEntries.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="p-8 text-center text-slate-500">
+                          <td colSpan={5} className="p-8 text-center text-slate-500">
                             No rows match your search filter.
                           </td>
                         </tr>
                       ) : (
-                        sortedTeammateEntries.map((entry, idx) => {
-                          const backlog = entry.receivedCount - entry.scannedCount;
-                          return (
-                            <tr
-                              key={entry.id || idx}
-                              className="hover:bg-[#121622]/60 transition-colors"
-                            >
-                              <td className="p-3 text-slate-500 text-[10px]">{idx + 1}</td>
-                              <td className="p-3 text-slate-200 font-semibold">{entry.date}</td>
-                              <td className="p-3">
-                                <span className="px-1.5 py-0.5 rounded bg-[#161C27] border border-[#283244] text-white font-bold text-[10px] mr-1.5">
-                                  {entry.schoolCode || entry.school}
+                        sortedTeammateEntries.map((entry, idx) => (
+                          <tr
+                            key={entry.id || idx}
+                            className="hover:bg-[#121622]/60 transition-colors"
+                          >
+                            <td className="p-3 text-slate-500 text-[10px]">{idx + 1}</td>
+                            <td className="p-3 text-slate-200 font-semibold">{entry.date}</td>
+                            <td className="p-3">
+                              <span className="px-1.5 py-0.5 rounded bg-[#161C27] border border-[#283244] text-white font-bold text-[10px] mr-1.5">
+                                {entry.schoolCode || entry.school}
+                              </span>
+                              {entry.school && entry.school !== entry.schoolCode && (
+                                <span className="text-slate-400 text-[10px] font-sans truncate max-w-[150px] inline-block align-middle">
+                                  {entry.school}
                                 </span>
-                                {entry.school && entry.school !== entry.schoolCode && (
-                                  <span className="text-slate-400 text-[10px] font-sans truncate max-w-[150px] inline-block align-middle">
-                                    {entry.school}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3 text-right text-slate-200">{entry.receivedCount}</td>
-                              <td className="p-3 text-right font-bold text-emerald-400">
-                                {entry.scannedCount}
-                              </td>
-                              <td className="p-3 text-right">
-                                <span
-                                  className={
-                                    backlog > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'
-                                  }
-                                >
-                                  {backlog > 0 ? `+${backlog}` : backlog}
+                              )}
+                            </td>
+                            <td className="p-3 text-right font-bold text-white font-mono text-sm">
+                              {entry.receivedCount}
+                            </td>
+                            <td className="p-3 text-slate-400 text-[10px] font-sans">
+                              {entry.shift && (
+                                <span className="text-[9px] font-mono px-1.5 py-0.2 bg-[#1A202C] text-cyan-300 rounded mr-1">
+                                  {entry.shift}
                                 </span>
-                              </td>
-                              <td className="p-3 text-center">
-                                <span
-                                  className={`text-[9px] px-2 py-0.5 rounded ${
-                                    backlog <= 0
-                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                  }`}
-                                >
-                                  {backlog <= 0 ? 'Matched' : 'In Backlog'}
-                                </span>
-                              </td>
-                              <td className="p-3 text-slate-400 text-[10px] font-sans">
-                                {entry.shift && (
-                                  <span className="text-[9px] font-mono px-1.5 py-0.2 bg-[#1A202C] rounded mr-1">
-                                    {entry.shift}
-                                  </span>
-                                )}
-                                <span>{entry.notes || '-'}</span>
-                              </td>
-                            </tr>
-                          );
-                        })
+                              )}
+                              <span>{entry.notes || '-'}</span>
+                            </td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>
