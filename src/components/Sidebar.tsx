@@ -41,7 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const allNavItems = [
     {
       id: 'reconciliation',
-      label: 'Intake vs Portal Matrix',
+      label: 'Scanning Ops',
       icon: LayoutDashboard,
       badge: netDiscrepancy > 0 ? `+${netDiscrepancy}` : undefined,
       badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
@@ -84,7 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div>
               <span className="font-bold text-sm text-white tracking-tight block leading-tight">
-                Scanning Tracker
+                Scanning Ops
               </span>
               <span className="text-[10px] text-zinc-400 font-mono block leading-tight mt-0.5">
                 Exam Ops Reconciler

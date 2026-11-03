@@ -368,10 +368,10 @@ export default function Home() {
 
   if (!isClient) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#07090E]">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs font-mono text-slate-400">Loading Scanning Tracker...</p>
+          <div className="w-8 h-8 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs font-mono text-zinc-400">Loading Scanning Ops...</p>
         </div>
       </div>
     );

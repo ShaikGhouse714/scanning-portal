@@ -146,7 +146,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
             </svg>
           </div>
           <h2 className="mt-3 text-xl sm:text-2xl font-bold tracking-tight text-white">
-            Scanning Tracker
+            Scanning Ops
           </h2>
           <p className="mt-1 text-xs text-zinc-400">
             Intake Verification &amp; Portal Reconciliation Network
