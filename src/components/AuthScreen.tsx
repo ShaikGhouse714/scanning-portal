@@ -140,9 +140,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
         <div className="text-center mb-6">
           <div className="w-14 h-14 rounded-2xl bg-[#09090b] border border-zinc-800 flex items-center justify-center shadow-xl mx-auto p-2">
             <svg className="w-8 h-8" viewBox="0 0 64 64" fill="none">
-              <rect x="13" y="34" width="10" height="22" rx="5" fill="#00A3FF" />
-              <rect x="27" y="22" width="10" height="34" rx="5" fill="#6E44FF" />
-              <rect x="41" y="10" width="10" height="46" rx="5" fill="#9E00FF" />
+              <rect x="14" y="33" width="9" height="18" rx="4.5" fill="#FFFFFF" />
+              <rect x="27" y="23" width="9" height="28" rx="4.5" fill="#A1A1AA" />
+              <rect x="40" y="13" width="9" height="38" rx="4.5" fill="#52525B" />
             </svg>
           </div>
           <h2 className="mt-3 text-xl sm:text-2xl font-bold tracking-tight text-white">
