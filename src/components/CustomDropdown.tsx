@@ -88,19 +88,19 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex items-center justify-between space-x-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
           isOpen
-            ? 'bg-[#151D2E] border-cyan-500/50 text-white shadow-lg shadow-cyan-500/10 ring-1 ring-cyan-500/30'
-            : 'bg-[#0E1422] hover:bg-[#131B2C] border-[#1F2739] hover:border-[#323F5C] text-slate-200'
+            ? 'bg-zinc-800 border-zinc-500 text-white shadow-md'
+            : 'bg-zinc-950 hover:bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-zinc-200'
         } border`}
       >
         <div className="flex items-center space-x-2 truncate">
-          {Icon && <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
+          {Icon && <Icon className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
           <span className="truncate">
             {selectedOption ? selectedOption.label : placeholder}
           </span>
         </div>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
-            isOpen ? 'rotate-180 text-cyan-400' : ''
+          className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+            isOpen ? 'rotate-180 text-white' : ''
           }`}
         />
       </button>
@@ -108,20 +108,20 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
       {/* Floating Dropdown Menu */}
       {isOpen && (
         <div
-          className={`absolute left-0 mt-1.5 z-50 ${minMenuWidth} max-w-sm bg-[#0C111E]/95 backdrop-blur-xl border border-[#222C40] rounded-xl shadow-2xl overflow-hidden animate-fadeIn`}
+          className={`absolute left-0 mt-1.5 z-50 ${minMenuWidth} max-w-sm bg-[#09090b] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-fadeIn`}
         >
           {/* Optional Search bar for large option sets */}
           {options.length > 7 && (
-            <div className="p-2 border-b border-[#1A2334] bg-[#0A0E18]">
+            <div className="p-2 border-b border-zinc-800 bg-black">
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter options..."
-                  className="w-full text-[11px] pl-7 pr-2.5 py-1 bg-[#121826] border border-[#20293B] rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/60"
+                  className="w-full text-[11px] pl-7 pr-2.5 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
                 />
               </div>
             </div>
@@ -130,7 +130,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
           {/* Options List */}
           <div className="max-h-60 overflow-y-auto py-1">
             {filteredOptions.length === 0 ? (
-              <div className="px-3 py-3 text-center text-[11px] text-slate-500 font-mono">
+              <div className="px-3 py-3 text-center text-[11px] text-zinc-500 font-mono">
                 No matching options
               </div>
             ) : (
@@ -146,14 +146,14 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
                     }}
                     className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
                       isSelected
-                        ? 'bg-[#182338] text-cyan-200 font-semibold'
-                        : 'text-slate-300 hover:text-white hover:bg-[#131A2B]'
+                        ? 'bg-white text-black font-semibold'
+                        : 'text-zinc-300 hover:text-white hover:bg-zinc-900'
                     }`}
                   >
                     <div className="min-w-0 pr-2">
                       <div className="truncate">{opt.label}</div>
                       {opt.sublabel && (
-                        <div className="text-[10px] text-slate-500 truncate font-mono">
+                        <div className="text-[10px] text-zinc-500 truncate font-mono">
                           {opt.sublabel}
                         </div>
                       )}
@@ -169,7 +169,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
                           {opt.badge}
                         </span>
                       )}
-                      {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                      {isSelected && <Check className="w-3.5 h-3.5 text-black" />}
                     </div>
                   </button>
                 );

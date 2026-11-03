@@ -390,7 +390,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#07090E] text-slate-200 flex font-sans">
+    <div className="min-h-screen bg-[#000000] text-zinc-200 flex font-sans">
       {/* Sidebar */}
       <Sidebar
         currentUser={currentUser}
