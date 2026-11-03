@@ -62,9 +62,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isMainTabActive = activeTab === 'reconciliation';
 
-  // Find active sub-item label if any is selected
-  const activeSubItem = subNavItems.find((item) => item.id === activeTab);
-
   return (
     <aside className="w-64 bg-[#000000] border-r border-[#222222] flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none font-sans">
       {/* Top Header */}
@@ -104,18 +101,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : 'text-zinc-300 hover:text-white hover:bg-[#121214] border border-[#27272a]'
             }`}
           >
-            <div className="flex items-center space-x-3 min-w-0">
+            <div className="flex items-center space-x-3">
               <LayoutDashboard
                 className={`w-4 h-4 shrink-0 ${isMainTabActive ? 'text-black' : 'text-zinc-400'}`}
               />
-              <div className="text-left truncate">
-                <span className="block truncate font-bold">Scanning Ops</span>
-                {!isMainTabActive && activeSubItem && (
-                  <span className="text-[10px] font-mono text-zinc-400 block -mt-0.5 truncate">
-                    ↳ {activeSubItem.label}
-                  </span>
-                )}
-              </div>
+              <span className="font-bold">Scanning Ops</span>
             </div>
 
             <div className="flex items-center space-x-2 shrink-0">
