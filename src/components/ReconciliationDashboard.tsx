@@ -7,6 +7,7 @@ import {
   ReconciledDateSchool,
   TeammateSummary,
   ReconciliationMetrics,
+  User,
 } from '../types';
 import {
   RotateCw,
@@ -38,12 +39,15 @@ import {
   Building2,
   CalendarDays,
   FileCheck2,
+  ArrowRight,
+  LayoutDashboard,
 } from 'lucide-react';
 import { exportReconciliationToCSV, exportPortalSlotsToCSV } from '../lib/storage';
 import { CustomDropdown, DropdownOption } from './CustomDropdown';
 import { SCHOOL_CODE_MAP } from '../lib/mockData';
 
 interface ReconciliationDashboardProps {
+  currentUser?: User | null;
   matrix: ReconciledDateSchool[];
   teammates: TeammateSummary[];
   metrics: ReconciliationMetrics;
@@ -63,6 +67,7 @@ interface ReconciliationDashboardProps {
 }
 
 export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = ({
+  currentUser,
   matrix,
   teammates,
   metrics,
@@ -554,6 +559,184 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans pb-16">
+      {/* ========================================================================= */}
+      {/* INTRODUCTORY GREETINGS VIEW (Shown on initial link open) */}
+      {/* ========================================================================= */}
+      {activeTab === 'intro' && (
+        <div className="max-w-4xl mx-auto py-8 sm:py-12 space-y-8">
+          {/* Greeting Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-[#222222]">
+            <div className="flex items-start space-x-4">
+              <div className="w-14 h-14 rounded-2xl bg-[#09090b] border border-[#27272a] flex items-center justify-center p-2.5 shadow-xl shrink-0">
+                <svg className="w-8 h-8" viewBox="0 0 64 64" fill="none">
+                  <rect x="13" y="34" width="10" height="22" rx="5" fill="#FFFFFF" />
+                  <rect x="27" y="22" width="10" height="34" rx="5" fill="#A1A1AA" />
+                  <rect x="41" y="10" width="10" height="46" rx="5" fill="#71717A" />
+                </svg>
+              </div>
+              <div>
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
+                    {currentUser?.role === 'super_admin' ? 'Super Administrator' : 'Basic Admin'}
+                  </span>
+                  <span className="text-xs font-mono text-zinc-500">• Session Active</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1.5">
+                  {(() => {
+                    const h = new Date().getHours();
+                    if (h < 12) return 'Good morning';
+                    if (h < 17) return 'Good afternoon';
+                    return 'Good evening';
+                  })()}, {currentUser?.name || 'Administrator'}
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl leading-relaxed">
+                  Welcome to <strong className="text-white">Scanning Ops</strong>. Automated reconciliation and intake verification system for exam answer script processing.
+                </p>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex sm:flex-col items-start sm:items-end justify-between gap-2">
+              <span className="text-[11px] font-mono text-zinc-500">
+                System Status
+              </span>
+              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Ready &amp; Operational</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Hero Action Card to Enter Scanning Ops */}
+          <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-b from-[#0e0e11] to-[#050505] border border-[#27272a] shadow-2xl relative overflow-hidden space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                  Ready to Reconcile Exam Scripts?
+                </h2>
+                <p className="text-xs text-zinc-400 mt-1 max-w-lg">
+                  Launch the live reconciliation matrix to inspect physical received counts against central portal completed uploads.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('reconciliation')}
+                className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-lg shadow-white/5 hover:scale-[1.02] active:scale-[0.99] shrink-0"
+              >
+                <span>Launch Scanning Ops</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick Telemetry Glance */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-[#222222]">
+              <div className="p-3.5 rounded-xl bg-[#09090b] border border-[#27272a]">
+                <span className="text-[10px] font-mono uppercase text-zinc-500 block">Team Physical Intake</span>
+                <span className="text-lg font-mono font-bold text-white mt-0.5 block">
+                  {metrics.totalTeamReceived.toLocaleString()}
+                </span>
+                <span className="text-[10px] text-zinc-400 font-mono mt-0.5 block">
+                  {teammates.length > 0 ? `${teammates.length} subsheet(s) connected` : 'Awaiting Google Sheet sync'}
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[#09090b] border border-[#27272a]">
+                <span className="text-[10px] font-mono uppercase text-zinc-500 block">Portal Uploads</span>
+                <span className="text-lg font-mono font-bold text-white mt-0.5 block">
+                  {metrics.totalPortalCompleted.toLocaleString()}
+                </span>
+                <span className="text-[10px] text-zinc-400 font-mono mt-0.5 block">
+                  {portalSlots.length > 0 ? `${portalSlots.length} exam slots staged` : 'Awaiting portal file'}
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[#09090b] border border-[#27272a]">
+                <span className="text-[10px] font-mono uppercase text-zinc-500 block">Variance Status</span>
+                <span className="text-lg font-mono font-bold text-white mt-0.5 block">
+                  {metrics.netDiscrepancy === 0 ? 'Synchronized' : `${Math.abs(metrics.netDiscrepancy)} Variance`}
+                </span>
+                <span className="text-[10px] text-zinc-400 font-mono mt-0.5 block">
+                  {metrics.discrepancyBatchesCount > 0 ? `${metrics.discrepancyBatchesCount} batch(es) flagged` : 'All clear'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Workflow Overview - 3 Simple Steps */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+              How Scanning Ops Works
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-5 rounded-2xl bg-[#09090b] border border-[#222222] flex flex-col justify-between space-y-3">
+                <div className="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white text-xs font-mono font-bold">
+                  01
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Physical Intake Logs</h4>
+                  <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                    Team members log physical answer script bundles received per exam session directly into their assigned Google Sheet subsheets.
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-[#1a1a1a]">
+                  <span className="text-[10px] font-mono text-zinc-500">Source: Team Google Sheet</span>
+                </div>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#09090b] border border-[#222222] flex flex-col justify-between space-y-3">
+                <div className="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white text-xs font-mono font-bold">
+                  02
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Central Portal Uploads</h4>
+                  <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                    Upload the central examination schedule Excel report. Counts are extracted strictly from the <code className="text-white font-mono">Completed</code> column.
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-[#1a1a1a]">
+                  <span className="text-[10px] font-mono text-zinc-500">Source: Central Portal Excel / CSV</span>
+                </div>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#09090b] border border-[#222222] flex flex-col justify-between space-y-3">
+                <div className="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white text-xs font-mono font-bold">
+                  03
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Automated Reconciliation</h4>
+                  <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                    Schedules of each school on every date are aggregated and compared against team received numbers to flag any discrepancy instantly.
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-[#1a1a1a]">
+                  <span className="text-[10px] font-mono text-zinc-500">Engine: Live Date &amp; School Matrix</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <button
+              onClick={() => setActiveTab('reconciliation')}
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-[#18181b] hover:bg-[#27272a] text-white text-xs font-semibold border border-[#3f3f46] transition-all shadow-sm"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 text-zinc-300" />
+              <span>Go to Scanning Ops Dashboard</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('data_sources')}
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-[#121214] hover:bg-[#18181b] text-zinc-300 hover:text-white text-xs font-medium border border-[#27272a] transition-colors"
+            >
+              <Link2 className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Configure Data Sources &amp; Live Sync</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* TAB 1: INTAKE VS PORTAL MATRIX (Shows full dashboard with connections & telemetry) */}
       {/* ========================================================================= */}

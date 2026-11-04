@@ -66,7 +66,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="w-64 bg-[#000000] border-r border-[#222222] flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none font-sans">
       {/* Top Header */}
       <div>
-        <div className="h-16 px-4 flex items-center border-b border-[#222222] bg-[#000000]">
+        <div
+          onClick={() => setActiveTab('intro')}
+          className="h-16 px-4 flex items-center border-b border-[#222222] bg-[#000000] cursor-pointer hover:bg-[#09090b] transition-colors"
+          title="Return to Welcome Greetings"
+        >
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-xl bg-[#09090b] border border-[#27272a] flex items-center justify-center p-1.5 shadow-sm">
               <svg className="w-5 h-5" viewBox="0 0 64 64" fill="none">

@@ -33,7 +33,7 @@ export default function Home() {
   const [isClient, setIsClient] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
-  const [activeTab, setActiveTab] = useState<string>('reconciliation');
+  const [activeTab, setActiveTab] = useState<string>('intro');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState<boolean>(false);
 
@@ -413,6 +413,7 @@ export default function Home() {
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto h-screen">
         <main className="flex-1 p-6 lg:p-8">
           <ReconciliationDashboard
+            currentUser={currentUser}
             matrix={matrix}
             teammates={teammates}
             metrics={metrics}
