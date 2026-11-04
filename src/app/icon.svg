@@ -1,14 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- Dark Rounded Square Container Badge -->
-  <rect x="2" y="2" width="60" height="60" rx="16" fill="#09090b" stroke="#27272a" stroke-width="2" />
+  <!-- Bar 1: Shorter Left Bar -->
+  <rect x="13" y="34" width="10" height="22" rx="5" fill="#FFFFFF" />
   
-  <!-- 3 Monochrome Pill Bars -->
-  <!-- Left Bar: Shorter, Pure White -->
-  <rect x="14" y="33" width="9" height="18" rx="4.5" fill="#FFFFFF" />
+  <!-- Bar 2: Medium Middle Bar -->
+  <rect x="27" y="22" width="10" height="34" rx="5" fill="#A1A1AA" />
   
-  <!-- Middle Bar: Medium, Neutral Silver -->
-  <rect x="27" y="23" width="9" height="28" rx="4.5" fill="#A1A1AA" />
-  
-  <!-- Right Bar: Tallest, Dark Slate Gray -->
-  <rect x="40" y="13" width="9" height="38" rx="4.5" fill="#52525B" />
+  <!-- Bar 3: Tallest Right Bar -->
+  <rect x="41" y="10" width="10" height="46" rx="5" fill="#71717A" />
 </svg>

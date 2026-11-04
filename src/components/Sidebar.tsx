@@ -70,9 +70,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-xl bg-[#09090b] border border-[#27272a] flex items-center justify-center p-1.5 shadow-sm">
               <svg className="w-5 h-5" viewBox="0 0 64 64" fill="none">
-                <rect x="14" y="33" width="9" height="18" rx="4.5" fill="#FFFFFF" />
-                <rect x="27" y="23" width="9" height="28" rx="4.5" fill="#A1A1AA" />
-                <rect x="40" y="13" width="9" height="38" rx="4.5" fill="#52525B" />
+                <rect x="13" y="34" width="10" height="22" rx="5" fill="#FFFFFF" />
+                <rect x="27" y="22" width="10" height="34" rx="5" fill="#A1A1AA" />
+                <rect x="41" y="10" width="10" height="46" rx="5" fill="#71717A" />
               </svg>
             </div>
             <div>
