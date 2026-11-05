@@ -7,7 +7,6 @@ export interface RawStudentRow {
   courseCode: string;
   courseName: string;
   schoolCode: string;
-  schoolName: string;
   examDate: string;
   evaluatorName: string;
   evaluatorEmail: string;
@@ -30,7 +29,6 @@ export interface MappedStudentAllocation {
   courseCode: string;
   courseName: string;
   schoolCode: string;
-  schoolName: string;
   examDate: string;
   evaluatorName: string;
   evaluatorEmail: string;
@@ -158,7 +156,6 @@ export function parseStudentEvaluatorFile(
     courseCode: boolean;
     courseName: boolean;
     schoolCode: boolean;
-    schoolName: boolean;
     examDate: boolean;
     evaluatorName: boolean;
     evaluatorEmail: boolean;
@@ -185,7 +182,6 @@ export function parseStudentEvaluatorFile(
         courseCode: false,
         courseName: false,
         schoolCode: false,
-        schoolName: false,
         examDate: false,
         evaluatorName: false,
         evaluatorEmail: false,
@@ -207,7 +203,6 @@ export function parseStudentEvaluatorFile(
         courseCode: false,
         courseName: false,
         schoolCode: false,
-        schoolName: false,
         examDate: false,
         evaluatorName: false,
         evaluatorEmail: false,
@@ -418,21 +413,7 @@ export function parseStudentEvaluatorFile(
       rowSchoolCode = (norm && norm.code && norm.code !== 'GEN') ? norm.code : rowSchoolVal.trim().toUpperCase();
     }
 
-    // 8. School Name for row
-    let rowSchoolName = getRowVal(
-      row,
-      'school name',
-      'schoolname',
-      'school_name',
-      'faculty name',
-      'college name',
-      'department name'
-    );
-    if (!rowSchoolName && rowSchoolCode && SCHOOL_CODE_MAP[rowSchoolCode]) {
-      rowSchoolName = SCHOOL_CODE_MAP[rowSchoolCode];
-    }
-
-    // 9. Exam Date for row
+    // 8. Exam Date for row
     const rawExamDate = getRowVal(
       row,
       'exam date',
@@ -453,7 +434,6 @@ export function parseStudentEvaluatorFile(
       courseCode: normalizeCourseCode(courseCode),
       courseName: courseName.trim(),
       schoolCode: rowSchoolCode || detectedSchoolCode,
-      schoolName: rowSchoolName.trim(),
       examDate,
       evaluatorName: evaluatorName || 'Unknown Evaluator',
       evaluatorEmail: evaluatorEmail.trim(),
@@ -468,7 +448,6 @@ export function parseStudentEvaluatorFile(
   const hasCourseCode = rows.some((r) => r.courseCode.length > 0);
   const hasCourseName = rows.some((r) => r.courseName.length > 0);
   const hasSchoolCode = rows.some((r) => r.schoolCode && r.schoolCode !== 'School');
-  const hasSchoolName = rows.some((r) => r.schoolName.length > 0);
   const hasExamDate = rows.some((r) => r.examDate.length > 0);
   const hasEvaluatorEmail = rows.some((r) => r.evaluatorEmail.length > 0);
   const hasEvaluatorName = rows.some((r) => r.evaluatorName && r.evaluatorName !== 'Unknown Evaluator');
@@ -484,7 +463,6 @@ export function parseStudentEvaluatorFile(
       courseCode: hasCourseCode,
       courseName: hasCourseName,
       schoolCode: hasSchoolCode,
-      schoolName: hasSchoolName,
       examDate: hasExamDate,
       evaluatorName: hasEvaluatorName,
       evaluatorEmail: hasEvaluatorEmail,
@@ -720,7 +698,6 @@ export function mapStudentEvaluatorSchedules(
       courseCode: st.courseCode,
       courseName,
       schoolCode: st.schoolCode || '',
-      schoolName: st.schoolName || (st.schoolCode ? SCHOOL_CODE_MAP[st.schoolCode] || '' : ''),
       examDate: st.examDate || '',
       evaluatorName: st.evaluatorName,
       evaluatorEmail: st.evaluatorEmail,
@@ -757,8 +734,7 @@ export function mapStudentEvaluatorSchedules(
 // Column E: Course Code
 // Column F: Course Name
 // Column G: School Code
-// Column H: School Name
-// Column I: Exam Date
+// Column H: Exam Date
 export function generateEvalOpsExcel(
   allocations: MappedStudentAllocation[],
   onlySuccessfullyMapped: boolean = false,
@@ -771,7 +747,6 @@ export function generateEvalOpsExcel(
   // Format with all subsequent columns extracted from student-evaluator data:
   const excelRows = listToExport.map((item) => {
     const sCode = item.schoolCode || schoolCode;
-    const sName = item.schoolName || (sCode ? SCHOOL_CODE_MAP[sCode] || '' : '');
     return {
       'Schedule ID': item.scheduleId === 'UNMAPPED' ? '' : item.scheduleId,
       'Evaluator Email ID': item.evaluatorEmail,
@@ -780,7 +755,6 @@ export function generateEvalOpsExcel(
       'Course Code': item.courseCode,
       'Course Name': item.courseName,
       'School Code': sCode,
-      'School Name': sName,
       'Exam Date': item.examDate,
     };
   });
@@ -795,7 +769,6 @@ export function generateEvalOpsExcel(
       'Course Code',
       'Course Name',
       'School Code',
-      'School Name',
       'Exam Date',
     ],
   });
@@ -809,8 +782,7 @@ export function generateEvalOpsExcel(
     { wch: 16 }, // Col E: Course Code
     { wch: 32 }, // Col F: Course Name
     { wch: 16 }, // Col G: School Code
-    { wch: 34 }, // Col H: School Name
-    { wch: 18 }, // Col I: Exam Date
+    { wch: 18 }, // Col H: Exam Date
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Evaluator Assignment');

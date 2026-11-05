@@ -27,6 +27,7 @@ import { SUPER_ADMIN_EMAIL } from '../lib/mockData';
 import { Sidebar } from '../components/Sidebar';
 import { ReconciliationDashboard } from '../components/ReconciliationDashboard';
 import { EvalOpsDashboard } from '../components/EvalOpsDashboard';
+import { EvalScheduleExtractor } from '../components/EvalScheduleExtractor';
 import { UserManagementModal } from '../components/UserManagementModal';
 import { AuthScreen } from '../components/AuthScreen';
 
@@ -415,6 +416,8 @@ export default function Home() {
         <main className="flex-1 p-6 lg:p-8">
           {activeTab === 'eval_ops' ? (
             <EvalOpsDashboard />
+          ) : activeTab === 'eval_schedule_extractor' ? (
+            <EvalScheduleExtractor />
           ) : (
             <ReconciliationDashboard
               currentUser={currentUser}

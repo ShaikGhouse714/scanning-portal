@@ -61,7 +61,6 @@ export const EvalOpsDashboard: React.FC = () => {
     courseCode: boolean;
     courseName: boolean;
     schoolCode: boolean;
-    schoolName: boolean;
     examDate: boolean;
     evaluatorName: boolean;
     evaluatorEmail: boolean;
@@ -1008,7 +1007,7 @@ export const EvalOpsDashboard: React.FC = () => {
                 Final Output Preview ({filteredResults.length} records)
               </span>
               <span className="text-[11px] font-mono text-zinc-400">
-                Target: <strong className="text-white">{schoolCode || 'School'} - Evaluator assignment.xlsx</strong> (Cols A to I)
+                Target: <strong className="text-white">{schoolCode || 'School'} - Evaluator assignment.xlsx</strong> (Cols A to H)
               </span>
             </div>
 
@@ -1023,7 +1022,6 @@ export const EvalOpsDashboard: React.FC = () => {
                     <th className="py-3 px-4">COURSE CODE</th>
                     <th className="py-3 px-4">COURSE NAME</th>
                     <th className="py-3 px-4">SCHOOL CODE</th>
-                    <th className="py-3 px-4">SCHOOL NAME</th>
                     <th className="py-3 px-4">EXAM DATE</th>
                     <th className="py-3 px-4 text-center">STATUS</th>
                   </tr>
@@ -1031,7 +1029,7 @@ export const EvalOpsDashboard: React.FC = () => {
                 <tbody className="divide-y divide-[#27272a] font-mono text-zinc-300">
                   {filteredResults.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="py-12 text-center text-zinc-500 text-xs">
+                      <td colSpan={9} className="py-12 text-center text-zinc-500 text-xs">
                         No records match your search or filter selection.
                       </td>
                     </tr>
@@ -1089,12 +1087,7 @@ export const EvalOpsDashboard: React.FC = () => {
                           {item.schoolCode || schoolCode || '–'}
                         </td>
 
-                        {/* Column H: School Name */}
-                        <td className="py-3 px-4 text-zinc-400 font-sans text-[11px] truncate max-w-[180px]">
-                          {item.schoolName || (item.schoolCode ? SCHOOL_CODE_MAP[item.schoolCode] : '') || (schoolCode ? SCHOOL_CODE_MAP[schoolCode] : '') || '–'}
-                        </td>
-
-                        {/* Column I: Exam Date */}
+                        {/* Column H: Exam Date */}
                         <td className="py-3 px-4 text-zinc-300 whitespace-nowrap">
                           {item.examDate || '–'}
                         </td>

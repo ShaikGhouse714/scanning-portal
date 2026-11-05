@@ -14,6 +14,7 @@ import {
   AlertOctagon,
   RefreshCw,
   ChevronDown,
+  Filter,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -69,10 +70,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: FileSpreadsheet,
       allowedRoles: ['super_admin', 'admin', 'operator'],
     },
+    {
+      id: 'eval_schedule_extractor',
+      label: 'Schedule ID Extractor',
+      icon: Filter,
+      allowedRoles: ['super_admin', 'admin', 'operator'],
+    },
   ].filter((item) => item.allowedRoles.includes(currentUser.role));
 
   const isMainTabActive = activeTab === 'reconciliation';
-  const isEvalTabActive = activeTab === 'eval_ops';
+  const isEvalTabActive = activeTab === 'eval_ops' || activeTab === 'eval_schedule_extractor';
 
   return (
     <aside className="w-64 bg-[#000000] border-r border-[#222222] flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none font-sans">
@@ -196,7 +203,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={() => {
-              setActiveTab('eval_ops');
+              if (activeTab !== 'eval_ops' && activeTab !== 'eval_schedule_extractor') {
+                setActiveTab('eval_ops');
+              }
               setIsEvalNavExpanded((prev) => !prev);
             }}
             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
