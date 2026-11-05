@@ -179,6 +179,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
           )}
+
+          {/* New Section: Eval Ops (Directly below Scanning Ops section) */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('eval_ops')}
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === 'eval_ops'
+                ? 'bg-white text-black shadow-md border border-white'
+                : 'text-zinc-300 hover:text-white hover:bg-[#121214] border border-[#27272a]'
+            }`}
+          >
+            <div className="flex items-center space-x-3">
+              <FileSpreadsheet
+                className={`w-4 h-4 shrink-0 ${activeTab === 'eval_ops' ? 'text-black' : 'text-zinc-400'}`}
+              />
+              <span className="font-bold">Eval Ops</span>
+            </div>
+            <span
+              className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                activeTab === 'eval_ops'
+                  ? 'bg-black text-white'
+                  : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
+              }`}
+            >
+              Mapper
+            </span>
+          </button>
         </nav>
       </div>
 

@@ -733,6 +733,14 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               <Link2 className="w-3.5 h-3.5 text-zinc-400" />
               <span>Configure Data Sources &amp; Live Sync</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('eval_ops')}
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-bold transition-all shadow-sm"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-black" />
+              <span>Open Eval Ops (Schedule &amp; Evaluator Mapper) →</span>
+            </button>
           </div>
         </div>
       )}

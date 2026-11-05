@@ -26,6 +26,7 @@ import {
 import { SUPER_ADMIN_EMAIL } from '../lib/mockData';
 import { Sidebar } from '../components/Sidebar';
 import { ReconciliationDashboard } from '../components/ReconciliationDashboard';
+import { EvalOpsDashboard } from '../components/EvalOpsDashboard';
 import { UserManagementModal } from '../components/UserManagementModal';
 import { AuthScreen } from '../components/AuthScreen';
 
@@ -412,25 +413,29 @@ export default function Home() {
       {/* Main Viewport */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto h-screen">
         <main className="flex-1 p-6 lg:p-8">
-          <ReconciliationDashboard
-            currentUser={currentUser}
-            matrix={matrix}
-            teammates={teammates}
-            metrics={metrics}
-            portalSlots={portalSlots}
-            teamEntries={teamEntries}
-            googleSheetUrl={googleSheetUrl}
-            onUpdateSheetUrl={handleUpdateSheetUrl}
-            onSyncGoogleSheet={handleSyncGoogleSheet}
-            onUploadPortalFile={handleUploadPortalFile}
-            onUploadTeamSheetFile={handleUploadTeamSheetFile}
-            onResetToDemoData={handleClearAllData}
-            isSyncing={isSyncing}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            lastSyncedTime={lastSyncedTime}
-            sheetNames={sheetNames}
-          />
+          {activeTab === 'eval_ops' ? (
+            <EvalOpsDashboard />
+          ) : (
+            <ReconciliationDashboard
+              currentUser={currentUser}
+              matrix={matrix}
+              teammates={teammates}
+              metrics={metrics}
+              portalSlots={portalSlots}
+              teamEntries={teamEntries}
+              googleSheetUrl={googleSheetUrl}
+              onUpdateSheetUrl={handleUpdateSheetUrl}
+              onSyncGoogleSheet={handleSyncGoogleSheet}
+              onUploadPortalFile={handleUploadPortalFile}
+              onUploadTeamSheetFile={handleUploadTeamSheetFile}
+              onResetToDemoData={handleClearAllData}
+              isSyncing={isSyncing}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              lastSyncedTime={lastSyncedTime}
+              sheetNames={sheetNames}
+            />
+          )}
         </main>
       </div>
 
