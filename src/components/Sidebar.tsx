@@ -37,6 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const isSuperAdmin = currentUser.role === 'super_admin';
   const [isNavExpanded, setIsNavExpanded] = useState<boolean>(false);
+  const [isEvalNavExpanded, setIsEvalNavExpanded] = useState<boolean>(true);
 
   // Sub-navigation Items that elaborate downwards when Scanning Ops is clicked
   const subNavItems = [
@@ -60,7 +61,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ].filter((item) => item.allowedRoles.includes(currentUser.role));
 
+  // Sub-navigation Items that elaborate downwards when Eval Ops is clicked
+  const evalSubNavItems = [
+    {
+      id: 'eval_ops',
+      label: 'Evaluation Assignment',
+      icon: FileSpreadsheet,
+      allowedRoles: ['super_admin', 'admin', 'operator'],
+    },
+  ].filter((item) => item.allowedRoles.includes(currentUser.role));
+
   const isMainTabActive = activeTab === 'reconciliation';
+  const isEvalTabActive = activeTab === 'eval_ops';
 
   return (
     <aside className="w-64 bg-[#000000] border-r border-[#222222] flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none font-sans">
@@ -180,32 +192,70 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {/* New Section: Eval Ops (Directly below Scanning Ops section) */}
+          {/* Section: Eval Ops (With downward elaborating dropdown identical to Scanning Ops) */}
           <button
             type="button"
-            onClick={() => setActiveTab('eval_ops')}
+            onClick={() => {
+              setActiveTab('eval_ops');
+              setIsEvalNavExpanded((prev) => !prev);
+            }}
             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-              activeTab === 'eval_ops'
+              isEvalTabActive
                 ? 'bg-white text-black shadow-md border border-white'
                 : 'text-zinc-300 hover:text-white hover:bg-[#121214] border border-[#27272a]'
             }`}
           >
             <div className="flex items-center space-x-3">
               <FileSpreadsheet
-                className={`w-4 h-4 shrink-0 ${activeTab === 'eval_ops' ? 'text-black' : 'text-zinc-400'}`}
+                className={`w-4 h-4 shrink-0 ${isEvalTabActive ? 'text-black' : 'text-zinc-400'}`}
               />
               <span className="font-bold">Eval Ops</span>
             </div>
-            <span
-              className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                activeTab === 'eval_ops'
-                  ? 'bg-black text-white'
-                  : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
-              }`}
-            >
-              Mapper
-            </span>
+
+            <div className="flex items-center space-x-2 shrink-0">
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEvalNavExpanded((prev) => !prev);
+                }}
+                className={`p-0.5 rounded transition-transform duration-200 ${
+                  isEvalNavExpanded ? 'rotate-180' : ''
+                }`}
+                title={isEvalNavExpanded ? 'Collapse' : 'Elaborate options'}
+              >
+                <ChevronDown
+                  className={`w-3.5 h-3.5 ${isEvalTabActive ? 'text-black' : 'text-zinc-400'}`}
+                />
+              </div>
+            </div>
           </button>
+
+          {/* Downward Elaborating Sub-Toggles for Eval Ops */}
+          {isEvalNavExpanded && (
+            <div className="pt-1.5 pl-3 space-y-1 border-l-2 border-zinc-800 ml-4 animate-in fade-in slide-in-from-top-1 duration-150">
+              {evalSubNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveTab(item.id)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                      isActive
+                        ? 'bg-white text-black font-semibold shadow-sm'
+                        : 'text-zinc-400 hover:text-white hover:bg-[#121214]'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : 'text-zinc-500'}`} />
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </nav>
       </div>
 

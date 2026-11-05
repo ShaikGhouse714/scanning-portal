@@ -19,6 +19,7 @@ import {
   Eye,
   X,
   FileCheck2,
+  ChevronDown,
 } from 'lucide-react';
 import {
   RawStudentRow,
@@ -32,6 +33,7 @@ import {
   getWorkbookSheetNames,
 } from '../lib/evalOpsParser';
 import { FileDropzone } from './FileDropzone';
+import { CustomDropdown, DropdownOption } from './CustomDropdown';
 
 export const EvalOpsDashboard: React.FC = () => {
   // Uploaded Files State
@@ -78,7 +80,10 @@ export const EvalOpsDashboard: React.FC = () => {
   const [hasMapped, setHasMapped] = useState<boolean>(false);
 
   // Filter & Search in Results
-  const [filterMode, setFilterMode] = useState<'all' | 'mapped' | 'issues'>('all');
+  const [filterMode, setFilterMode] = useState<string>('all');
+  const [courseFilter, setCourseFilter] = useState<string>('all');
+  const [evaluatorFilter, setEvaluatorFilter] = useState<string>('all');
+  const [isFiltersExpanded, setIsFiltersExpanded] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // 1. Handle Upload Student & Evaluator Excel
@@ -224,7 +229,64 @@ export const EvalOpsDashboard: React.FC = () => {
     setHasMapped(false);
     setSearchQuery('');
     setFilterMode('all');
+    setCourseFilter('all');
+    setEvaluatorFilter('all');
   };
+
+  // Dropdown options for dynamic filters
+  const courseOptions: DropdownOption[] = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const alloc of mappedAllocations) {
+      if (alloc.courseCode) {
+        counts[alloc.courseCode] = (counts[alloc.courseCode] || 0) + 1;
+      }
+    }
+    const opts: DropdownOption[] = [
+      { value: 'all', label: 'All Courses', sublabel: `${Object.keys(counts).length} unique courses` },
+    ];
+    Object.keys(counts)
+      .sort()
+      .forEach((code) => {
+        opts.push({
+          value: code,
+          label: code,
+          sublabel: `${counts[code]} student${counts[code] > 1 ? 's' : ''}`,
+        });
+      });
+    return opts;
+  }, [mappedAllocations]);
+
+  const evaluatorOptions: DropdownOption[] = useMemo(() => {
+    const counts: Record<string, { count: number; name: string }> = {};
+    for (const alloc of mappedAllocations) {
+      const email = alloc.evaluatorEmail || 'unassigned';
+      if (!counts[email]) {
+        counts[email] = { count: 0, name: alloc.evaluatorName };
+      }
+      counts[email].count++;
+    }
+    const opts: DropdownOption[] = [
+      { value: 'all', label: 'All Evaluators', sublabel: `${Object.keys(counts).length} unique evaluators` },
+    ];
+    Object.keys(counts)
+      .sort()
+      .forEach((email) => {
+        opts.push({
+          value: email,
+          label: counts[email].name || email,
+          sublabel: email !== 'unassigned' ? `${email} (${counts[email].count})` : `${counts[email].count} students`,
+        });
+      });
+    return opts;
+  }, [mappedAllocations]);
+
+  const statusOptions: DropdownOption[] = useMemo(() => {
+    return [
+      { value: 'all', label: 'All Statuses', sublabel: `${mappedAllocations.length} total records` },
+      { value: 'mapped', label: 'Fully Mapped', sublabel: `${summary?.successfullyMappedCount ?? 0} records`, badge: 'Mapped' },
+      { value: 'issues', label: 'Action Required', sublabel: `${summary?.unmappedCount ?? 0} records`, badge: 'Issues', badgeColor: 'bg-rose-500/20 text-rose-300' },
+    ];
+  }, [mappedAllocations.length, summary]);
 
   // 5. Filtered Results List
   const filteredResults = useMemo(() => {
@@ -236,12 +298,22 @@ export const EvalOpsDashboard: React.FC = () => {
       list = list.filter((item) => !item.isMapped);
     }
 
+    if (courseFilter !== 'all') {
+      list = list.filter((item) => item.courseCode === courseFilter);
+    }
+
+    if (evaluatorFilter !== 'all') {
+      list = list.filter((item) => item.evaluatorEmail === evaluatorFilter);
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
         (item) =>
           item.studentName.toLowerCase().includes(q) ||
+          item.studentEmail.toLowerCase().includes(q) ||
           item.courseCode.toLowerCase().includes(q) ||
+          item.courseName.toLowerCase().includes(q) ||
           item.evaluatorName.toLowerCase().includes(q) ||
           item.evaluatorEmail.toLowerCase().includes(q) ||
           item.scheduleId.toLowerCase().includes(q)
@@ -249,7 +321,7 @@ export const EvalOpsDashboard: React.FC = () => {
     }
 
     return list;
-  }, [mappedAllocations, filterMode, searchQuery]);
+  }, [mappedAllocations, filterMode, courseFilter, evaluatorFilter, searchQuery]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans pb-16 animate-in fade-in duration-200">
@@ -258,13 +330,13 @@ export const EvalOpsDashboard: React.FC = () => {
         <div>
           <div className="flex items-center space-x-2.5">
             <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 font-semibold">
-              Evaluation Operations
+              Eval Ops // Evaluation Assignment
             </span>
             <span className="text-xs font-mono text-zinc-500">• VLOOKUP Automator</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1.5 flex items-center space-x-2.5">
             <FileSpreadsheet className="w-6 h-6 text-white" />
-            <span>Eval Ops // Schedule &amp; Evaluator Mapper</span>
+            <span>Evaluation Assignment</span>
           </h1>
           <p className="text-xs text-zinc-400 mt-1 max-w-3xl leading-relaxed">
             Automates mapping of student records, evaluator assignments, and examination schedule IDs using{' '}
@@ -319,16 +391,18 @@ export const EvalOpsDashboard: React.FC = () => {
               {studentFile && (
                 <div className="flex items-center space-x-2">
                   {studentSheetNames.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowStudentSheetModal(true)}
-                      className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center space-x-1"
-                      title="Switch active subsheet"
-                    >
-                      <Layers className="w-3 h-3 text-zinc-400" />
-                      <span>Sheet: <strong className="text-white">{activeStudentSheet}</strong></span>
-                      <span className="text-zinc-400">({studentSheetNames.length} ▾)</span>
-                    </button>
+                    <CustomDropdown
+                      value={activeStudentSheet}
+                      onChange={handleSelectStudentSheet}
+                      options={studentSheetNames.map((sheet, idx) => ({
+                        value: sheet,
+                        label: sheet,
+                        sublabel: `Subsheet #${idx + 1}`,
+                      }))}
+                      icon={Layers}
+                      placeholder="Select subsheet"
+                      className="w-40"
+                    />
                   )}
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
                     <Check className="w-3 h-3 text-emerald-400" />
@@ -487,16 +561,18 @@ export const EvalOpsDashboard: React.FC = () => {
               {scheduleFile && (
                 <div className="flex items-center space-x-2">
                   {scheduleSheetNames.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowScheduleSheetModal(true)}
-                      className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center space-x-1"
-                      title="Switch active subsheet"
-                    >
-                      <Layers className="w-3 h-3 text-zinc-400" />
-                      <span>Sheet: <strong className="text-white">{activeScheduleSheet}</strong></span>
-                      <span className="text-zinc-400">({scheduleSheetNames.length} ▾)</span>
-                    </button>
+                    <CustomDropdown
+                      value={activeScheduleSheet}
+                      onChange={handleSelectScheduleSheet}
+                      options={scheduleSheetNames.map((sheet, idx) => ({
+                        value: sheet,
+                        label: sheet,
+                        sublabel: `Subsheet #${idx + 1}`,
+                      }))}
+                      icon={Layers}
+                      placeholder="Select subsheet"
+                      className="w-40"
+                    />
                   )}
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
                     <Check className="w-3 h-3 text-emerald-400" />
@@ -768,71 +844,121 @@ export const EvalOpsDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Results Table Toolbar */}
-          <div className="bg-[#09090b] rounded-2xl border border-[#27272a] p-4 flex flex-wrap items-center justify-between gap-3 shadow-xl">
-            {/* Filter Tabs */}
-            <div className="flex items-center space-x-1 bg-[#121214] p-1 rounded-xl border border-[#27272a] text-xs">
-              <button
-                type="button"
-                onClick={() => setFilterMode('all')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                  filterMode === 'all' ? 'bg-white text-black shadow-sm' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                All Records ({mappedAllocations.length})
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFilterMode('mapped')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 ${
-                  filterMode === 'mapped' ? 'bg-white text-black shadow-sm' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <span>Mapped ({summary.successfullyMappedCount})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFilterMode('issues')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 ${
-                  filterMode === 'issues' ? 'bg-white text-black shadow-sm' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <span>Unmapped / Issues ({summary.unmappedCount})</span>
-              </button>
-            </div>
-
-            {/* Search Input & Download Action */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-64">
-                <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search student, course, email..."
-                  className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#121214] border border-[#27272a] rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-colors font-mono"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-xs"
-                  >
-                    ✕
-                  </button>
-                )}
+          {/* Dynamic Filters Bar with Custom Dropdowns (Matching Scanning Ops Style) */}
+          <div className="bg-[#09090b] rounded-2xl border border-[#27272a] shadow-xl overflow-hidden">
+            <div
+              onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+              className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-[#121214] transition-colors border-b border-[#222222]"
+            >
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300">
+                  <Filter className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-bold text-white block leading-tight">Dynamic Filters</span>
+                    {(filterMode !== 'all' || courseFilter !== 'all' || evaluatorFilter !== 'all' || searchQuery) && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white text-black font-bold">
+                        Active Filter
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-zinc-400 font-mono block leading-tight mt-0.5">
+                    {filterMode !== 'all' || courseFilter !== 'all' || evaluatorFilter !== 'all' || searchQuery
+                      ? 'Filtered allocation view active'
+                      : 'All records visible • Click to expand filter dropdowns'}
+                  </span>
+                </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => generateEvalOpsExcel(mappedAllocations, filterMode === 'mapped')}
-                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-colors shadow-sm"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export Output Excel</span>
-              </button>
+              <div className="flex items-center space-x-2.5">
+                {(filterMode !== 'all' || courseFilter !== 'all' || evaluatorFilter !== 'all' || searchQuery) && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFilterMode('all');
+                      setCourseFilter('all');
+                      setEvaluatorFilter('all');
+                      setSearchQuery('');
+                    }}
+                    className="text-[10px] font-mono px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                  >
+                    Reset Filters
+                  </button>
+                )}
+                <div className={`p-1 rounded text-zinc-400 transition-transform duration-200 ${isFiltersExpanded ? 'rotate-180' : ''}`}>
+                  <ChevronDown className="w-4 h-4 text-zinc-300" />
+                </div>
+              </div>
             </div>
+
+            {isFiltersExpanded && (
+              <div className="p-3.5 bg-[#050505] flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-150">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Status Dropdown */}
+                  <CustomDropdown
+                    value={filterMode}
+                    options={statusOptions}
+                    onChange={setFilterMode}
+                    icon={CheckCircle2}
+                    placeholder="All Statuses"
+                    className="w-44"
+                  />
+
+                  {/* Course Code Dropdown */}
+                  <CustomDropdown
+                    value={courseFilter}
+                    options={courseOptions}
+                    onChange={setCourseFilter}
+                    icon={FileSpreadsheet}
+                    placeholder="All Courses"
+                    className="w-44"
+                  />
+
+                  {/* Evaluator Dropdown */}
+                  <CustomDropdown
+                    value={evaluatorFilter}
+                    options={evaluatorOptions}
+                    onChange={setEvaluatorFilter}
+                    icon={Users2}
+                    placeholder="All Evaluators"
+                    className="w-48"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Search Input */}
+                  <div className="relative w-56">
+                    <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search student, email, code..."
+                      className="w-full text-xs pl-8 pr-7 py-1.5 bg-[#121214] border border-[#27272a] rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white transition-colors font-mono"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-xs p-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => generateEvalOpsExcel(filteredResults, false)}
+                    className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-colors shadow-sm shrink-0"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export Excel ({filteredResults.length})</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Master Output Preview Table (Shows the exact columns that will be exported) */}
