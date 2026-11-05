@@ -216,15 +216,11 @@ export const EvalScheduleExtractor: React.FC = () => {
   const handleExportFilteredExcel = () => {
     if (displayedEntries.length === 0) return;
 
+    // Export strictly the first three columns: Schedule ID, Evaluator Email ID, Student Details
     const excelRows = displayedEntries.map((item) => ({
       'Schedule ID': item.scheduleId,
       'Evaluator Email ID': item.evaluatorEmail,
-      'Student Details': item.studentEmail,
-      'Student Name': item.studentName,
-      'Course Code': item.courseCode,
-      'Course Name': item.courseName,
-      'School Code': item.schoolCode,
-      'Exam Date': item.examDate,
+      'Student Details': item.studentEmail || item.studentName,
     }));
 
     const wb = XLSX.utils.book_new();
@@ -233,56 +229,35 @@ export const EvalScheduleExtractor: React.FC = () => {
         'Schedule ID',
         'Evaluator Email ID',
         'Student Details',
-        'Student Name',
-        'Course Code',
-        'Course Name',
-        'School Code',
-        'Exam Date',
       ],
     });
 
     ws['!cols'] = [
       { wch: 18 }, // Col A: Schedule ID
       { wch: 34 }, // Col B: Evaluator Email ID
-      { wch: 34 }, // Col C: Student Details (Email ID)
-      { wch: 28 }, // Col D: Student Name
-      { wch: 16 }, // Col E: Course Code
-      { wch: 32 }, // Col F: Course Name
-      { wch: 16 }, // Col G: School Code
-      { wch: 18 }, // Col H: Exam Date
+      { wch: 34 }, // Col C: Student Details
     ];
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Filtered Schedules');
+    XLSX.utils.book_append_sheet(wb, ws, 'Evaluation Assignment');
 
-    const dateStr = new Date().toISOString().split('T')[0];
-    const filename = `Filtered-Schedule-Allocations-${parsedTargetScheduleIds.length}IDs-${dateStr}.xlsx`;
+    const filename = `Evaluation assignment.xlsx`;
     XLSX.writeFile(wb, filename);
   };
 
-  // Copy table to clipboard
+  // Copy table to clipboard (First 3 columns only)
   const handleCopyTable = () => {
     if (displayedEntries.length === 0) return;
     const header = [
       'Schedule ID',
       'Evaluator Email ID',
       'Student Details',
-      'Student Name',
-      'Course Code',
-      'Course Name',
-      'School Code',
-      'Exam Date',
     ].join('\t');
 
     const lines = displayedEntries.map((r) =>
       [
         r.scheduleId,
         r.evaluatorEmail,
-        r.studentEmail,
-        r.studentName,
-        r.courseCode,
-        r.courseName,
-        r.schoolCode,
-        r.examDate,
+        r.studentEmail || r.studentName,
       ].join('\t')
     );
 
@@ -613,7 +588,7 @@ export const EvalScheduleExtractor: React.FC = () => {
                   Extracted Records ({displayedEntries.length.toLocaleString()})
                 </h4>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
-                  Cols A to H
+                  Cols A to C (Evaluation assignment.xlsx)
                 </span>
               </div>
 
@@ -661,7 +636,7 @@ export const EvalScheduleExtractor: React.FC = () => {
                   type="button"
                   onClick={handleCopyTable}
                   className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-[#27272a] hover:bg-[#121214] text-zinc-300 hover:text-white text-xs font-mono transition-colors"
-                  title="Copy rows to clipboard"
+                  title="Copy 3 columns to clipboard"
                 >
                   {copiedSuccess ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                   <span>{copiedSuccess ? 'Copied!' : 'Copy'}</span>
@@ -673,7 +648,7 @@ export const EvalScheduleExtractor: React.FC = () => {
                   onClick={handleExportFilteredExcel}
                   disabled={displayedEntries.length === 0}
                   className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-colors shadow-sm shrink-0"
-                  title="Download clean Excel file with Col A to H"
+                  title="Download 'Evaluation assignment.xlsx' (First 3 columns: Schedule ID, Evaluator Email, Student Details)"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Download Excel ({displayedEntries.length})</span>
@@ -681,7 +656,7 @@ export const EvalScheduleExtractor: React.FC = () => {
               </div>
             </div>
 
-            {/* Master Table */}
+            {/* Master Table (Strictly 3 columns) */}
             <div className="overflow-x-auto max-h-[550px]">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#000000] text-zinc-400 font-semibold uppercase tracking-wider text-[10px] border-b border-[#27272a] sticky top-0 z-10">
@@ -689,17 +664,12 @@ export const EvalScheduleExtractor: React.FC = () => {
                     <th className="py-3 px-4">SCHEDULE ID</th>
                     <th className="py-3 px-4">EVALUATOR EMAIL ID</th>
                     <th className="py-3 px-4">STUDENT DETAILS</th>
-                    <th className="py-3 px-4">STUDENT NAME</th>
-                    <th className="py-3 px-4">COURSE CODE</th>
-                    <th className="py-3 px-4">COURSE NAME</th>
-                    <th className="py-3 px-4">SCHOOL CODE</th>
-                    <th className="py-3 px-4">EXAM DATE</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#27272a] font-mono text-zinc-300">
                   {displayedEntries.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-zinc-500 text-xs">
+                      <td colSpan={3} className="py-12 text-center text-zinc-500 text-xs">
                         No entries match your target Schedule IDs or search filters.
                       </td>
                     </tr>
@@ -725,37 +695,6 @@ export const EvalScheduleExtractor: React.FC = () => {
                         {/* Column C: Student Details (Email ID) */}
                         <td className="py-3 px-4 font-sans font-medium text-white whitespace-nowrap">
                           {item.studentEmail}
-                        </td>
-
-                        {/* Column D: Student Name */}
-                        <td className="py-3 px-4 font-sans text-zinc-300 whitespace-nowrap">
-                          {item.studentName}
-                        </td>
-
-                        {/* Column E: Course Code */}
-                        <td className="py-3 px-4 text-zinc-300 font-semibold whitespace-nowrap">
-                          {item.courseCode}
-                        </td>
-
-                        {/* Column F: Course Name */}
-                        <td className="py-3 px-4 text-zinc-400 font-sans text-[11px] truncate max-w-[200px]">
-                          {item.courseName || '–'}
-                        </td>
-
-                        {/* Column G: School Code */}
-                        <td className="py-3 px-4 text-zinc-300 font-semibold whitespace-nowrap">
-                          {item.schoolCode ? (
-                            <span className="bg-zinc-900 border border-zinc-700 px-2 py-0.5 rounded text-[11px]">
-                              {item.schoolCode}
-                            </span>
-                          ) : (
-                            '–'
-                          )}
-                        </td>
-
-                        {/* Column H: Exam Date */}
-                        <td className="py-3 px-4 text-zinc-300 whitespace-nowrap">
-                          {item.examDate || '–'}
                         </td>
                       </tr>
                     ))
@@ -823,3 +762,4 @@ export const EvalScheduleExtractor: React.FC = () => {
     </div>
   );
 };
+
