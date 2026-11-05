@@ -2,7 +2,9 @@ import * as XLSX from 'xlsx';
 
 export interface RawStudentRow {
   studentName: string;
+  studentEmail: string;
   courseCode: string;
+  courseName: string;
   evaluatorName: string;
   evaluatorEmail: string;
   raw: Record<string, any>;
@@ -11,6 +13,7 @@ export interface RawStudentRow {
 
 export interface RawScheduleRow {
   courseCode: string;
+  courseName: string;
   scheduleId: string;
   raw: Record<string, any>;
   rowIndex: number;
@@ -19,7 +22,9 @@ export interface RawScheduleRow {
 export interface MappedStudentAllocation {
   id: string;
   studentName: string;
+  studentEmail: string;
   courseCode: string;
+  courseName: string;
   evaluatorName: string;
   evaluatorEmail: string;
   scheduleId: string;
@@ -47,6 +52,17 @@ export function normalizeCourseCode(val: any): string {
     .trim()
     .toUpperCase()
     .replace(/\s+/g, ' ');
+}
+
+// Helper to inspect workbook sheet names without full parsing
+export function getWorkbookSheetNames(fileData: ArrayBuffer | Uint8Array): string[] {
+  try {
+    const workbook = XLSX.read(new Uint8Array(fileData), { type: 'array', bookSheets: true });
+    return workbook.SheetNames || [];
+  } catch (err) {
+    console.error('Error reading workbook sheet names:', err);
+    return [];
+  }
 }
 
 // Helper to find a value from a row using fuzzy column aliases
@@ -97,24 +113,45 @@ export function extractScheduleId(val: any): string {
   return str;
 }
 
-// Parse Student & Evaluator Excel File
-export function parseStudentEvaluatorFile(fileData: ArrayBuffer | Uint8Array): {
+// Parse Student & Evaluator Excel File (with optional targeted sheetName)
+export function parseStudentEvaluatorFile(
+  fileData: ArrayBuffer | Uint8Array,
+  targetSheetName?: string
+): {
   rows: RawStudentRow[];
+  sheetNames: string[];
+  activeSheetName: string;
   headersDetected: {
     studentName: boolean;
+    studentEmail: boolean;
     courseCode: boolean;
+    courseName: boolean;
     evaluatorName: boolean;
     evaluatorEmail: boolean;
   };
   sampleHeaders: string[];
 } {
   const workbook = XLSX.read(new Uint8Array(fileData), { type: 'array' });
-  const firstSheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[firstSheetName];
+  const sheetNames = workbook.SheetNames || [];
+  const activeSheetName =
+    targetSheetName && sheetNames.includes(targetSheetName)
+      ? targetSheetName
+      : sheetNames[0] || '';
+
+  const sheet = workbook.Sheets[activeSheetName];
   if (!sheet) {
     return {
       rows: [],
-      headersDetected: { studentName: false, courseCode: false, evaluatorName: false, evaluatorEmail: false },
+      sheetNames,
+      activeSheetName,
+      headersDetected: {
+        studentName: false,
+        studentEmail: false,
+        courseCode: false,
+        courseName: false,
+        evaluatorName: false,
+        evaluatorEmail: false,
+      },
       sampleHeaders: [],
     };
   }
@@ -123,7 +160,16 @@ export function parseStudentEvaluatorFile(fileData: ArrayBuffer | Uint8Array): {
   if (rawJson.length === 0) {
     return {
       rows: [],
-      headersDetected: { studentName: false, courseCode: false, evaluatorName: false, evaluatorEmail: false },
+      sheetNames,
+      activeSheetName,
+      headersDetected: {
+        studentName: false,
+        studentEmail: false,
+        courseCode: false,
+        courseName: false,
+        evaluatorName: false,
+        evaluatorEmail: false,
+      },
       sampleHeaders: [],
     };
   }
@@ -131,6 +177,7 @@ export function parseStudentEvaluatorFile(fileData: ArrayBuffer | Uint8Array): {
   const sampleHeaders = Object.keys(rawJson[0] || {});
 
   const rows: RawStudentRow[] = rawJson.map((row, idx) => {
+    // 1. Student Name
     const studentName = getRowVal(
       row,
       'student name',
@@ -143,6 +190,42 @@ export function parseStudentEvaluatorFile(fileData: ArrayBuffer | Uint8Array): {
       'studentfullname'
     );
 
+    // 2. Student Email ID
+    let studentEmail = getRowVal(
+      row,
+      'student email id',
+      'student email',
+      'student_email',
+      'student_email_id',
+      'student email address',
+      'student mail',
+      'student mail id',
+      'candidate email',
+      'student mail address',
+      'student id',
+      'roll no',
+      'roll number',
+      'roll'
+    );
+
+    // Fallback: If no explicit student email column, check if there's an email column that isn't evaluator email
+    if (!studentEmail) {
+      for (const k of Object.keys(row)) {
+        const lowerK = k.toLowerCase();
+        if (
+          lowerK.includes('email') &&
+          !lowerK.includes('evaluator') &&
+          !lowerK.includes('faculty') &&
+          !lowerK.includes('teacher') &&
+          !lowerK.includes('examiner')
+        ) {
+          studentEmail = String(row[k]).trim();
+          break;
+        }
+      }
+    }
+
+    // 3. Course Code
     const courseCode = getRowVal(
       row,
       'course code',
@@ -155,6 +238,22 @@ export function parseStudentEvaluatorFile(fileData: ArrayBuffer | Uint8Array): {
       'subject'
     );
 
+    // 4. Course Name / Title
+    const courseName = getRowVal(
+      row,
+      'course name',
+      'course title',
+      'coursename',
+      'course_name',
+      'subject name',
+      'subject title',
+      'subjectname',
+      'paper name',
+      'paper title',
+      'title'
+    );
+
+    // 5. Evaluator Name
     const evaluatorName = getRowVal(
       row,
       'evaluator name',
@@ -167,23 +266,27 @@ export function parseStudentEvaluatorFile(fileData: ArrayBuffer | Uint8Array): {
       'examiner'
     );
 
+    // 6. Evaluator Email ID
     const evaluatorEmail = getRowVal(
       row,
       'evaluator email id',
       'evaluator email',
       'evaluator_email',
       'evaluator_email_id',
-      'email id',
       'evaluator mail',
+      'evaluator mail id',
       'faculty email',
       'faculty email id',
-      'email',
-      'mail'
+      'faculty mail',
+      'examiner email',
+      'teacher email'
     );
 
     return {
       studentName: studentName || `Student ${idx + 1}`,
+      studentEmail: studentEmail || studentName || `student${idx + 1}@student.ac.in`,
       courseCode: normalizeCourseCode(courseCode),
+      courseName: courseName.trim(),
       evaluatorName: evaluatorName || 'Unknown Evaluator',
       evaluatorEmail: evaluatorEmail.trim(),
       raw: row,
@@ -193,15 +296,21 @@ export function parseStudentEvaluatorFile(fileData: ArrayBuffer | Uint8Array): {
 
   // Check detected columns
   const hasStudentName = rows.some((r) => r.studentName && !r.studentName.startsWith('Student '));
+  const hasStudentEmail = rows.some((r) => r.studentEmail && r.studentEmail.includes('@'));
   const hasCourseCode = rows.some((r) => r.courseCode.length > 0);
+  const hasCourseName = rows.some((r) => r.courseName.length > 0);
   const hasEvaluatorEmail = rows.some((r) => r.evaluatorEmail.length > 0);
   const hasEvaluatorName = rows.some((r) => r.evaluatorName && r.evaluatorName !== 'Unknown Evaluator');
 
   return {
     rows,
+    sheetNames,
+    activeSheetName,
     headersDetected: {
       studentName: hasStudentName,
+      studentEmail: hasStudentEmail,
       courseCode: hasCourseCode,
+      courseName: hasCourseName,
       evaluatorName: hasEvaluatorName,
       evaluatorEmail: hasEvaluatorEmail,
     },
@@ -209,22 +318,35 @@ export function parseStudentEvaluatorFile(fileData: ArrayBuffer | Uint8Array): {
   };
 }
 
-// Parse Test Schedule Excel File
-export function parseScheduleFile(fileData: ArrayBuffer | Uint8Array): {
+// Parse Test Schedule Excel File (with optional targeted sheetName)
+export function parseScheduleFile(
+  fileData: ArrayBuffer | Uint8Array,
+  targetSheetName?: string
+): {
   rows: RawScheduleRow[];
+  sheetNames: string[];
+  activeSheetName: string;
   headersDetected: {
     courseCode: boolean;
+    courseName: boolean;
     scheduleId: boolean;
   };
   sampleHeaders: string[];
 } {
   const workbook = XLSX.read(new Uint8Array(fileData), { type: 'array' });
-  const firstSheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[firstSheetName];
+  const sheetNames = workbook.SheetNames || [];
+  const activeSheetName =
+    targetSheetName && sheetNames.includes(targetSheetName)
+      ? targetSheetName
+      : sheetNames[0] || '';
+
+  const sheet = workbook.Sheets[activeSheetName];
   if (!sheet) {
     return {
       rows: [],
-      headersDetected: { courseCode: false, scheduleId: false },
+      sheetNames,
+      activeSheetName,
+      headersDetected: { courseCode: false, courseName: false, scheduleId: false },
       sampleHeaders: [],
     };
   }
@@ -233,7 +355,9 @@ export function parseScheduleFile(fileData: ArrayBuffer | Uint8Array): {
   if (rawJson.length === 0) {
     return {
       rows: [],
-      headersDetected: { courseCode: false, scheduleId: false },
+      sheetNames,
+      activeSheetName,
+      headersDetected: { courseCode: false, courseName: false, scheduleId: false },
       sampleHeaders: [],
     };
   }
@@ -250,6 +374,21 @@ export function parseScheduleFile(fileData: ArrayBuffer | Uint8Array): {
       'paper code',
       'course',
       'subject'
+    );
+
+    const courseName = getRowVal(
+      row,
+      'course name',
+      'course title',
+      'coursename',
+      'course_name',
+      'subject name',
+      'subject title',
+      'subjectname',
+      'paper name',
+      'paper title',
+      'title',
+      'name'
     );
 
     // Schedule ID can be in 'reason' column or 'schedule id' column
@@ -269,6 +408,7 @@ export function parseScheduleFile(fileData: ArrayBuffer | Uint8Array): {
 
     return {
       courseCode: normalizeCourseCode(courseCode),
+      courseName: courseName.trim(),
       scheduleId,
       raw: row,
       rowIndex: idx + 2,
@@ -276,12 +416,16 @@ export function parseScheduleFile(fileData: ArrayBuffer | Uint8Array): {
   });
 
   const hasCourseCode = rows.some((r) => r.courseCode.length > 0);
+  const hasCourseName = rows.some((r) => r.courseName.length > 0);
   const hasScheduleId = rows.some((r) => r.scheduleId.length > 0);
 
   return {
     rows,
+    sheetNames,
+    activeSheetName,
     headersDetected: {
       courseCode: hasCourseCode,
+      courseName: hasCourseName,
       scheduleId: hasScheduleId,
     },
     sampleHeaders,
@@ -296,17 +440,31 @@ export function mapStudentEvaluatorSchedules(
   mappedAllocations: MappedStudentAllocation[];
   summary: EvalOpsValidationSummary;
 } {
-  // Build a lookup map for Schedule IDs by Course Code
-  // A course in schedule file may map to a schedule ID
+  // Build a lookup map for Schedule IDs and Course Names by Course Code
   const scheduleMap = new Map<string, string[]>();
+  const courseNameMap = new Map<string, string>();
 
   for (const s of scheduleRows) {
-    if (!s.courseCode || !s.scheduleId) continue;
-    const existing = scheduleMap.get(s.courseCode) || [];
-    if (!existing.includes(s.scheduleId)) {
-      existing.push(s.scheduleId);
+    if (!s.courseCode) continue;
+
+    if (s.scheduleId) {
+      const existing = scheduleMap.get(s.courseCode) || [];
+      if (!existing.includes(s.scheduleId)) {
+        existing.push(s.scheduleId);
+      }
+      scheduleMap.set(s.courseCode, existing);
     }
-    scheduleMap.set(s.courseCode, existing);
+
+    if (s.courseName && !courseNameMap.has(s.courseCode)) {
+      courseNameMap.set(s.courseCode, s.courseName);
+    }
+  }
+
+  // Also harvest course names from student rows if available
+  for (const st of studentRows) {
+    if (st.courseCode && st.courseName && !courseNameMap.has(st.courseCode)) {
+      courseNameMap.set(st.courseCode, st.courseName);
+    }
   }
 
   // Check for duplicate schedules for the same course code
@@ -358,6 +516,7 @@ export function mapStudentEvaluatorSchedules(
     // Lookup schedule ID by course code
     const matchedSchedules = scheduleMap.get(st.courseCode) || [];
     const scheduleId = matchedSchedules.length > 0 ? matchedSchedules[0] : '';
+    const courseName = courseNameMap.get(st.courseCode) || st.courseName || '';
 
     if (!st.courseCode) {
       issues.push('Missing course code in student record');
@@ -380,9 +539,11 @@ export function mapStudentEvaluatorSchedules(
     }
 
     return {
-      id: `alloc_${idx + 1}_${st.courseCode}_${st.studentName.replace(/\s+/g, '_')}`,
+      id: `alloc_${idx + 1}_${st.courseCode}_${(st.studentEmail || st.studentName).replace(/\s+/g, '_')}`,
       studentName: st.studentName,
+      studentEmail: st.studentEmail,
       courseCode: st.courseCode,
+      courseName,
       evaluatorName: st.evaluatorName,
       evaluatorEmail: st.evaluatorEmail,
       scheduleId: scheduleId || 'UNMAPPED',
@@ -410,10 +571,13 @@ export function mapStudentEvaluatorSchedules(
   };
 }
 
-// Generate the exact 3-column downloadable Excel file requested:
-// Column 1: Schedule ID
-// Column 2: Evaluator Email ID
-// Column 3: Student Details
+// Generate the downloadable Excel file requested:
+// Column A: Schedule ID
+// Column B: Evaluator Email ID
+// Column C: Student Details (Student Email ID)
+// Column D: Student Name
+// Column E: Course Code
+// Column F: Course Name
 export function generateEvalOpsExcel(
   allocations: MappedStudentAllocation[],
   onlySuccessfullyMapped: boolean = false
@@ -422,23 +586,42 @@ export function generateEvalOpsExcel(
     ? allocations.filter((a) => a.isMapped)
     : allocations;
 
-  // Format exactly as required: Schedule ID, Evaluator Email ID, Student Details
+  // Format exactly as required:
+  // Col A: Schedule ID
+  // Col B: Evaluator Email ID
+  // Col C: Student Details (Student Email ID)
+  // Col D: Student Name
+  // Col E: Course Code
+  // Col F: Course Name
   const excelRows = listToExport.map((item) => ({
     'Schedule ID': item.scheduleId === 'UNMAPPED' ? '' : item.scheduleId,
     'Evaluator Email ID': item.evaluatorEmail,
-    'Student Details': item.studentName,
+    'Student Details': item.studentEmail || item.studentName,
+    'Student Name': item.studentName,
+    'Course Code': item.courseCode,
+    'Course Name': item.courseName,
   }));
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(excelRows, {
-    header: ['Schedule ID', 'Evaluator Email ID', 'Student Details'],
+    header: [
+      'Schedule ID',
+      'Evaluator Email ID',
+      'Student Details',
+      'Student Name',
+      'Course Code',
+      'Course Name',
+    ],
   });
 
   // Set column widths for clean readability
   ws['!cols'] = [
-    { wch: 18 }, // Schedule ID
-    { wch: 34 }, // Evaluator Email ID
-    { wch: 30 }, // Student Details
+    { wch: 18 }, // Col A: Schedule ID
+    { wch: 34 }, // Col B: Evaluator Email ID
+    { wch: 34 }, // Col C: Student Details (Email ID)
+    { wch: 28 }, // Col D: Student Name
+    { wch: 16 }, // Col E: Course Code
+    { wch: 32 }, // Col F: Course Name
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Student Evaluator Allocations');
@@ -451,4 +634,3 @@ export function generateEvalOpsExcel(
   // Write file directly to browser download
   XLSX.writeFile(wb, filename);
 }
-

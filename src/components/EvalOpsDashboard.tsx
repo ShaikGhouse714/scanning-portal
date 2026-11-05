@@ -29,18 +29,33 @@ import {
   parseScheduleFile,
   mapStudentEvaluatorSchedules,
   generateEvalOpsExcel,
+  getWorkbookSheetNames,
 } from '../lib/evalOpsParser';
+import { FileDropzone } from './FileDropzone';
 
 export const EvalOpsDashboard: React.FC = () => {
   // Uploaded Files State
   const [studentFile, setStudentFile] = useState<File | null>(null);
   const [scheduleFile, setScheduleFile] = useState<File | null>(null);
 
+  // Raw Buffers & Subsheet Selection State
+  const [studentBuffer, setStudentBuffer] = useState<ArrayBuffer | null>(null);
+  const [studentSheetNames, setStudentSheetNames] = useState<string[]>([]);
+  const [activeStudentSheet, setActiveStudentSheet] = useState<string>('');
+  const [showStudentSheetModal, setShowStudentSheetModal] = useState<boolean>(false);
+
+  const [scheduleBuffer, setScheduleBuffer] = useState<ArrayBuffer | null>(null);
+  const [scheduleSheetNames, setScheduleSheetNames] = useState<string[]>([]);
+  const [activeScheduleSheet, setActiveScheduleSheet] = useState<string>('');
+  const [showScheduleSheetModal, setShowScheduleSheetModal] = useState<boolean>(false);
+
   // Parsed Raw Rows & Column Detection
   const [studentRows, setStudentRows] = useState<RawStudentRow[]>([]);
   const [studentDetection, setStudentDetection] = useState<{
     studentName: boolean;
+    studentEmail: boolean;
     courseCode: boolean;
+    courseName: boolean;
     evaluatorName: boolean;
     evaluatorEmail: boolean;
   } | null>(null);
@@ -48,6 +63,7 @@ export const EvalOpsDashboard: React.FC = () => {
   const [scheduleRows, setScheduleRows] = useState<RawScheduleRow[]>([]);
   const [scheduleDetection, setScheduleDetection] = useState<{
     courseCode: boolean;
+    courseName: boolean;
     scheduleId: boolean;
   } | null>(null);
 
@@ -65,18 +81,29 @@ export const EvalOpsDashboard: React.FC = () => {
   const [filterMode, setFilterMode] = useState<'all' | 'mapped' | 'issues'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // File Input Refs
-  const studentInputRef = useRef<HTMLInputElement>(null);
-  const scheduleInputRef = useRef<HTMLInputElement>(null);
-
   // 1. Handle Upload Student & Evaluator Excel
   const handleStudentFileUpload = async (file: File) => {
     try {
       setStudentFile(file);
       const buffer = await file.arrayBuffer();
-      const parsed = parseStudentEvaluatorFile(buffer);
+      setStudentBuffer(buffer);
+
+      // Read sheet names
+      const sheets = getWorkbookSheetNames(buffer);
+      setStudentSheetNames(sheets);
+
+      const targetSheet = sheets.length > 0 ? sheets[0] : undefined;
+      setActiveStudentSheet(targetSheet || '');
+
+      const parsed = parseStudentEvaluatorFile(buffer, targetSheet);
       setStudentRows(parsed.rows);
       setStudentDetection(parsed.headersDetected);
+
+      // If workbook contains multiple subsheets, ask user to select the required subsheet
+      if (sheets.length > 1) {
+        setShowStudentSheetModal(true);
+      }
+
       // Reset previous mapping if new file uploaded
       setHasMapped(false);
       setMappedAllocations([]);
@@ -87,14 +114,45 @@ export const EvalOpsDashboard: React.FC = () => {
     }
   };
 
+  // Switch student subsheet
+  const handleSelectStudentSheet = (sheetName: string) => {
+    if (!studentBuffer) return;
+    setActiveStudentSheet(sheetName);
+    try {
+      const parsed = parseStudentEvaluatorFile(studentBuffer, sheetName);
+      setStudentRows(parsed.rows);
+      setStudentDetection(parsed.headersDetected);
+      setHasMapped(false);
+      setMappedAllocations([]);
+      setSummary(null);
+      setShowStudentSheetModal(false);
+    } catch (err) {
+      console.error('Error switching student sheet:', err);
+      alert(`Could not parse sheet "${sheetName}".`);
+    }
+  };
+
   // 2. Handle Upload Test Schedule Excel
   const handleScheduleFileUpload = async (file: File) => {
     try {
       setScheduleFile(file);
       const buffer = await file.arrayBuffer();
-      const parsed = parseScheduleFile(buffer);
+      setScheduleBuffer(buffer);
+
+      const sheets = getWorkbookSheetNames(buffer);
+      setScheduleSheetNames(sheets);
+
+      const targetSheet = sheets.length > 0 ? sheets[0] : undefined;
+      setActiveScheduleSheet(targetSheet || '');
+
+      const parsed = parseScheduleFile(buffer, targetSheet);
       setScheduleRows(parsed.rows);
       setScheduleDetection(parsed.headersDetected);
+
+      if (sheets.length > 1) {
+        setShowScheduleSheetModal(true);
+      }
+
       // Reset previous mapping if new file uploaded
       setHasMapped(false);
       setMappedAllocations([]);
@@ -102,6 +160,24 @@ export const EvalOpsDashboard: React.FC = () => {
     } catch (err) {
       console.error('Error parsing schedule file:', err);
       alert('Failed to parse Test Schedule Excel. Please ensure it is a valid .xlsx or .xls file.');
+    }
+  };
+
+  // Switch schedule subsheet
+  const handleSelectScheduleSheet = (sheetName: string) => {
+    if (!scheduleBuffer) return;
+    setActiveScheduleSheet(sheetName);
+    try {
+      const parsed = parseScheduleFile(scheduleBuffer, sheetName);
+      setScheduleRows(parsed.rows);
+      setScheduleDetection(parsed.headersDetected);
+      setHasMapped(false);
+      setMappedAllocations([]);
+      setSummary(null);
+      setShowScheduleSheetModal(false);
+    } catch (err) {
+      console.error('Error switching schedule sheet:', err);
+      alert(`Could not parse sheet "${sheetName}".`);
     }
   };
 
@@ -128,7 +204,17 @@ export const EvalOpsDashboard: React.FC = () => {
   // 4. Reset All
   const handleReset = () => {
     setStudentFile(null);
+    setStudentBuffer(null);
+    setStudentSheetNames([]);
+    setActiveStudentSheet('');
+    setShowStudentSheetModal(false);
+
     setScheduleFile(null);
+    setScheduleBuffer(null);
+    setScheduleSheetNames([]);
+    setActiveScheduleSheet('');
+    setShowScheduleSheetModal(false);
+
     setStudentRows([]);
     setScheduleRows([]);
     setStudentDetection(null);
@@ -138,8 +224,6 @@ export const EvalOpsDashboard: React.FC = () => {
     setHasMapped(false);
     setSearchQuery('');
     setFilterMode('all');
-    if (studentInputRef.current) studentInputRef.current.value = '';
-    if (scheduleInputRef.current) scheduleInputRef.current.value = '';
   };
 
   // 5. Filtered Results List
@@ -233,46 +317,63 @@ export const EvalOpsDashboard: React.FC = () => {
               </div>
 
               {studentFile && (
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
-                  <Check className="w-3 h-3 text-emerald-400" />
-                  <span>{studentRows.length} rows loaded</span>
-                </span>
+                <div className="flex items-center space-x-2">
+                  {studentSheetNames.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowStudentSheetModal(true)}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center space-x-1"
+                      title="Switch active subsheet"
+                    >
+                      <Layers className="w-3 h-3 text-zinc-400" />
+                      <span>Sheet: <strong className="text-white">{activeStudentSheet}</strong></span>
+                      <span className="text-zinc-400">({studentSheetNames.length} ▾)</span>
+                    </button>
+                  )}
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
+                    <Check className="w-3 h-3 text-emerald-400" />
+                    <span>{studentRows.length} rows loaded</span>
+                  </span>
+                </div>
               )}
             </div>
 
-            {/* Dropzone */}
-            <div
-              onClick={() => studentInputRef.current?.click()}
-              className={`mt-4 p-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center ${
-                studentFile
-                  ? 'border-zinc-700 bg-[#0e0e11] hover:border-zinc-500'
-                  : 'border-zinc-800 bg-[#050505] hover:border-zinc-600 hover:bg-[#0c0c0e]'
-              }`}
-            >
-              <input
-                ref={studentInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleStudentFileUpload(f);
-                }}
-              />
-
-              <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-2 text-zinc-300">
-                <Users2 className="w-5 h-5 text-white" />
-              </div>
-
-              <div className="text-xs font-semibold text-white">
-                {studentFile ? studentFile.name : 'Select Student & Evaluator Excel'}
-              </div>
-              <p className="text-[11px] text-zinc-500 mt-1 font-mono">
-                {studentFile
-                  ? `${(studentFile.size / 1024).toFixed(1)} KB • Click to choose another file`
-                  : 'Supports .xlsx, .xls, .csv'}
-              </p>
-            </div>
+            {/* Common Drag and Drop FileDropzone */}
+            <FileDropzone
+              className="mt-4"
+              title="Drop Student & Evaluator Excel here"
+              subtitle="Supports .xlsx, .xls, .csv"
+              selectedFile={studentFile}
+              onFileSelect={handleStudentFileUpload}
+              onClearFile={() => {
+                setStudentFile(null);
+                setStudentBuffer(null);
+                setStudentRows([]);
+                setStudentDetection(null);
+                setStudentSheetNames([]);
+                setActiveStudentSheet('');
+                setHasMapped(false);
+                setMappedAllocations([]);
+                setSummary(null);
+              }}
+              icon={<Users2 className="w-5 h-5 text-white" />}
+              statusBadge={
+                studentFile && studentSheetNames.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowStudentSheetModal(true);
+                    }}
+                    className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center space-x-1.5 shadow-sm"
+                  >
+                    <Layers className="w-3 h-3 text-zinc-400" />
+                    <span>Active Sheet: <strong className="text-white">{activeStudentSheet}</strong></span>
+                    <span className="text-zinc-400 font-semibold">• Change Sheet ({studentSheetNames.length} found) ▾</span>
+                  </button>
+                ) : null
+              }
+            />
 
             {/* Column Detection Indicator */}
             {studentDetection && (
@@ -288,10 +389,22 @@ export const EvalOpsDashboard: React.FC = () => {
                     <span>Student Name</span>
                   </div>
                   <div className="flex items-center space-x-1.5">
+                    <span className={studentDetection.studentEmail ? 'text-emerald-400' : 'text-zinc-500'}>
+                      {studentDetection.studentEmail ? '✓' : '–'}
+                    </span>
+                    <span>Student Email ID</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
                     <span className={studentDetection.courseCode ? 'text-emerald-400' : 'text-rose-400'}>
                       {studentDetection.courseCode ? '✓' : '✗'}
                     </span>
                     <span>Course Code</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <span className={studentDetection.courseName ? 'text-emerald-400' : 'text-zinc-500'}>
+                      {studentDetection.courseName ? '✓' : '–'}
+                    </span>
+                    <span>Course Name</span>
                   </div>
                   <div className="flex items-center space-x-1.5">
                     <span className={studentDetection.evaluatorName ? 'text-emerald-400' : 'text-zinc-500'}>
@@ -331,16 +444,20 @@ export const EvalOpsDashboard: React.FC = () => {
                 <thead className="bg-[#121214] text-zinc-400 border-b border-[#27272a]">
                   <tr>
                     <th className="py-2 px-2.5">Student Name</th>
+                    <th className="py-2 px-2.5">Student Email ID</th>
                     <th className="py-2 px-2.5">Course Code</th>
+                    <th className="py-2 px-2.5">Course Name</th>
                     <th className="py-2 px-2.5">Evaluator Email</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#222222] text-zinc-300">
                   {studentRows.slice(0, 5).map((r, i) => (
                     <tr key={i}>
-                      <td className="py-1.5 px-2.5 truncate max-w-[140px] text-white">{r.studentName}</td>
+                      <td className="py-1.5 px-2.5 truncate max-w-[130px] text-white">{r.studentName}</td>
+                      <td className="py-1.5 px-2.5 truncate max-w-[150px] text-zinc-300">{r.studentEmail || '–'}</td>
                       <td className="py-1.5 px-2.5 text-zinc-300">{r.courseCode}</td>
-                      <td className="py-1.5 px-2.5 truncate max-w-[180px] text-zinc-400">{r.evaluatorEmail || '–'}</td>
+                      <td className="py-1.5 px-2.5 truncate max-w-[130px] text-zinc-400">{r.courseName || '–'}</td>
+                      <td className="py-1.5 px-2.5 truncate max-w-[160px] text-zinc-400">{r.evaluatorEmail || '–'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -368,46 +485,63 @@ export const EvalOpsDashboard: React.FC = () => {
               </div>
 
               {scheduleFile && (
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
-                  <Check className="w-3 h-3 text-emerald-400" />
-                  <span>{scheduleRows.length} schedules loaded</span>
-                </span>
+                <div className="flex items-center space-x-2">
+                  {scheduleSheetNames.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowScheduleSheetModal(true)}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center space-x-1"
+                      title="Switch active subsheet"
+                    >
+                      <Layers className="w-3 h-3 text-zinc-400" />
+                      <span>Sheet: <strong className="text-white">{activeScheduleSheet}</strong></span>
+                      <span className="text-zinc-400">({scheduleSheetNames.length} ▾)</span>
+                    </button>
+                  )}
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
+                    <Check className="w-3 h-3 text-emerald-400" />
+                    <span>{scheduleRows.length} schedules loaded</span>
+                  </span>
+                </div>
               )}
             </div>
 
-            {/* Dropzone */}
-            <div
-              onClick={() => scheduleInputRef.current?.click()}
-              className={`mt-4 p-5 rounded-xl border-2 border-dashed transition-all cursor-pointer text-center ${
-                scheduleFile
-                  ? 'border-zinc-700 bg-[#0e0e11] hover:border-zinc-500'
-                  : 'border-zinc-800 bg-[#050505] hover:border-zinc-600 hover:bg-[#0c0c0e]'
-              }`}
-            >
-              <input
-                ref={scheduleInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleScheduleFileUpload(f);
-                }}
-              />
-
-              <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto mb-2 text-zinc-300">
-                <Calendar className="w-5 h-5 text-white" />
-              </div>
-
-              <div className="text-xs font-semibold text-white">
-                {scheduleFile ? scheduleFile.name : 'Select Test Schedule Excel'}
-              </div>
-              <p className="text-[11px] text-zinc-500 mt-1 font-mono">
-                {scheduleFile
-                  ? `${(scheduleFile.size / 1024).toFixed(1)} KB • Click to choose another file`
-                  : 'Supports .xlsx, .xls, .csv'}
-              </p>
-            </div>
+            {/* Common Drag and Drop FileDropzone */}
+            <FileDropzone
+              className="mt-4"
+              title="Drop Test Schedule Excel here"
+              subtitle="Supports .xlsx, .xls, .csv"
+              selectedFile={scheduleFile}
+              onFileSelect={handleScheduleFileUpload}
+              onClearFile={() => {
+                setScheduleFile(null);
+                setScheduleBuffer(null);
+                setScheduleRows([]);
+                setScheduleDetection(null);
+                setScheduleSheetNames([]);
+                setActiveScheduleSheet('');
+                setHasMapped(false);
+                setMappedAllocations([]);
+                setSummary(null);
+              }}
+              icon={<Calendar className="w-5 h-5 text-white" />}
+              statusBadge={
+                scheduleFile && scheduleSheetNames.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowScheduleSheetModal(true);
+                    }}
+                    className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors flex items-center space-x-1.5 shadow-sm"
+                  >
+                    <Layers className="w-3 h-3 text-zinc-400" />
+                    <span>Active Sheet: <strong className="text-white">{activeScheduleSheet}</strong></span>
+                    <span className="text-zinc-400 font-semibold">• Change Sheet ({scheduleSheetNames.length} found) ▾</span>
+                  </button>
+                ) : null
+              }
+            />
 
             {/* Column Detection Indicator */}
             {scheduleDetection && (
@@ -415,7 +549,7 @@ export const EvalOpsDashboard: React.FC = () => {
                 <span className="text-zinc-500 text-[10px] block uppercase mb-1.5 font-semibold">
                   Detected Column Headers:
                 </span>
-                <div className="grid grid-cols-2 gap-2 text-zinc-300">
+                <div className="grid grid-cols-3 gap-2 text-zinc-300">
                   <div className="flex items-center space-x-1.5">
                     <span className={scheduleDetection.courseCode ? 'text-emerald-400' : 'text-rose-400'}>
                       {scheduleDetection.courseCode ? '✓' : '✗'}
@@ -423,10 +557,16 @@ export const EvalOpsDashboard: React.FC = () => {
                     <span>Course Code</span>
                   </div>
                   <div className="flex items-center space-x-1.5">
+                    <span className={scheduleDetection.courseName ? 'text-emerald-400' : 'text-zinc-500'}>
+                      {scheduleDetection.courseName ? '✓' : '–'}
+                    </span>
+                    <span>Course Name</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
                     <span className={scheduleDetection.scheduleId ? 'text-emerald-400' : 'text-rose-400'}>
                       {scheduleDetection.scheduleId ? '✓' : '✗'}
                     </span>
-                    <span>Schedule ID / Reason</span>
+                    <span>Schedule ID</span>
                   </div>
                 </div>
               </div>
@@ -454,14 +594,16 @@ export const EvalOpsDashboard: React.FC = () => {
                 <thead className="bg-[#121214] text-zinc-400 border-b border-[#27272a]">
                   <tr>
                     <th className="py-2 px-2.5">Course Code</th>
-                    <th className="py-2 px-2.5">Extracted Schedule ID</th>
+                    <th className="py-2 px-2.5">Course Name</th>
+                    <th className="py-2 px-2.5">Schedule ID</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#222222] text-zinc-300">
                   {scheduleRows.slice(0, 5).map((r, i) => (
                     <tr key={i}>
                       <td className="py-1.5 px-2.5 text-white">{r.courseCode}</td>
-                      <td className="py-1.5 px-2.5 text-zinc-300">{r.scheduleId || '–'}</td>
+                      <td className="py-1.5 px-2.5 text-zinc-300">{r.courseName || '–'}</td>
+                      <td className="py-1.5 px-2.5 text-zinc-300 font-bold">{r.scheduleId || '–'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -695,12 +837,12 @@ export const EvalOpsDashboard: React.FC = () => {
 
           {/* Master Output Preview Table (Shows the exact columns that will be exported) */}
           <div className="bg-[#09090b] rounded-2xl border border-[#27272a] overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-[#27272a] flex items-center justify-between text-xs">
+            <div className="p-4 border-b border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
               <span className="font-semibold text-white">
                 Final Output Preview ({filteredResults.length} records shown)
               </span>
               <span className="text-[11px] font-mono text-zinc-400">
-                Format: <strong className="text-white">Schedule ID</strong> • <strong className="text-white">Evaluator Email ID</strong> • <strong className="text-white">Student Details</strong>
+                Columns: <strong className="text-white">A: Schedule ID</strong> • <strong className="text-white">B: Evaluator Email</strong> • <strong className="text-white">C: Student Email ID</strong> • <strong className="text-white">D: Student Name</strong> • <strong className="text-white">E: Course Code</strong> • <strong className="text-white">F: Course Name</strong>
               </span>
             </div>
 
@@ -710,8 +852,10 @@ export const EvalOpsDashboard: React.FC = () => {
                   <tr>
                     <th className="py-3 px-4">SCHEDULE ID</th>
                     <th className="py-3 px-4">EVALUATOR EMAIL ID</th>
-                    <th className="py-3 px-4">STUDENT DETAILS</th>
+                    <th className="py-3 px-4">STUDENT EMAIL ID</th>
+                    <th className="py-3 px-4">STUDENT NAME</th>
                     <th className="py-3 px-4">COURSE CODE</th>
+                    <th className="py-3 px-4">COURSE NAME</th>
                     <th className="py-3 px-4">EVALUATOR NAME</th>
                     <th className="py-3 px-4 text-center">STATUS</th>
                   </tr>
@@ -719,14 +863,14 @@ export const EvalOpsDashboard: React.FC = () => {
                 <tbody className="divide-y divide-[#27272a] font-mono text-zinc-300">
                   {filteredResults.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-zinc-500 text-xs">
+                      <td colSpan={8} className="py-12 text-center text-zinc-500 text-xs">
                         No records match your search or filter selection.
                       </td>
                     </tr>
                   ) : (
                     filteredResults.map((item) => (
                       <tr key={item.id} className="hover:bg-[#121214] transition-colors">
-                        {/* Column 1: Schedule ID */}
+                        {/* Column A: Schedule ID */}
                         <td className="py-3 px-4 font-bold text-white whitespace-nowrap">
                           {item.scheduleId === 'UNMAPPED' ? (
                             <span className="text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20 text-[10px]">
@@ -739,7 +883,7 @@ export const EvalOpsDashboard: React.FC = () => {
                           )}
                         </td>
 
-                        {/* Column 2: Evaluator Email ID */}
+                        {/* Column B: Evaluator Email ID */}
                         <td className="py-3 px-4 text-zinc-200">
                           {item.evaluatorEmail ? (
                             <span className="text-zinc-200 font-sans text-xs">{item.evaluatorEmail}</span>
@@ -748,23 +892,37 @@ export const EvalOpsDashboard: React.FC = () => {
                           )}
                         </td>
 
-                        {/* Column 3: Student Details */}
-                        <td className="py-3 px-4 font-sans font-medium text-white">
+                        {/* Column C: Student Details (Student Email ID) */}
+                        <td className="py-3 px-4 font-sans font-medium text-white whitespace-nowrap">
+                          {item.studentEmail ? (
+                            <span>{item.studentEmail}</span>
+                          ) : (
+                            <span className="text-zinc-400 italic text-[11px]">{item.studentName || '–'}</span>
+                          )}
+                        </td>
+
+                        {/* Column D: Student Name */}
+                        <td className="py-3 px-4 font-sans text-zinc-300 whitespace-nowrap">
                           {item.studentName}
                         </td>
 
-                        {/* Course Code */}
-                        <td className="py-3 px-4 text-zinc-400 font-semibold">
+                        {/* Column E: Course Code */}
+                        <td className="py-3 px-4 text-zinc-300 font-semibold whitespace-nowrap">
                           {item.courseCode}
                         </td>
 
+                        {/* Column F: Course Name */}
+                        <td className="py-3 px-4 text-zinc-400 font-sans text-[11px] truncate max-w-[200px]">
+                          {item.courseName || '–'}
+                        </td>
+
                         {/* Evaluator Name */}
-                        <td className="py-3 px-4 text-zinc-400 font-sans text-[11px]">
+                        <td className="py-3 px-4 text-zinc-400 font-sans text-[11px] whitespace-nowrap">
                           {item.evaluatorName}
                         </td>
 
                         {/* Status */}
-                        <td className="py-3 px-4 text-center">
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
                           <span
                             className={`text-[9px] font-mono px-2 py-0.5 rounded font-semibold ${
                               item.isMapped
@@ -780,6 +938,140 @@ export const EvalOpsDashboard: React.FC = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subsheet Selection Modal for Student & Evaluator File */}
+      {showStudentSheetModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[#09090b] border border-[#27272a] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#222222]">
+              <div className="flex items-center space-x-2.5">
+                <FileSpreadsheet className="w-5 h-5 text-white" />
+                <div>
+                  <h3 className="text-sm font-bold text-white">Select Student Subsheet</h3>
+                  <p className="text-[11px] text-zinc-400 font-mono truncate max-w-[260px]">
+                    {studentFile?.name} ({studentSheetNames.length} sheets)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowStudentSheetModal(false)}
+                className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              This Excel file contains multiple subsheets. Please click the subsheet that contains the student and evaluator records you want to parse:
+            </p>
+
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {studentSheetNames.map((sheet) => {
+                const isSelected = sheet === activeStudentSheet;
+                return (
+                  <button
+                    key={sheet}
+                    type="button"
+                    onClick={() => handleSelectStudentSheet(sheet)}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between transition-all ${
+                      isSelected
+                        ? 'bg-white text-black border-white shadow-md font-bold'
+                        : 'bg-[#121214] text-zinc-300 border-[#27272a] hover:bg-[#18181b] hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <FileSpreadsheet className={`w-4 h-4 shrink-0 ${isSelected ? 'text-black' : 'text-zinc-500'}`} />
+                      <span className="truncate font-mono text-xs">{sheet}</span>
+                    </div>
+                    {isSelected && (
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-black text-white shrink-0">
+                        Selected
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="pt-3 border-t border-[#222222] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowStudentSheetModal(false)}
+                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subsheet Selection Modal for Test Schedule File */}
+      {showScheduleSheetModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[#09090b] border border-[#27272a] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-[#222222]">
+              <div className="flex items-center space-x-2.5">
+                <FileSpreadsheet className="w-5 h-5 text-white" />
+                <div>
+                  <h3 className="text-sm font-bold text-white">Select Schedule Subsheet</h3>
+                  <p className="text-[11px] text-zinc-400 font-mono truncate max-w-[260px]">
+                    {scheduleFile?.name} ({scheduleSheetNames.length} sheets)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowScheduleSheetModal(false)}
+                className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              This Excel file contains multiple subsheets. Please click the subsheet that contains the examination schedules and schedule IDs:
+            </p>
+
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {scheduleSheetNames.map((sheet) => {
+                const isSelected = sheet === activeScheduleSheet;
+                return (
+                  <button
+                    key={sheet}
+                    type="button"
+                    onClick={() => handleSelectScheduleSheet(sheet)}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between transition-all ${
+                      isSelected
+                        ? 'bg-white text-black border-white shadow-md font-bold'
+                        : 'bg-[#121214] text-zinc-300 border-[#27272a] hover:bg-[#18181b] hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <FileSpreadsheet className={`w-4 h-4 shrink-0 ${isSelected ? 'text-black' : 'text-zinc-500'}`} />
+                      <span className="truncate font-mono text-xs">{sheet}</span>
+                    </div>
+                    {isSelected && (
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-black text-white shrink-0">
+                        Selected
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="pt-3 border-t border-[#222222] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowScheduleSheetModal(false)}
+                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold transition-colors"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

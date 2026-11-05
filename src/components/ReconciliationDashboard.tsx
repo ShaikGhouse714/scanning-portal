@@ -45,6 +45,7 @@ import {
 import { exportReconciliationToCSV, exportPortalSlotsToCSV } from '../lib/storage';
 import { CustomDropdown, DropdownOption } from './CustomDropdown';
 import { SCHOOL_CODE_MAP } from '../lib/mockData';
+import { FileDropzone } from './FileDropzone';
 
 interface ReconciliationDashboardProps {
   currentUser?: User | null;
@@ -93,6 +94,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
   // Teammates Tab Filters
   const [teammateSearch, setTeammateSearch] = useState<string>('');
+
+  // Drag and Drop State for Header Card 2
+  const [isCard2Dragging, setIsCard2Dragging] = useState<boolean>(false);
   const [teammateFilter, setTeammateFilter] = useState<'all' | 'active' | 'empty'>('all');
   const [expandedTeammate, setExpandedTeammate] = useState<string | null>(null);
 
@@ -851,8 +855,46 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 </div>
               </div>
 
-              {/* Card 2: Portal Excel */}
-              <div className="relative group overflow-hidden rounded-2xl bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-emerald-500/40 p-4 shadow-lg shadow-black/30 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5">
+              {/* Card 2: Portal Excel (Supports click and native drag-and-drop from any window) */}
+              <div
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsCard2Dragging(true);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.dataTransfer.dropEffect = 'copy';
+                  setIsCard2Dragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                  setIsCard2Dragging(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsCard2Dragging(false);
+                  const files = e.dataTransfer.files;
+                  if (files && files.length > 0) {
+                    const f = files[0];
+                    const ext = f.name.split('.').pop()?.toLowerCase();
+                    if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
+                      onUploadPortalFile(f);
+                    } else {
+                      alert('Please drop a valid Excel or CSV file (.xlsx, .xls, .csv).');
+                    }
+                  }
+                }}
+                className={`relative group overflow-hidden rounded-2xl bg-gradient-to-b from-[#09090b] to-[#09090b] border ${
+                  isCard2Dragging
+                    ? 'border-white ring-2 ring-white/30 bg-[#141418] scale-[1.01]'
+                    : 'border-[#27272a] hover:border-emerald-500/40'
+                } p-4 shadow-lg shadow-black/30 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5`}
+              >
                 <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3">
@@ -866,7 +908,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                       <span className="text-[11px] text-zinc-400 block mt-0.5 font-mono">
                         {portalSlots.length > 0
                           ? `${portalSlots.length} Exam Slots (${metrics.totalPortalCompleted} Uploaded)`
-                          : 'No portal file staged'}
+                          : isCard2Dragging ? 'Drop file to upload' : 'No portal file staged'}
                       </span>
                     </div>
                   </div>
@@ -875,11 +917,13 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
                 <div className="flex items-center justify-between pt-2.5 border-t border-[#27272a]">
                   <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
-                    portalSlots.length > 0
+                    isCard2Dragging
+                      ? 'bg-white text-black font-bold'
+                      : portalSlots.length > 0
                       ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                       : 'bg-slate-800 text-zinc-400'
                   }`}>
-                    {portalSlots.length > 0 ? 'File active' : 'Awaiting file'}
+                    {isCard2Dragging ? 'Drop to upload' : portalSlots.length > 0 ? 'File active' : 'Awaiting file'}
                   </span>
                   <label className="text-xs px-3 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-semibold border border-emerald-500/30 transition-all cursor-pointer shadow-sm">
                     <span>Upload</span>
@@ -1613,7 +1657,20 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             <div className="flex items-center space-x-2">
-              <label className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1E2536] hover:bg-[#27272a] text-white text-xs font-semibold border border-[#303D57] shadow-sm transition-all cursor-pointer">
+              <label
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.dataTransfer.dropEffect = 'copy';
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const f = e.dataTransfer.files?.[0];
+                  if (f) onUploadPortalFile(f);
+                }}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#1E2536] hover:bg-[#27272a] text-white text-xs font-semibold border border-[#303D57] shadow-sm transition-all cursor-pointer"
+              >
                 <UploadCloud className="w-3.5 h-3.5 text-zinc-300" />
                 <span>Upload New Portal File</span>
                 <input
@@ -2321,17 +2378,16 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
 
               <div className="pt-4 border-t border-[#27272a]">
-                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                <label className="block text-xs font-semibold text-zinc-300 mb-2">
                   Upload Google Sheet (.xlsx) Directly
                 </label>
-                <input
-                  type="file"
+                <FileDropzone
+                  title="Drop Google Sheet .xlsx export here"
+                  subtitle="Supports .xlsx (with date subsheets)"
                   accept=".xlsx"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) onUploadTeamSheetFile(f);
-                  }}
-                  className="w-full text-xs text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#1E2536] file:text-white hover:file:bg-[#27272a] cursor-pointer"
+                  selectedFile={null}
+                  onFileSelect={(f) => onUploadTeamSheetFile(f)}
+                  icon={<FileSpreadsheet className="w-5 h-5 text-cyan-400" />}
                 />
               </div>
             </div>
@@ -2351,28 +2407,13 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 scripts uploaded per school and date.
               </p>
 
-              <div className="p-5 rounded-xl bg-[#121214] border-2 border-dashed border-[#27272a] text-center space-y-3">
-                <UploadCloud className="w-8 h-8 text-zinc-400 mx-auto" />
-                <div>
-                  <p className="text-xs font-semibold text-white">
-                    Drop your Portal Excel / CSV here
-                  </p>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">Supports .xlsx, .xls, .csv</p>
-                </div>
-
-                <label className="inline-block py-1.5 px-4 rounded-xl bg-[#1E2536] hover:bg-[#27272a] text-white text-xs font-semibold border border-[#303D57] transition-all cursor-pointer">
-                  <span>Select File from Computer</span>
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls,.csv"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) onUploadPortalFile(f);
-                    }}
-                  />
-                </label>
-              </div>
+              <FileDropzone
+                title="Drop Central Portal Excel / CSV here"
+                subtitle="Supports .xlsx, .xls, .csv"
+                selectedFile={null}
+                onFileSelect={(f) => onUploadPortalFile(f)}
+                icon={<UploadCloud className="w-6 h-6 text-emerald-400" />}
+              />
 
               <div className="pt-2 flex items-center justify-between text-xs text-zinc-400">
                 <span>
