@@ -1,10 +1,12 @@
 import * as XLSX from 'xlsx';
+import { SCHOOL_CODE_MAP, normalizeSchool } from './mockData';
 
 export interface RawStudentRow {
   studentName: string;
   studentEmail: string;
   courseCode: string;
   courseName: string;
+  schoolCode?: string;
   evaluatorName: string;
   evaluatorEmail: string;
   raw: Record<string, any>;
@@ -121,6 +123,7 @@ export function parseStudentEvaluatorFile(
   rows: RawStudentRow[];
   sheetNames: string[];
   activeSheetName: string;
+  detectedSchoolCode: string;
   headersDetected: {
     studentName: boolean;
     studentEmail: boolean;
@@ -144,6 +147,7 @@ export function parseStudentEvaluatorFile(
       rows: [],
       sheetNames,
       activeSheetName,
+      detectedSchoolCode: 'School',
       headersDetected: {
         studentName: false,
         studentEmail: false,
@@ -162,6 +166,7 @@ export function parseStudentEvaluatorFile(
       rows: [],
       sheetNames,
       activeSheetName,
+      detectedSchoolCode: 'School',
       headersDetected: {
         studentName: false,
         studentEmail: false,
@@ -175,6 +180,81 @@ export function parseStudentEvaluatorFile(
   }
 
   const sampleHeaders = Object.keys(rawJson[0] || {});
+
+  // Extract School Code from the student evaluator file:
+  // 1. Column search across rows
+  let detectedSchoolCode = '';
+  const schoolAliases = [
+    'school code',
+    'schoolcode',
+    'school_code',
+    'school',
+    'faculty code',
+    'faculty',
+    'school name',
+    'college code',
+    'college',
+    'department',
+    'dept code',
+    'dept',
+    'institution code',
+    'inst code',
+  ];
+
+  for (const row of rawJson) {
+    const val = getRowVal(row, ...schoolAliases);
+    if (val && val.trim()) {
+      const trimmed = val.trim();
+      const norm = normalizeSchool(trimmed);
+      if (norm && norm.code && norm.code !== 'GEN') {
+        detectedSchoolCode = norm.code;
+        break;
+      }
+      if (/^[A-Za-z0-9_-]{2,12}$/.test(trimmed)) {
+        detectedSchoolCode = trimmed.toUpperCase();
+        break;
+      }
+      detectedSchoolCode = trimmed.toUpperCase();
+      break;
+    }
+  }
+
+  // 2. Check active sheet name if no column was found (e.g. sheet named "SCE", "KSOM")
+  if (!detectedSchoolCode && activeSheetName) {
+    const normSheet = normalizeSchool(activeSheetName);
+    if (normSheet && normSheet.code && normSheet.code !== 'GEN') {
+      detectedSchoolCode = normSheet.code;
+    } else {
+      const clean = activeSheetName.trim().toUpperCase();
+      if (clean.length <= 12 && !clean.toLowerCase().includes('sheet')) {
+        detectedSchoolCode = clean;
+      }
+    }
+  }
+
+  // 3. Inspect top cells in sheet (A1, A2, B1, etc.) for school headers
+  if (!detectedSchoolCode && sheet) {
+    const checkCells = ['A1', 'A2', 'B1', 'B2', 'C1', 'A3', 'B3'];
+    for (const c of checkCells) {
+      const cell = sheet[c];
+      if (cell && cell.v) {
+        const txt = String(cell.v).trim();
+        const match = txt.match(/(?:school|faculty|dept)\s*(?:code|name)?\s*[:\-]\s*([A-Za-z0-9_-]+)/i);
+        if (match && match[1]) {
+          const norm = normalizeSchool(match[1]);
+          detectedSchoolCode = norm.code || match[1].toUpperCase();
+          break;
+        }
+        const norm = normalizeSchool(txt);
+        if (norm && norm.code && norm.code !== 'GEN') {
+          detectedSchoolCode = norm.code;
+          break;
+        }
+      }
+    }
+  }
+
+  detectedSchoolCode = detectedSchoolCode || 'School';
 
   const rows: RawStudentRow[] = rawJson.map((row, idx) => {
     // 1. Student Name
@@ -287,6 +367,7 @@ export function parseStudentEvaluatorFile(
       studentEmail: studentEmail || studentName || `student${idx + 1}@student.ac.in`,
       courseCode: normalizeCourseCode(courseCode),
       courseName: courseName.trim(),
+      schoolCode: detectedSchoolCode,
       evaluatorName: evaluatorName || 'Unknown Evaluator',
       evaluatorEmail: evaluatorEmail.trim(),
       raw: row,
@@ -306,6 +387,7 @@ export function parseStudentEvaluatorFile(
     rows,
     sheetNames,
     activeSheetName,
+    detectedSchoolCode,
     headersDetected: {
       studentName: hasStudentName,
       studentEmail: hasStudentEmail,
@@ -580,7 +662,8 @@ export function mapStudentEvaluatorSchedules(
 // Column F: Course Name
 export function generateEvalOpsExcel(
   allocations: MappedStudentAllocation[],
-  onlySuccessfullyMapped: boolean = false
+  onlySuccessfullyMapped: boolean = false,
+  schoolCode: string = ''
 ): void {
   const listToExport = onlySuccessfullyMapped
     ? allocations.filter((a) => a.isMapped)
@@ -624,12 +707,10 @@ export function generateEvalOpsExcel(
     { wch: 32 }, // Col F: Course Name
   ];
 
-  XLSX.utils.book_append_sheet(wb, ws, 'Student Evaluator Allocations');
+  XLSX.utils.book_append_sheet(wb, ws, 'Evaluator Assignment');
 
-  const now = new Date();
-  const dateStr = now.toISOString().split('T')[0];
-  const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-  const filename = `Eval_Ops_Mapped_Allocations_${dateStr}_${timeStr}.xlsx`;
+  const cleanSchoolCode = (schoolCode || 'School').trim().toUpperCase();
+  const filename = `${cleanSchoolCode} - Evaluator assignment.xlsx`;
 
   // Write file directly to browser download
   XLSX.writeFile(wb, filename);

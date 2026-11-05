@@ -39,6 +39,7 @@ export const EvalOpsDashboard: React.FC = () => {
   // Uploaded Files State
   const [studentFile, setStudentFile] = useState<File | null>(null);
   const [scheduleFile, setScheduleFile] = useState<File | null>(null);
+  const [schoolCode, setSchoolCode] = useState<string>('');
 
   // Raw Buffers & Subsheet Selection State
   const [studentBuffer, setStudentBuffer] = useState<ArrayBuffer | null>(null);
@@ -103,6 +104,9 @@ export const EvalOpsDashboard: React.FC = () => {
       const parsed = parseStudentEvaluatorFile(buffer, targetSheet);
       setStudentRows(parsed.rows);
       setStudentDetection(parsed.headersDetected);
+      if (parsed.detectedSchoolCode) {
+        setSchoolCode(parsed.detectedSchoolCode);
+      }
 
       // If workbook contains multiple subsheets, ask user to select the required subsheet
       if (sheets.length > 1) {
@@ -127,6 +131,9 @@ export const EvalOpsDashboard: React.FC = () => {
       const parsed = parseStudentEvaluatorFile(studentBuffer, sheetName);
       setStudentRows(parsed.rows);
       setStudentDetection(parsed.headersDetected);
+      if (parsed.detectedSchoolCode) {
+        setSchoolCode(parsed.detectedSchoolCode);
+      }
       setHasMapped(false);
       setMappedAllocations([]);
       setSummary(null);
@@ -231,6 +238,7 @@ export const EvalOpsDashboard: React.FC = () => {
     setFilterMode('all');
     setCourseFilter('all');
     setEvaluatorFilter('all');
+    setSchoolCode('');
   };
 
   // Dropdown options for dynamic filters
@@ -357,13 +365,18 @@ export const EvalOpsDashboard: React.FC = () => {
           )}
 
           {hasMapped && (
-            <button
-              onClick={() => generateEvalOpsExcel(mappedAllocations, false)}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md shadow-white/5 hover:scale-[1.02] active:scale-[0.99]"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download Final Excel File</span>
-            </button>
+            <div className="flex items-center space-x-3">
+              <span className="text-[11px] font-mono text-zinc-400 hidden lg:inline">
+                File: <strong className="text-white">{schoolCode || 'School'} - Evaluator assignment.xlsx</strong>
+              </span>
+              <button
+                onClick={() => generateEvalOpsExcel(mappedAllocations, false, schoolCode)}
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md shadow-white/5 hover:scale-[1.02] active:scale-[0.99]"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Final Excel File</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -491,6 +504,24 @@ export const EvalOpsDashboard: React.FC = () => {
                       {studentDetection.evaluatorEmail ? '✓' : '✗'}
                     </span>
                     <span>Evaluator Email ID</span>
+                  </div>
+
+                  {/* School Code Picked from Student File */}
+                  <div className="flex items-center space-x-2 col-span-2 pt-2 mt-1 border-t border-[#222222]">
+                    <span className={schoolCode ? 'text-emerald-400' : 'text-zinc-500'}>
+                      {schoolCode ? '✓' : '–'}
+                    </span>
+                    <span className="text-zinc-400">School Code:</span>
+                    <input
+                      type="text"
+                      value={schoolCode}
+                      onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. SCE"
+                      className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-white font-mono font-bold text-xs uppercase focus:outline-none focus:border-white w-24"
+                    />
+                    <span className="text-[10px] text-zinc-500 font-mono">
+                      Output File: &quot;{schoolCode || 'School'} - Evaluator assignment.xlsx&quot;
+                    </span>
                   </div>
                 </div>
               </div>
@@ -950,8 +981,9 @@ export const EvalOpsDashboard: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={() => generateEvalOpsExcel(filteredResults, false)}
+                    onClick={() => generateEvalOpsExcel(filteredResults, false, schoolCode)}
                     className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-colors shadow-sm shrink-0"
+                    title={`Export "${schoolCode || 'School'} - Evaluator assignment.xlsx"`}
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Export Excel ({filteredResults.length})</span>
@@ -965,10 +997,10 @@ export const EvalOpsDashboard: React.FC = () => {
           <div className="bg-[#09090b] rounded-2xl border border-[#27272a] overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
               <span className="font-semibold text-white">
-                Final Output Preview ({filteredResults.length} records shown)
+                Final Output Preview ({filteredResults.length} records)
               </span>
               <span className="text-[11px] font-mono text-zinc-400">
-                Columns: <strong className="text-white">A: Schedule ID</strong> • <strong className="text-white">B: Evaluator Email</strong> • <strong className="text-white">C: Student Email ID</strong> • <strong className="text-white">D: Student Name</strong> • <strong className="text-white">E: Course Code</strong> • <strong className="text-white">F: Course Name</strong>
+                Target: <strong className="text-white">{schoolCode || 'School'} - Evaluator assignment.xlsx</strong> (Cols A to F)
               </span>
             </div>
 
