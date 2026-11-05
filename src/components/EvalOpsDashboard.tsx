@@ -34,6 +34,7 @@ import {
 } from '../lib/evalOpsParser';
 import { FileDropzone } from './FileDropzone';
 import { CustomDropdown, DropdownOption } from './CustomDropdown';
+import { SCHOOL_CODE_MAP } from '../lib/mockData';
 
 export const EvalOpsDashboard: React.FC = () => {
   // Uploaded Files State
@@ -59,6 +60,9 @@ export const EvalOpsDashboard: React.FC = () => {
     studentEmail: boolean;
     courseCode: boolean;
     courseName: boolean;
+    schoolCode: boolean;
+    schoolName: boolean;
+    examDate: boolean;
     evaluatorName: boolean;
     evaluatorEmail: boolean;
   } | null>(null);
@@ -552,6 +556,8 @@ export const EvalOpsDashboard: React.FC = () => {
                     <th className="py-2 px-2.5">Student Email ID</th>
                     <th className="py-2 px-2.5">Course Code</th>
                     <th className="py-2 px-2.5">Course Name</th>
+                    <th className="py-2 px-2.5">School Code</th>
+                    <th className="py-2 px-2.5">Exam Date</th>
                     <th className="py-2 px-2.5">Evaluator Email</th>
                   </tr>
                 </thead>
@@ -562,6 +568,8 @@ export const EvalOpsDashboard: React.FC = () => {
                       <td className="py-1.5 px-2.5 truncate max-w-[150px] text-zinc-300">{r.studentEmail || '–'}</td>
                       <td className="py-1.5 px-2.5 text-zinc-300">{r.courseCode}</td>
                       <td className="py-1.5 px-2.5 truncate max-w-[130px] text-zinc-400">{r.courseName || '–'}</td>
+                      <td className="py-1.5 px-2.5 text-zinc-300 font-semibold">{r.schoolCode || schoolCode || '–'}</td>
+                      <td className="py-1.5 px-2.5 text-zinc-400 whitespace-nowrap">{r.examDate || '–'}</td>
                       <td className="py-1.5 px-2.5 truncate max-w-[160px] text-zinc-400">{r.evaluatorEmail || '–'}</td>
                     </tr>
                   ))}
@@ -1000,7 +1008,7 @@ export const EvalOpsDashboard: React.FC = () => {
                 Final Output Preview ({filteredResults.length} records)
               </span>
               <span className="text-[11px] font-mono text-zinc-400">
-                Target: <strong className="text-white">{schoolCode || 'School'} - Evaluator assignment.xlsx</strong> (Cols A to F)
+                Target: <strong className="text-white">{schoolCode || 'School'} - Evaluator assignment.xlsx</strong> (Cols A to I)
               </span>
             </div>
 
@@ -1010,18 +1018,20 @@ export const EvalOpsDashboard: React.FC = () => {
                   <tr>
                     <th className="py-3 px-4">SCHEDULE ID</th>
                     <th className="py-3 px-4">EVALUATOR EMAIL ID</th>
-                    <th className="py-3 px-4">STUDENT EMAIL ID</th>
+                    <th className="py-3 px-4">STUDENT DETAILS</th>
                     <th className="py-3 px-4">STUDENT NAME</th>
                     <th className="py-3 px-4">COURSE CODE</th>
                     <th className="py-3 px-4">COURSE NAME</th>
-                    <th className="py-3 px-4">EVALUATOR NAME</th>
+                    <th className="py-3 px-4">SCHOOL CODE</th>
+                    <th className="py-3 px-4">SCHOOL NAME</th>
+                    <th className="py-3 px-4">EXAM DATE</th>
                     <th className="py-3 px-4 text-center">STATUS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#27272a] font-mono text-zinc-300">
                   {filteredResults.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-zinc-500 text-xs">
+                      <td colSpan={10} className="py-12 text-center text-zinc-500 text-xs">
                         No records match your search or filter selection.
                       </td>
                     </tr>
@@ -1070,13 +1080,23 @@ export const EvalOpsDashboard: React.FC = () => {
                         </td>
 
                         {/* Column F: Course Name */}
-                        <td className="py-3 px-4 text-zinc-400 font-sans text-[11px] truncate max-w-[200px]">
+                        <td className="py-3 px-4 text-zinc-400 font-sans text-[11px] truncate max-w-[180px]">
                           {item.courseName || '–'}
                         </td>
 
-                        {/* Evaluator Name */}
-                        <td className="py-3 px-4 text-zinc-400 font-sans text-[11px] whitespace-nowrap">
-                          {item.evaluatorName}
+                        {/* Column G: School Code */}
+                        <td className="py-3 px-4 text-zinc-300 font-semibold whitespace-nowrap">
+                          {item.schoolCode || schoolCode || '–'}
+                        </td>
+
+                        {/* Column H: School Name */}
+                        <td className="py-3 px-4 text-zinc-400 font-sans text-[11px] truncate max-w-[180px]">
+                          {item.schoolName || (item.schoolCode ? SCHOOL_CODE_MAP[item.schoolCode] : '') || (schoolCode ? SCHOOL_CODE_MAP[schoolCode] : '') || '–'}
+                        </td>
+
+                        {/* Column I: Exam Date */}
+                        <td className="py-3 px-4 text-zinc-300 whitespace-nowrap">
+                          {item.examDate || '–'}
                         </td>
 
                         {/* Status */}

@@ -1,10 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- Bar 1: Shorter Left Bar -->
-  <rect x="13" y="34" width="10" height="22" rx="5" fill="#FFFFFF" />
+  <!-- Rounded Squircle Container -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="#121214" stroke="#27272A" stroke-width="2" />
   
-  <!-- Bar 2: Medium Middle Bar -->
-  <rect x="27" y="22" width="10" height="34" rx="5" fill="#A1A1AA" />
+  <!-- Bar 1: Shorter Left Bar (White) -->
+  <rect x="16" y="32" width="8" height="18" rx="4" fill="#FFFFFF" />
   
-  <!-- Bar 3: Tallest Right Bar -->
-  <rect x="41" y="10" width="10" height="46" rx="5" fill="#71717A" />
+  <!-- Bar 2: Medium Middle Bar (Silver/Gray) -->
+  <rect x="28" y="22" width="8" height="28" rx="4" fill="#A1A1AA" />
+  
+  <!-- Bar 3: Tallest Right Bar (Dark Slate) -->
+  <rect x="40" y="14" width="8" height="36" rx="4" fill="#52525B" />
 </svg>
