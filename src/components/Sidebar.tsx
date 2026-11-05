@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ChevronDown,
   Filter,
+  Home,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -111,6 +112,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation Section with Downward Elaborating Toggles */}
         <nav className="p-3 space-y-1.5">
+          {/* Welcome Overview Tab */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('intro')}
+            className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === 'intro'
+                ? 'bg-white text-black shadow-md border border-white'
+                : 'text-zinc-300 hover:text-white hover:bg-[#121214] border border-transparent'
+            }`}
+          >
+            <Home
+              className={`w-4 h-4 shrink-0 ${activeTab === 'intro' ? 'text-black' : 'text-zinc-400'}`}
+            />
+            <span className="font-bold">Welcome Overview</span>
+          </button>
+
           {/* Main Display Tab: Scanning Ops */}
           <button
             type="button"

@@ -56,6 +56,7 @@ export default function Home() {
     setCurrentUser(active);
     setUsers(storedUsers);
     setGoogleSheetUrl(storedUrl);
+    setActiveTab('intro');
 
     // CLEAN SLATE ON LINK OPEN: Do NOT store or restore previous data on mount!
     // Must be completely empty until user clicks "Sync Sheet Data" or uploads Excel.

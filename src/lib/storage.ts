@@ -79,7 +79,7 @@ export function saveStoredUsers(users: User[]): void {
 }
 
 export function getActiveUser(): User | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') return INITIAL_USERS[0];
   try {
     const raw = localStorage.getItem(CURRENT_USER_KEY);
     if (raw) {
@@ -92,7 +92,8 @@ export function getActiveUser(): User | null {
       return matched || parsed;
     }
   } catch {}
-  return null;
+  // Default to Super Admin so opening the app link immediately lands on the Welcome Greeting Card!
+  return INITIAL_USERS[0];
 }
 
 export function setActiveUser(user: User | null): void {

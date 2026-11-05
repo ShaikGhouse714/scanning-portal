@@ -325,185 +325,217 @@ export const EvalScheduleExtractor: React.FC = () => {
         </div>
       )}
 
-      {/* STEP 1: Connect Published Google Sheet */}
-      <div className="p-5 rounded-2xl bg-[#09090b] border border-[#27272a] shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#222222] gap-2">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white text-xs font-mono font-bold">
-              01
+      {/* Dual Column Layout: Card 02 takes Center Stage (8 cols), Card 01 kept small on the side (4 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+        {/* ======================================================== */}
+        {/* CARD 02: TARGET SCHEDULE IDS (CENTER STAGE - 8 COLUMNS) */}
+        {/* ======================================================== */}
+        <div className="lg:col-span-8 p-5 sm:p-6 rounded-2xl bg-[#09090b] border border-[#27272a] shadow-2xl flex flex-col justify-between space-y-4 order-1">
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#222222] gap-2">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 rounded-lg bg-white text-black flex items-center justify-center text-xs font-mono font-bold shadow-md">
+                  02
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                      Target Schedule IDs
+                    </h3>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-white font-semibold">
+                      Primary Task
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
+                    Enter comma, space, or newline-separated Schedule IDs to extract matching student allocations
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Helper Actions */}
+              <div className="flex items-center space-x-1.5 shrink-0">
+                {allAvailableScheduleIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleLoadSampleIds}
+                    className="text-[11px] font-mono px-2.5 py-1 rounded-lg border border-[#27272a] hover:bg-[#121214] text-zinc-300 hover:text-white transition-colors"
+                    title="Fill with 5 sample Schedule IDs from master sheet"
+                  >
+                    Sample IDs
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handlePasteClipboard}
+                  className="inline-flex items-center space-x-1 text-[11px] font-mono px-2.5 py-1 rounded-lg border border-[#27272a] hover:bg-[#121214] text-zinc-300 hover:text-white transition-colors"
+                  title="Paste from Clipboard"
+                >
+                  <ClipboardPaste className="w-3 h-3" />
+                  <span>Paste</span>
+                </button>
+
+                {parsedTargetScheduleIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleCleanFormatInput}
+                    className="text-[11px] font-mono px-2.5 py-1 rounded-lg border border-[#27272a] hover:bg-[#121214] text-zinc-300 hover:text-white transition-colors"
+                    title="Reformat cleanly as comma-separated"
+                  >
+                    Format
+                  </button>
+                )}
+
+                {scheduleIdsInput && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScheduleIdsInput('');
+                      setHasExtracted(false);
+                    }}
+                    className="text-zinc-500 hover:text-rose-400 p-1.5 rounded transition-colors"
+                    title="Clear input"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
-            <div>
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                Connect Master Published Google Sheet
-              </h3>
-              <span className="text-[10px] text-zinc-400 font-mono block">
-                Paste the web URL or Published CSV link containing compiled data from all schools
-              </span>
+
+            {/* Textarea for Schedule IDs (Center Stage) */}
+            <div className="mt-3.5">
+              <textarea
+                rows={6}
+                value={scheduleIdsInput}
+                onChange={(e) => setScheduleIdsInput(e.target.value)}
+                placeholder="e.g. 6251, 6252, 6289, 7102, 7103, 8041... (Comma, space, or newline separated)"
+                className="w-full bg-[#000000] border border-[#27272a] focus:border-white focus:outline-none rounded-xl p-4 text-xs text-white placeholder-zinc-500 font-mono transition-colors resize-y leading-relaxed"
+              />
             </div>
           </div>
 
-          {masterRows.length > 0 && (
-            <div className="flex items-center space-x-2">
-              <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>{masterRows.length.toLocaleString()} Total Records</span>
+          {/* Input Bar Summary & Primary Extract Button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[#1a1a1a]">
+            <div className="flex items-center space-x-2 text-xs font-mono text-zinc-400">
+              <span>Detected:</span>
+              <span className="font-bold text-white bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
+                {parsedTargetScheduleIds.length} Schedule IDs
               </span>
+              {parsedTargetScheduleIds.length > 0 && (
+                <span className="text-[11px] text-zinc-500 truncate max-w-xs hidden sm:inline">
+                  ({parsedTargetScheduleIds.slice(0, 5).join(', ')}
+                  {parsedTargetScheduleIds.length > 5 ? ` +${parsedTargetScheduleIds.length - 5} more` : ''})
+                </span>
+              )}
             </div>
-          )}
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="relative flex-1">
-            <Link2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
-              type="text"
-              value={sheetUrl}
-              onChange={(e) => setSheetUrl(e.target.value)}
-              placeholder="e.g. https://docs.google.com/spreadsheets/d/e/.../pub?output=csv OR https://docs.google.com/spreadsheets/d/..."
-              className="w-full bg-[#000000] border border-[#27272a] focus:border-white focus:outline-none rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-zinc-500 transition-colors font-mono"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => handleFetchSheet()}
-            disabled={isLoadingSheet}
-            className="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-colors shadow-sm disabled:opacity-50 shrink-0"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSheet ? 'animate-spin' : ''}`} />
-            <span>{isLoadingSheet ? 'Connecting...' : masterRows.length > 0 ? 'Sync & Refresh' : 'Connect & Fetch'}</span>
-          </button>
-        </div>
-
-        {/* Master Sheet Metadata & Stats Pill */}
-        {masterRows.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div className="p-3 rounded-xl bg-[#121214] border border-[#27272a]">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-mono block">Sheet Title</span>
-              <span className="text-xs font-semibold text-white truncate block mt-0.5">{sheetName}</span>
-            </div>
-            <div className="p-3 rounded-xl bg-[#121214] border border-[#27272a]">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-mono block">Master Rows</span>
-              <span className="text-xs font-mono font-bold text-white block mt-0.5">{masterRows.length.toLocaleString()}</span>
-            </div>
-            <div className="p-3 rounded-xl bg-[#121214] border border-[#27272a]">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-mono block">Schools Included</span>
-              <span className="text-xs font-mono font-semibold text-zinc-300 block mt-0.5">
-                {availableSchools.length > 0 ? availableSchools.join(', ') : '–'}
-              </span>
-            </div>
-            <div className="p-3 rounded-xl bg-[#121214] border border-[#27272a]">
-              <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-mono block">Available Schedule IDs</span>
-              <span className="text-xs font-mono font-bold text-zinc-300 block mt-0.5">
-                {allAvailableScheduleIds.length} Unique IDs
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* STEP 2: Input Comma-Separated Schedule IDs */}
-      <div className="p-5 rounded-2xl bg-[#09090b] border border-[#27272a] shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#222222] gap-2">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-white text-xs font-mono font-bold">
-              02
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                Target Schedule IDs
-              </h3>
-              <span className="text-[10px] text-zinc-400 font-mono block">
-                Provide comma-separated Schedule IDs to extract only matching student allocations
-              </span>
-            </div>
-          </div>
-
-          {/* Quick Helper Actions */}
-          <div className="flex items-center space-x-2">
-            {allAvailableScheduleIds.length > 0 && (
-              <button
-                type="button"
-                onClick={handleLoadSampleIds}
-                className="text-[11px] font-mono px-2.5 py-1 rounded-lg border border-[#27272a] hover:bg-[#121214] text-zinc-300 hover:text-white transition-colors"
-                title="Fill with 5 sample Schedule IDs from master sheet"
-              >
-                Load Sample IDs
-              </button>
-            )}
 
             <button
               type="button"
-              onClick={handlePasteClipboard}
-              className="inline-flex items-center space-x-1 text-[11px] font-mono px-2.5 py-1 rounded-lg border border-[#27272a] hover:bg-[#121214] text-zinc-300 hover:text-white transition-colors"
-              title="Paste from Clipboard"
+              onClick={handleExtractEntries}
+              disabled={parsedTargetScheduleIds.length === 0 || masterRows.length === 0}
+              className="inline-flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-colors shadow-lg disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
             >
-              <ClipboardPaste className="w-3 h-3" />
-              <span>Paste</span>
+              <Search className="w-4 h-4" />
+              <span>Fetch &amp; Extract Entries</span>
+            </button>
+          </div>
+        </div>
+
+        {/* =============================================================== */}
+        {/* CARD 01: SOURCE GOOGLE SHEET (KEPT SMALL ON THE SIDE - 4 COLS) */}
+        {/* =============================================================== */}
+        <div className="lg:col-span-4 p-5 rounded-2xl bg-[#09090b] border border-[#27272a] shadow-xl flex flex-col justify-between space-y-4 order-2">
+          <div className="space-y-3.5">
+            {/* Small Header */}
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#222222]">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 text-xs font-mono font-bold">
+                  01
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider font-mono">
+                    Source Google Sheet
+                  </h3>
+                </div>
+              </div>
+
+              {masterRows.length > 0 ? (
+                <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Connected</span>
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono text-zinc-500">Not Connected</span>
+              )}
+            </div>
+
+            <p className="text-[11px] text-zinc-400 leading-normal">
+              Master published multi-school Google Sheet link:
+            </p>
+
+            {/* URL Input */}
+            <div className="relative">
+              <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+              <input
+                type="text"
+                value={sheetUrl}
+                onChange={(e) => setSheetUrl(e.target.value)}
+                placeholder="Paste published CSV/web URL..."
+                className="w-full bg-[#000000] border border-[#27272a] focus:border-white focus:outline-none rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-zinc-500 transition-colors font-mono"
+              />
+            </div>
+
+            {/* Connect / Re-sync Button */}
+            <button
+              type="button"
+              onClick={() => handleFetchSheet()}
+              disabled={isLoadingSheet}
+              className="w-full inline-flex items-center justify-center space-x-2 px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs transition-colors border border-zinc-700 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSheet ? 'animate-spin' : ''}`} />
+              <span>{isLoadingSheet ? 'Connecting...' : masterRows.length > 0 ? 'Re-sync Live Sheet' : 'Connect Sheet'}</span>
             </button>
 
-            {parsedTargetScheduleIds.length > 0 && (
-              <button
-                type="button"
-                onClick={handleCleanFormatInput}
-                className="text-[11px] font-mono px-2.5 py-1 rounded-lg border border-[#27272a] hover:bg-[#121214] text-zinc-300 hover:text-white transition-colors"
-                title="Reformat cleanly as comma separated"
-              >
-                Format
-              </button>
-            )}
-
-            {scheduleIdsInput && (
-              <button
-                type="button"
-                onClick={() => {
-                  setScheduleIdsInput('');
-                  setHasExtracted(false);
-                }}
-                className="text-zinc-500 hover:text-rose-400 p-1 rounded transition-colors"
-                title="Clear input"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Textarea for Schedule IDs */}
-        <div>
-          <textarea
-            rows={4}
-            value={scheduleIdsInput}
-            onChange={(e) => setScheduleIdsInput(e.target.value)}
-            placeholder="e.g. 6251, 6252, 6289, 7102, 7103, 8041... (Comma, space, or newline separated)"
-            className="w-full bg-[#000000] border border-[#27272a] focus:border-white focus:outline-none rounded-xl p-3.5 text-xs text-white placeholder-zinc-500 font-mono transition-colors"
-          />
-        </div>
-
-        {/* Input Bar Summary & Primary Extract Button */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-          <div className="flex items-center space-x-2 text-xs font-mono text-zinc-400">
-            <span>Detected:</span>
-            <span className="font-bold text-white bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
-              {parsedTargetScheduleIds.length} Schedule IDs
-            </span>
-            {parsedTargetScheduleIds.length > 0 && (
-              <span className="text-[11px] text-zinc-500 truncate max-w-md hidden md:inline">
-                ({parsedTargetScheduleIds.slice(0, 8).join(', ')}
-                {parsedTargetScheduleIds.length > 8 ? ` +${parsedTargetScheduleIds.length - 8} more` : ''})
-              </span>
+            {/* Compact Sheet Stats if Connected */}
+            {masterRows.length > 0 && (
+              <div className="p-3 rounded-xl bg-[#121214] border border-[#27272a] space-y-2 text-[11px] font-mono text-zinc-400">
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">Master Rows:</span>
+                  <strong className="text-white">{masterRows.length.toLocaleString()}</strong>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">Available IDs:</span>
+                  <strong className="text-white">{allAvailableScheduleIds.length}</strong>
+                </div>
+                {availableSchools.length > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500">Schools:</span>
+                    <span className="text-zinc-300 truncate max-w-[130px]" title={availableSchools.join(', ')}>
+                      {availableSchools.join(', ')}
+                    </span>
+                  </div>
+                )}
+                {lastSyncTime && (
+                  <div className="flex justify-between items-center text-[10px] pt-1 border-t border-zinc-800">
+                    <span className="text-zinc-500">Last Synced:</span>
+                    <span className="text-zinc-400">{lastSyncTime}</span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={handleExtractEntries}
-            disabled={parsedTargetScheduleIds.length === 0 || masterRows.length === 0}
-            className="inline-flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-colors shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Search className="w-4 h-4" />
-            <span>Fetch &amp; Extract Entries</span>
-          </button>
+          {/* Help Button at bottom of card */}
+          <div className="pt-2 border-t border-[#222222]">
+            <button
+              type="button"
+              onClick={() => setShowHelpModal(true)}
+              className="text-[11px] text-zinc-500 hover:text-zinc-300 flex items-center space-x-1.5 font-mono transition-colors"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>How to publish Google Sheet?</span>
+            </button>
+          </div>
         </div>
       </div>
 
