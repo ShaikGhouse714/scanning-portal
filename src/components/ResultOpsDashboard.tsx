@@ -24,6 +24,7 @@ import {
   Building2,
   FileCheck,
   Settings2,
+  Edit2,
 } from 'lucide-react';
 
 export interface SavedResultSheet {
@@ -146,6 +147,12 @@ export const ResultOpsDashboard: React.FC = () => {
   const [newSheetUrl, setNewSheetUrl] = useState<string>('');
   const [newSubsheetName, setNewSubsheetName] = useState<string>('Result view');
 
+  // Edit Current Sheet Modal
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [editSheetName, setEditSheetName] = useState<string>('');
+  const [editSheetUrl, setEditSheetUrl] = useState<string>('');
+  const [editSubsheetName, setEditSubsheetName] = useState<string>('Result view');
+
   // Load Saved Sheets from localStorage on Mount
   useEffect(() => {
     try {
@@ -171,13 +178,18 @@ export const ResultOpsDashboard: React.FC = () => {
   }, []);
 
   // Save sheets to localStorage
-  const persistSheets = (sheets: SavedResultSheet[]) => {
-    setSavedSheets(sheets);
-    try {
-      localStorage.setItem('scantrack_saved_result_sheets_v1', JSON.stringify(sheets));
-    } catch {
-      // ignore
-    }
+  const persistSheets = (
+    updater: SavedResultSheet[] | ((prev: SavedResultSheet[]) => SavedResultSheet[])
+  ) => {
+    setSavedSheets((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try {
+        localStorage.setItem('scantrack_saved_result_sheets_v1', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
   };
 
   // Switch selected sheet
@@ -189,13 +201,21 @@ export const ResultOpsDashboard: React.FC = () => {
       setTargetSubsheet(found.subsheetName || 'Result view');
       setRows([]);
       setSyncError(null);
+      if (found.url) {
+        handleSyncSheet(found.url, found.subsheetName, found.id);
+      }
     }
   };
 
   // Sync Live Data from Google Sheets
-  const handleSyncSheet = async (overrideUrl?: string, overrideSubsheet?: string) => {
+  const handleSyncSheet = async (
+    overrideUrl?: string,
+    overrideSubsheet?: string,
+    overrideSheetId?: string
+  ) => {
     const urlToUse = (overrideUrl !== undefined ? overrideUrl : sheetUrl).trim();
     const subsheetToUse = (overrideSubsheet !== undefined ? overrideSubsheet : targetSubsheet).trim();
+    const targetSheetId = overrideSheetId || selectedSheetId;
 
     if (!urlToUse) {
       setSyncError('Please provide a Google Sheet link or select a saved published sheet.');
@@ -230,20 +250,21 @@ export const ResultOpsDashboard: React.FC = () => {
       const syncTimestamp = new Date().toLocaleTimeString();
       setLastSyncTime(syncTimestamp);
 
-      // Update metadata for this saved sheet
-      const updated = savedSheets.map((s) =>
-        s.id === selectedSheetId
-          ? {
-              ...s,
-              url: urlToUse,
-              subsheetName: data.activeSheetName || subsheetToUse,
-              lastSyncedAt: syncTimestamp,
-              totalRecords: data.totalRows,
-              actionRequiredCount: data.actionRequiredCount,
-            }
-          : s
+      // Update metadata for this saved sheet using functional updater so no other sheets are lost!
+      persistSheets((prev) =>
+        prev.map((s) =>
+          s.id === targetSheetId
+            ? {
+                ...s,
+                url: urlToUse,
+                subsheetName: data.activeSheetName || subsheetToUse,
+                lastSyncedAt: syncTimestamp,
+                totalRecords: data.totalRows,
+                actionRequiredCount: data.actionRequiredCount,
+              }
+            : s
+        )
       );
-      persistSheets(updated);
 
       // If there are action required schedules, automatically switch to action required tab
       if (data.actionRequiredCount > 0) {
@@ -271,8 +292,11 @@ export const ResultOpsDashboard: React.FC = () => {
       subsheetName: newSubsheetName.trim() || 'Result view',
     };
 
-    const nextSheets = [...savedSheets, newEntry];
-    persistSheets(nextSheets);
+    persistSheets((prev) => {
+      const filtered = prev.filter((s) => s.id !== newId);
+      return [...filtered, newEntry];
+    });
+
     setSelectedSheetId(newId);
     setSheetUrl(newEntry.url);
     setTargetSubsheet(newEntry.subsheetName);
@@ -282,8 +306,48 @@ export const ResultOpsDashboard: React.FC = () => {
     setNewSheetUrl('');
     setNewSubsheetName('Result view');
 
-    // Auto sync newly added sheet
-    handleSyncSheet(newEntry.url, newEntry.subsheetName);
+    // Auto sync newly added sheet, explicitly passing newId!
+    handleSyncSheet(newEntry.url, newEntry.subsheetName, newId);
+  };
+
+  // Open Edit Current Sheet Modal
+  const handleOpenEditModal = () => {
+    const current = savedSheets.find((s) => s.id === selectedSheetId);
+    if (current) {
+      setEditSheetName(current.name);
+      setEditSheetUrl(current.url);
+      setEditSubsheetName(current.subsheetName || 'Result view');
+      setShowEditModal(true);
+    }
+  };
+
+  // Save Edited Sheet
+  const handleSaveEditedSheet = () => {
+    if (!editSheetName.trim()) {
+      alert('Please enter a Sheet Name.');
+      return;
+    }
+
+    persistSheets((prev) =>
+      prev.map((s) =>
+        s.id === selectedSheetId
+          ? {
+              ...s,
+              name: editSheetName.trim(),
+              url: editSheetUrl.trim(),
+              subsheetName: editSubsheetName.trim() || 'Result view',
+            }
+          : s
+      )
+    );
+
+    setSheetUrl(editSheetUrl.trim());
+    setTargetSubsheet(editSubsheetName.trim() || 'Result view');
+    setShowEditModal(false);
+
+    if (editSheetUrl.trim()) {
+      handleSyncSheet(editSheetUrl.trim(), editSubsheetName.trim(), selectedSheetId);
+    }
   };
 
   // Delete Saved Sheet
@@ -503,11 +567,11 @@ export const ResultOpsDashboard: React.FC = () => {
             <label className="block text-[10px] uppercase font-mono tracking-wider text-zinc-400 mb-1">
               Select Saved Google Sheet ({savedSheets.length} Available)
             </label>
-            <div className="relative">
+            <div className="flex items-center space-x-2">
               <select
                 value={selectedSheetId}
                 onChange={(e) => handleSelectSheet(e.target.value)}
-                className="w-full bg-[#000000] border border-[#27272a] focus:border-white focus:outline-none rounded-xl px-3.5 py-2.5 text-xs text-white font-semibold transition-colors"
+                className="flex-1 bg-[#000000] border border-[#27272a] focus:border-white focus:outline-none rounded-xl px-3.5 py-2.5 text-xs text-white font-semibold transition-colors"
               >
                 {savedSheets.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -515,6 +579,15 @@ export const ResultOpsDashboard: React.FC = () => {
                   </option>
                 ))}
               </select>
+
+              <button
+                type="button"
+                onClick={handleOpenEditModal}
+                className="p-2.5 rounded-xl border border-[#27272a] hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                title="Edit name, URL, or target subsheet of this saved sheet"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
@@ -1084,6 +1157,85 @@ export const ResultOpsDashboard: React.FC = () => {
                 className="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold"
               >
                 Save &amp; Select Sheet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT CURRENT GOOGLE SHEET MODAL */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[#09090b] border border-[#27272a] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl font-sans">
+            <div className="flex items-center justify-between pb-3 border-b border-[#222222]">
+              <div className="flex items-center space-x-2.5">
+                <Edit2 className="w-5 h-5 text-white" />
+                <h3 className="text-sm font-bold text-white">Edit Sheet Details</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="text-zinc-500 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-zinc-300 font-semibold mb-1">
+                  Sheet Name / Label
+                </label>
+                <input
+                  type="text"
+                  value={editSheetName}
+                  onChange={(e) => setEditSheetName(e.target.value)}
+                  placeholder="e.g. KIIT University - Sep 2026 MIDSEM"
+                  className="w-full bg-[#000000] border border-[#27272a] rounded-xl px-3 py-2 text-white font-mono focus:border-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-300 font-semibold mb-1">
+                  Google Sheet URL / Published Web Link
+                </label>
+                <input
+                  type="text"
+                  value={editSheetUrl}
+                  onChange={(e) => setEditSheetUrl(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  className="w-full bg-[#000000] border border-[#27272a] rounded-xl px-3 py-2 text-white font-mono focus:border-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-300 font-semibold mb-1">
+                  Target Subsheet Name
+                </label>
+                <input
+                  type="text"
+                  value={editSubsheetName}
+                  onChange={(e) => setEditSubsheetName(e.target.value)}
+                  placeholder="Result view"
+                  className="w-full bg-[#000000] border border-[#27272a] rounded-xl px-3 py-2 text-white font-mono focus:border-white focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 flex justify-end space-x-2 border-t border-[#222222]">
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 rounded-xl border border-[#27272a] text-zinc-300 hover:text-white text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditedSheet}
+                className="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold"
+              >
+                Save Changes &amp; Sync
               </button>
             </div>
           </div>
