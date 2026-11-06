@@ -9,6 +9,8 @@ import {
 import {
   INITIAL_USERS,
   SUPER_ADMIN_EMAIL,
+  SUPER_ADMIN_EMAILS,
+  isSuperAdminEmail,
   DEFAULT_TEAM_ENTRIES,
   DEFAULT_PORTAL_CSV,
 } from './mockData';
@@ -44,15 +46,18 @@ export function getStoredUsers(): User[] {
     const filtered = users.filter((u) => !legacyMockIds.has(u.id));
 
     const hasAdmin = filtered.some(
-      (u) => u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()
+      (u) =>
+        u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() ||
+        isSuperAdminEmail(u.email)
     );
     if (!hasAdmin) {
       filtered.unshift(INITIAL_USERS[0]);
     }
 
-    // Ensure Shaik Ghouse is always super_admin
+    // Ensure Super Admin is always super_admin
     const normalized = filtered.map((u) =>
-      u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()
+      u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() ||
+      isSuperAdminEmail(u.email)
         ? { ...u, role: 'super_admin' as const }
         : u
     );
@@ -79,7 +84,7 @@ export function saveStoredUsers(users: User[]): void {
 }
 
 export function getActiveUser(): User | null {
-  if (typeof window === 'undefined') return INITIAL_USERS[0];
+  if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(CURRENT_USER_KEY);
     if (raw) {
@@ -92,8 +97,8 @@ export function getActiveUser(): User | null {
       return matched || parsed;
     }
   } catch {}
-  // Default to Super Admin so opening the app link immediately lands on the Welcome Greeting Card!
-  return INITIAL_USERS[0];
+  // Default to null so new visitors see the Google Registration / Sign In screen
+  return null;
 }
 
 export function setActiveUser(user: User | null): void {

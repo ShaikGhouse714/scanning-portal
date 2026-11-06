@@ -41,6 +41,7 @@ import {
   FileCheck2,
   ArrowRight,
   LayoutDashboard,
+  Crown,
 } from 'lucide-react';
 import { exportReconciliationToCSV, exportPortalSlotsToCSV } from '../lib/storage';
 import { CustomDropdown, DropdownOption } from './CustomDropdown';
@@ -65,6 +66,8 @@ interface ReconciliationDashboardProps {
   setActiveTab: (tab: string) => void;
   lastSyncedTime: string;
   sheetNames?: string[];
+  onOpenAccountModal?: () => void;
+  usersCount?: number;
 }
 
 export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = ({
@@ -85,6 +88,8 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
   setActiveTab,
   lastSyncedTime,
   sheetNames = [],
+  onOpenAccountModal,
+  usersCount = 0,
 }) => {
   // Matrix Filters
   const [selectedDate, setSelectedDate] = useState<string>('all');
@@ -665,6 +670,48 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
             </div>
           </div>
+
+          {/* Super Admin Team Management Banner */}
+          {currentUser?.role === 'super_admin' && onOpenAccountModal && (
+            <div className="p-5 rounded-2xl bg-[#09090b] border border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+              <div className="flex items-center space-x-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300 shrink-0">
+                  <Crown className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white flex items-center space-x-2">
+                    <span>Super Admin Console • Team Access &amp; Roles</span>
+                    {usersCount !== undefined && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-amber-300 border border-zinc-700">
+                        {usersCount} {usersCount === 1 ? 'Registered User' : 'Registered Users'}
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">
+                    New Google account registrations default to Basic Admin. Review their details and promote them to Super Admin with one click.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenAccountModal}
+                className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all shrink-0"
+              >
+                <Crown className="w-3.5 h-3.5" />
+                <span>Review &amp; Promote Users</span>
+              </button>
+            </div>
+          )}
+
+          {/* Basic Admin Information Banner */}
+          {currentUser?.role !== 'super_admin' && (
+            <div className="p-4 rounded-xl bg-[#09090b] border border-[#27272a] flex items-center space-x-3 text-xs text-zinc-400">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
+              <span>
+                Signed in as <strong className="text-white">{currentUser?.name}</strong> (Basic Admin). You have full access to Scanning Ops, Eval Ops, and Result Ops. Contact Super Admin (Shaik Ghouse M) for elevated permissions.
+              </span>
+            </div>
+          )}
 
           {/* Workflow Overview - 3 Simple Steps */}
           <div className="space-y-4">

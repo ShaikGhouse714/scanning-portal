@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getServerUsers, addServerUser, updateServerUser } from '@/lib/serverStore';
-import { SUPER_ADMIN_EMAIL } from '@/lib/mockData';
+import { getServerUsers, addServerUser, updateServerUser, deleteServerUser } from '@/lib/serverStore';
+import { SUPER_ADMIN_EMAIL, isSuperAdminEmail } from '@/lib/mockData';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -47,10 +47,10 @@ export async function POST(request: Request) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const isSuperAdminEmail = cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase();
+    const isSuper = cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase() || isSuperAdminEmail(cleanEmail);
 
     // Default partner role is Basic Admin ('admin')
-    const assignedRole: 'super_admin' | 'admin' | 'operator' = isSuperAdminEmail
+    const assignedRole: 'super_admin' | 'admin' | 'operator' = isSuper
       ? 'super_admin'
       : role === 'super_admin'
       ? 'super_admin'
@@ -61,11 +61,11 @@ export async function POST(request: Request) {
       name: name.trim(),
       email: cleanEmail,
       role: assignedRole,
-      station: isSuperAdminEmail
+      station: isSuper
         ? 'HQ / Scanning Dept Management'
         : station?.trim() || 'Partner Admin Station',
       department: 'Scanning Dept',
-      avatarColor: isSuperAdminEmail ? 'bg-cyan-600' : 'bg-indigo-600',
+      avatarColor: isSuper ? 'bg-cyan-600' : 'bg-indigo-600',
       status: (body.status || 'active') as 'active' | 'inactive',
       createdAt: body.createdAt || new Date().toISOString(),
     };
@@ -132,6 +132,29 @@ export async function PATCH(request: Request) {
         message: 'Error updating user',
         error: String(error),
       },
+      { status: 500, headers: noCacheHeaders }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id') || searchParams.get('email');
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: 'User id or email is required' },
+        { status: 400, headers: noCacheHeaders }
+      );
+    }
+    const success = await deleteServerUser(id);
+    return NextResponse.json(
+      { success, message: success ? 'User removed' : 'User not found or cannot delete owner' },
+      { status: success ? 200 : 404, headers: noCacheHeaders }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: String(error) },
       { status: 500, headers: noCacheHeaders }
     );
   }

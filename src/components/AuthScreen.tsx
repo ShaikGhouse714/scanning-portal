@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { SUPER_ADMIN_EMAIL, INITIAL_USERS } from '../lib/mockData';
-import { getStoredUsers, saveStoredUsers } from '../lib/storage';
-import { ShieldCheck, ArrowRight } from 'lucide-react';
+import { SUPER_ADMIN_EMAIL, SUPER_ADMIN_EMAILS, isSuperAdminEmail, INITIAL_USERS } from '../lib/mockData';
+import { getStoredUsers, saveStoredUsers, setActiveUser } from '../lib/storage';
+import { ShieldCheck, ArrowRight, UserPlus, LogIn, Sparkles, Building, Mail, User as UserIcon } from 'lucide-react';
 
 interface AuthScreenProps {
   onLoginSuccess: (user: User) => void;
@@ -31,30 +31,28 @@ const GoogleIcon = () => (
   </svg>
 );
 
-// Format readable name from email prefix (e.g. ghousemohiuddin774@gmail.com -> Ghouse Mohiuddin)
-function formatNameFromEmail(email: string): string {
-  const handle = email.split('@')[0] || 'Team Member';
-  const clean = handle.replace(/[0-9_.-]+/g, ' ').trim();
-  if (!clean) return handle;
-  return clean
-    .split(' ')
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ');
-}
-
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('');
+  const [mode, setMode] = useState<'signin' | 'register'>('signin');
+  
+  // Sign In State
+  const [signInEmail, setSignInEmail] = useState('');
+  
+  // Register State
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regStation, setRegStation] = useState('');
+
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const cleanEmail = email.trim().toLowerCase();
-
-  // Unified Google Sign In
-  const handleGoogleSignIn = async (e: React.FormEvent) => {
+  // Handle Sign In with Google
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setNotice(null);
 
+    const cleanEmail = signInEmail.trim().toLowerCase();
     if (!cleanEmail) {
       setError('Please enter your Google account email.');
       return;
@@ -63,50 +61,106 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     try {
-      const isSuper = cleanEmail === SUPER_ADMIN_EMAIL.toLowerCase();
-
-      // 1. If Super Admin Shaik Ghouse, log in immediately
-      if (isSuper) {
+      // 1. Super Admin Check
+      if (isSuperAdminEmail(cleanEmail)) {
         setIsLoading(false);
-        onLoginSuccess(INITIAL_USERS[0]);
+        const superAdminUser = {
+          ...INITIAL_USERS[0],
+          email: cleanEmail,
+        };
+        setActiveUser(superAdminUser);
+        onLoginSuccess(superAdminUser);
         return;
       }
 
-      // 2. Check if user already exists on the server
-      const res = await fetch('/api/users', { cache: 'no-store' });
+      // 2. Fetch live users from server
+      const res = await fetch(`/api/users?t=${Date.now()}`, { cache: 'no-store' });
       let usersList: User[] = getStoredUsers();
       if (res.ok) {
         const json = await res.json();
         if (Array.isArray(json.data)) usersList = json.data;
       }
 
-      const match = usersList.find((u) => u.email.toLowerCase() === cleanEmail);
+      const match = usersList.find((u) => u.email.toLowerCase().trim() === cleanEmail);
+
       if (match) {
         if (match.status === 'inactive') {
           setIsLoading(false);
-          setError('This account has been deactivated by the Super Administrator.');
+          setError('This account has been deactivated by Super Administrator (Shaik Ghouse M).');
           return;
         }
         setIsLoading(false);
+        setActiveUser(match);
         onLoginSuccess(match);
         return;
       }
 
-      // 3. New User: Automatically register as Basic Admin ('admin')
-      const derivedName = formatNameFromEmail(cleanEmail);
+      // 3. Not registered -> Switch to Register mode with email pre-filled
+      setIsLoading(false);
+      setRegEmail(cleanEmail);
+      setMode('register');
+      setNotice('This Google account is not registered yet. Please enter your name and station below to register as Basic Admin.');
+    } catch {
+      setIsLoading(false);
+      setError('Connection error. Please try again.');
+    }
+  };
+
+  // Handle Registration
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setNotice(null);
+
+    const cleanName = regName.trim();
+    const cleanEmail = regEmail.trim().toLowerCase();
+    const cleanStation = regStation.trim();
+
+    if (!cleanName || cleanName.length < 2) {
+      setError('Please provide your full legal or display name.');
+      return;
+    }
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setError('Please enter a valid Google account email.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const isSuper = isSuperAdminEmail(cleanEmail);
+
+      // Check if user already exists
+      const res = await fetch(`/api/users?t=${Date.now()}`, { cache: 'no-store' });
+      let usersList: User[] = getStoredUsers();
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) usersList = json.data;
+      }
+
+      const existing = usersList.find((u) => u.email.toLowerCase().trim() === cleanEmail);
+      if (existing) {
+        setIsLoading(false);
+        setActiveUser(existing);
+        onLoginSuccess(existing);
+        return;
+      }
+
+      // Create new user profile as Basic Admin ('admin')
       const newUser: User = {
         id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        name: derivedName,
+        name: cleanName,
         email: cleanEmail,
-        role: 'admin', // New users are strictly Basic Admin
-        station: 'Partner Admin Station',
-        department: 'Scanning Dept',
-        avatarColor: 'bg-indigo-600',
+        role: isSuper ? 'super_admin' : 'admin', // Default role is strictly Basic Admin
+        station: cleanStation || 'Station Admin Center',
+        department: 'Scanning Dept - Partner Operations',
+        avatarColor: isSuper ? 'bg-cyan-600' : 'bg-indigo-600',
         status: 'active',
         createdAt: new Date().toISOString(),
       };
 
-      // Save to server store
+      // Save to cloud server store
       const saveRes = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -126,19 +180,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
       }
 
       setIsLoading(false);
+      setActiveUser(savedUser);
       onLoginSuccess(savedUser);
     } catch {
       setIsLoading(false);
-      setError('Connection error. Please try again.');
+      setError('Failed to complete registration. Please check connection and try again.');
     }
   };
 
+  // Quick Sign In for Super Admin Shaik Ghouse
+  const handleQuickSuperAdmin = () => {
+    const superAdmin = INITIAL_USERS[0];
+    setActiveUser(superAdmin);
+    onLoginSuccess(superAdmin);
+  };
+
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-black text-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans selection:bg-white selection:text-black">
       <div className="sm:mx-auto sm:w-full sm:max-w-md px-4">
         {/* Brand Header with 3-bar metric icon */}
         <div className="text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-[#09090b] border border-zinc-800 flex items-center justify-center shadow-xl mx-auto p-2">
+          <div className="w-14 h-14 rounded-2xl bg-[#09090b] border border-[#27272a] flex items-center justify-center shadow-2xl mx-auto p-2">
             <svg className="w-8 h-8" viewBox="0 0 64 64" fill="none">
               <rect x="13" y="34" width="10" height="22" rx="5" fill="#FFFFFF" />
               <rect x="27" y="22" width="10" height="34" rx="5" fill="#A1A1AA" />
@@ -146,65 +208,214 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
             </svg>
           </div>
           <h2 className="mt-3 text-xl sm:text-2xl font-bold tracking-tight text-white">
-            Scanning Ops
+            Scanning Ops Portal
           </h2>
           <p className="mt-1 text-xs text-zinc-400">
-            Intake Verification &amp; Portal Reconciliation Network
+            Intake Verification, Post-Exam Reconciliation &amp; Result Ops Network
           </p>
         </div>
 
-        {/* Card */}
-        <div className="bg-[#09090b] py-8 px-6 sm:px-8 border border-zinc-800 rounded-2xl shadow-2xl space-y-5">
-          <div className="text-center pb-2 border-b border-zinc-800">
-            <h3 className="text-xs font-semibold text-white flex items-center justify-center space-x-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Sign In using Google Account</span>
-            </h3>
-            <p className="text-[11px] text-zinc-400 mt-1">
-              Enter your Google email to access the portal
-            </p>
+        {/* Auth Container Card */}
+        <div className="bg-[#09090b] border border-[#27272a] rounded-2xl shadow-2xl overflow-hidden font-sans">
+          {/* Mode Switcher Tabs */}
+          <div className="grid grid-cols-2 border-b border-[#222222] bg-[#000000]">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('signin');
+                setError(null);
+                setNotice(null);
+              }}
+              className={`py-3 text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
+                mode === 'signin'
+                  ? 'bg-[#09090b] text-white border-b-2 border-white'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('register');
+                setError(null);
+                setNotice(null);
+              }}
+              className={`py-3 text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
+                mode === 'register'
+                  ? 'bg-[#09090b] text-white border-b-2 border-white'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Register Account</span>
+            </button>
           </div>
 
-          {error && (
-            <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300 leading-relaxed">
-              {error}
+          <div className="p-6 sm:p-8 space-y-5">
+            {/* Notifications and Alerts */}
+            {error && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300 leading-relaxed animate-in fade-in">
+                {error}
+              </div>
+            )}
+
+            {notice && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-200 leading-relaxed animate-in fade-in">
+                {notice}
+              </div>
+            )}
+
+            {/* TAB 1: SIGN IN */}
+            {mode === 'signin' && (
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-1.5 flex items-center space-x-1.5">
+                    <Mail className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Google Account Email</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={signInEmail}
+                    onChange={(e) => setSignInEmail(e.target.value)}
+                    placeholder="e.g. yourname@gmail.com"
+                    className="w-full text-xs px-3.5 py-2.5 bg-[#000000] border border-[#27272a] rounded-xl text-white font-mono focus:outline-none focus:border-white transition-all placeholder-zinc-600"
+                  />
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    Enter the Google email you registered with.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-2.5 px-4 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+                >
+                  <GoogleIcon />
+                  <span>{isLoading ? 'Checking Access...' : 'Sign In using Google Account'}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRegEmail(signInEmail);
+                      setMode('register');
+                    }}
+                    className="text-xs text-zinc-400 hover:text-white underline underline-offset-4 transition-colors"
+                  >
+                    Don&apos;t have an account yet? Register here
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* TAB 2: REGISTER ACCOUNT */}
+            {mode === 'register' && (
+              <form onSubmit={handleRegister} className="space-y-4">
+                {/* Information Card */}
+                <div className="p-3 rounded-xl bg-[#000000] border border-[#27272a] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+                      Assigned Access
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 font-semibold">
+                      Basic Admin
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    New registrants receive <strong>Basic Admin</strong> privileges for Scanning, Eval, and Result Ops. The Super Admin (Shaik Ghouse M) can promote accounts in the admin console.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-1 flex items-center space-x-1.5">
+                    <UserIcon className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Your Full Name</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                    placeholder="e.g. Arun Kumar"
+                    className="w-full text-xs px-3.5 py-2.5 bg-[#000000] border border-[#27272a] rounded-xl text-white font-sans focus:outline-none focus:border-white transition-all placeholder-zinc-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-1 flex items-center space-x-1.5">
+                    <Mail className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Google Account Email</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    placeholder="yourname@gmail.com"
+                    className="w-full text-xs px-3.5 py-2.5 bg-[#000000] border border-[#27272a] rounded-xl text-white font-mono focus:outline-none focus:border-white transition-all placeholder-zinc-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-1 flex items-center space-x-1.5">
+                    <Building className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Station / Center / College (Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={regStation}
+                    onChange={(e) => setRegStation(e.target.value)}
+                    placeholder="e.g. KIIT University - Station 1"
+                    className="w-full text-xs px-3.5 py-2.5 bg-[#000000] border border-[#27272a] rounded-xl text-white font-sans focus:outline-none focus:border-white transition-all placeholder-zinc-600"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-2.5 px-4 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+                >
+                  <GoogleIcon />
+                  <span>{isLoading ? 'Creating Account...' : 'Register with Google Account'}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSignInEmail(regEmail);
+                      setMode('signin');
+                    }}
+                    className="text-xs text-zinc-400 hover:text-white underline underline-offset-4 transition-colors"
+                  >
+                    Already registered? Sign In here
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Quick Access for Super Admin (Shaik Ghouse M) */}
+            <div className="pt-4 border-t border-[#222222] space-y-2">
+              <button
+                type="button"
+                onClick={handleQuickSuperAdmin}
+                className="w-full py-2 px-3 bg-[#121214] hover:bg-zinc-800 border border-[#27272a] text-zinc-300 hover:text-white rounded-xl text-xs font-semibold transition-all flex items-center justify-center space-x-2"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Super Admin Quick Sign In (Shaik Ghouse M)</span>
+              </button>
+              <div className="text-center">
+                <span className="text-[10px] text-zinc-500 font-mono block">
+                  Permissions &amp; account promotions managed by Super Administrator.
+                </span>
+              </div>
             </div>
-          )}
-
-          {/* SINGLE CLEAN GOOGLE SIGN IN FORM */}
-          <form onSubmit={handleGoogleSignIn} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                Google Account Email
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="yourname@gmail.com"
-                className="w-full text-xs px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white font-mono focus:outline-none focus:border-white transition-all placeholder-zinc-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-2.5 px-4 bg-white hover:bg-zinc-200 text-black font-bold text-xs font-semibold rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-            >
-              <GoogleIcon />
-              <span>{isLoading ? 'Authenticating...' : 'Sign In using Google'}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </form>
-
-          <div className="pt-2 border-t border-zinc-800 text-center">
-            <span className="text-[10px] text-zinc-500 font-mono block">
-              New team members are assigned Basic Admin automatically.
-            </span>
-            <span className="text-[10px] text-zinc-600 font-mono block mt-0.5">
-              Role permissions managed by Super Admin (Shaik Ghouse M).
-            </span>
           </div>
         </div>
       </div>

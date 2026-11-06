@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { User, PortalExamSlot, TeamSubsheetEntry } from '@/types';
-import { SUPER_ADMIN_EMAIL, INITIAL_USERS } from '@/lib/mockData';
+import { SUPER_ADMIN_EMAIL, SUPER_ADMIN_EMAILS, isSuperAdminEmail, INITIAL_USERS } from '@/lib/mockData';
 
 // Persistent Cloud Storage Endpoints (Shared across all Vercel Serverless Lambdas and devices)
 const USERS_BLOB_URL = 'https://superjsonblob.com/api/jsonBlob/6028245c-08b1-46d7-a46b-e0c36f950259';
@@ -162,7 +162,9 @@ export async function updateServerUser(idOrEmail: string, updates: Partial<User>
   );
   if (index === -1) return null;
 
-  const isSuperOwner = users[index].email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase();
+  const isSuperOwner =
+    users[index].email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase() ||
+    isSuperAdminEmail(users[index].email);
   const finalRole = isSuperOwner ? 'super_admin' : (updates.role || users[index].role);
 
   const updatedUser: User = {
@@ -177,6 +179,30 @@ export async function updateServerUser(idOrEmail: string, updates: Partial<User>
   await syncUsersToCloud(users);
 
   return updatedUser;
+}
+
+export async function deleteServerUser(idOrEmail: string): Promise<boolean> {
+  const users = await getServerUsers();
+  const cleanKey = idOrEmail.toLowerCase().trim();
+  const isTargetOwner =
+    cleanKey === SUPER_ADMIN_EMAIL.toLowerCase() ||
+    isSuperAdminEmail(cleanKey);
+  if (isTargetOwner) return false;
+
+  const filtered = users.filter(
+    (u) =>
+      u.id !== idOrEmail &&
+      u.email.toLowerCase().trim() !== cleanKey &&
+      !isSuperAdminEmail(u.email)
+  );
+
+  if (filtered.length === users.length) return false;
+
+  inMemoryUsers = filtered;
+  saveLocalUsers(filtered);
+  await syncUsersToCloud(filtered);
+
+  return true;
 }
 
 // ==========================================

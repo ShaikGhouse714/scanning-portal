@@ -23,7 +23,7 @@ import {
   parseTeamGoogleSheet,
   reconcileIntakeVsPortal,
 } from '../lib/excelParser';
-import { SUPER_ADMIN_EMAIL } from '../lib/mockData';
+import { SUPER_ADMIN_EMAIL, isSuperAdminEmail } from '../lib/mockData';
 import { Sidebar } from '../components/Sidebar';
 import { ReconciliationDashboard } from '../components/ReconciliationDashboard';
 import { EvalOpsDashboard } from '../components/EvalOpsDashboard';
@@ -352,6 +352,19 @@ export default function Home() {
     }
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    setUsers((prev) => {
+      const updated = prev.filter((u) => u.id !== userId);
+      saveStoredUsers(updated);
+      return updated;
+    });
+    try {
+      await fetch(`/api/users?id=${userId}`, { method: 'DELETE' });
+    } catch (e) {
+      console.warn('Failed to delete user on server:', e);
+    }
+  };
+
   const handleSignOut = () => {
     setCurrentUser(null);
     setActiveUser(null);
@@ -359,9 +372,10 @@ export default function Home() {
 
   const isSuperAdmin =
     currentUser?.role === 'super_admin' ||
-    currentUser?.email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase();
+    currentUser?.email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase() ||
+    isSuperAdminEmail(currentUser?.email);
 
-  // Enforce access control: Basic admins can ONLY access 'reconciliation' and 'data_sources'
+  // Enforce access control: Basic admins can access Scanning, Eval, and Result Ops
   useEffect(() => {
     if (currentUser && !isSuperAdmin) {
       if (activeTab === 'teammates' || activeTab === 'portal_exams') {
@@ -409,6 +423,7 @@ export default function Home() {
               }
             : undefined
         }
+        usersCount={users.length}
         netDiscrepancy={metrics.netDiscrepancy}
         isSyncing={isSyncing}
       />
@@ -441,6 +456,15 @@ export default function Home() {
               setActiveTab={setActiveTab}
               lastSyncedTime={lastSyncedTime}
               sheetNames={sheetNames}
+              onOpenAccountModal={
+                isSuperAdmin
+                  ? () => {
+                      handleRefreshUsers();
+                      setIsAccountModalOpen(true);
+                    }
+                  : undefined
+              }
+              usersCount={users.length}
             />
           )}
         </main>
@@ -455,6 +479,7 @@ export default function Home() {
           onSaveUser={handleSaveUser}
           onToggleStatus={handleToggleUserStatus}
           onUpdateRole={handleUpdateUserRole}
+          onDeleteUser={handleDeleteUser}
           onRefreshUsers={handleRefreshUsers}
         />
       )}

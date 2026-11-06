@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { User } from '../types';
-import { X, UserPlus, Power, ShieldCheck, Crown, Shield, RefreshCw } from 'lucide-react';
-import { SUPER_ADMIN_EMAIL } from '../lib/mockData';
+import { X, UserPlus, Power, ShieldCheck, Crown, Shield, RefreshCw, Trash2, Mail, Building, User as UserIcon } from 'lucide-react';
+import { SUPER_ADMIN_EMAIL, isSuperAdminEmail } from '../lib/mockData';
 import { CustomDropdown } from './CustomDropdown';
 
 interface UserManagementModalProps {
@@ -13,6 +13,7 @@ interface UserManagementModalProps {
   onSaveUser: (user: User) => void;
   onToggleStatus: (userId: string) => void;
   onUpdateRole: (userId: string, newRole: 'super_admin' | 'admin') => void;
+  onDeleteUser?: (userId: string) => void;
   onRefreshUsers?: () => Promise<void>;
 }
 
@@ -23,6 +24,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   onSaveUser,
   onToggleStatus,
   onUpdateRole,
+  onDeleteUser,
   onRefreshUsers,
 }) => {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -32,6 +34,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   const [station, setStation] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [localUsers, setLocalUsers] = useState<User[]>(propUsers);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   // Sync propUsers to local state
   useEffect(() => {
@@ -41,6 +44,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   // Fetch live users from server whenever modal opens
   const fetchLiveUsers = useCallback(async () => {
     setIsRefreshing(true);
+    setActionNotice(null);
     try {
       if (onRefreshUsers) {
         await onRefreshUsers();
@@ -89,26 +93,56 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
     onSaveUser(newUser);
     setLocalUsers((prev) => [...prev, newUser]);
+    setActionNotice(`Account created for ${newUser.name} (${role === 'super_admin' ? 'Super Admin' : 'Basic Admin'})`);
     setName('');
     setEmail('');
     setStation('');
     setShowAddForm(false);
   };
 
+  const handlePromoteOrDemote = (user: User, newRole: 'super_admin' | 'admin') => {
+    onUpdateRole(user.id, newRole);
+    setLocalUsers((prev) =>
+      prev.map((item) => (item.id === user.id ? { ...item, role: newRole } : item))
+    );
+    setActionNotice(
+      newRole === 'super_admin'
+        ? `✓ ${user.name} promoted to Super Admin successfully!`
+        : `✓ ${user.name} changed to Basic Admin.`
+    );
+  };
+
+  const handleDelete = async (user: User) => {
+    if (!window.confirm(`Are you sure you want to remove account ${user.name} (${user.email})?`)) {
+      return;
+    }
+    if (onDeleteUser) {
+      onDeleteUser(user.id);
+    } else {
+      try {
+        await fetch(`/api/users?id=${user.id}`, { method: 'DELETE' });
+      } catch (e) {
+        console.warn('Delete failed:', e);
+      }
+    }
+    setLocalUsers((prev) => prev.filter((u) => u.id !== user.id));
+    setActionNotice(`Account ${user.name} removed.`);
+  };
+
   const displayUsers = localUsers.length > 0 ? localUsers : propUsers;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans animate-fadeIn">
-      <div className="bg-[#0E121A] rounded-2xl shadow-2xl border border-[#1E2430] w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-sans animate-in fade-in duration-150">
+      <div className="bg-[#09090b] rounded-2xl shadow-2xl border border-[#27272a] w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between bg-[#0B0E14]">
+        <div className="px-6 py-4 border-b border-[#222222] flex items-center justify-between bg-[#000000]">
           <div>
-            <h2 className="text-sm font-semibold text-white flex items-center space-x-2">
-              <ShieldCheck className="w-4 h-4 text-zinc-300" />
-              <span>Admin Account &amp; Access Controls</span>
+            <h2 className="text-sm font-bold text-white flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 text-white" />
+              <span>Team Accounts &amp; Access Controls</span>
             </h2>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Only you (Admin) can add or manage accounts for this portal.
+              Super Admin Management Console • Review registered users and promote to Super Admin.
             </p>
           </div>
           <div className="flex items-center space-x-2">
@@ -116,13 +150,13 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               onClick={fetchLiveUsers}
               disabled={isRefreshing}
               title="Refresh live user registrations"
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1A2230] transition-colors"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-cyan-400' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-white' : ''}`} />
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1A2230] transition-colors"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -130,14 +164,27 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="p-6 overflow-y-auto space-y-5 flex-1">
+          {actionNotice && (
+            <div className="p-3 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white leading-relaxed flex items-center justify-between">
+              <span>{actionNotice}</span>
+              <button
+                type="button"
+                onClick={() => setActionNotice(null)}
+                className="text-zinc-400 hover:text-white text-[11px]"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-semibold text-slate-200">
-                Authorized Accounts ({displayUsers.length})
+              <span className="text-xs font-bold text-white">
+                Registered Team Members ({displayUsers.length})
               </span>
               {isRefreshing && (
-                <span className="text-[10px] text-cyan-400 font-mono animate-pulse">
+                <span className="text-[10px] text-zinc-400 font-mono animate-pulse">
                   Syncing live...
                 </span>
               )}
@@ -145,17 +192,17 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
             <div className="flex items-center space-x-2">
               <button
                 onClick={fetchLiveUsers}
-                className="inline-flex items-center space-x-1 px-2.5 py-1 bg-zinc-900 hover:bg-[#1A2230] text-zinc-300 text-xs rounded-lg border border-zinc-800 transition-colors"
+                className="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-[#000000] hover:bg-zinc-800 text-zinc-300 text-xs rounded-xl border border-[#27272a] transition-colors"
               >
                 <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span>Refresh</span>
               </button>
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
-                className="inline-flex items-center space-x-1.5 px-3 py-1 bg-[#1B2230] hover:bg-[#252E40] text-slate-200 text-xs font-medium rounded-lg border border-[#2B3548] shadow-sm transition-all"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-zinc-200 text-black text-xs font-bold rounded-xl shadow-sm transition-all"
               >
                 <UserPlus className="w-3.5 h-3.5" />
-                <span>{showAddForm ? 'Cancel' : 'Add New Account'}</span>
+                <span>{showAddForm ? 'Cancel' : 'Add Account'}</span>
               </button>
             </div>
           </div>
@@ -164,10 +211,10 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
           {showAddForm && (
             <form
               onSubmit={handleCreateUser}
-              className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3"
+              className="bg-[#000000] border border-[#27272a] rounded-xl p-4 space-y-3 animate-in fade-in"
             >
-              <div className="text-xs font-semibold text-slate-200">
-                Grant Access to a Team Member
+              <div className="text-xs font-bold text-white">
+                Authorize a Team Member Manually
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -178,7 +225,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                     placeholder="e.g. Ramesh Kumar"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full text-xs px-3 py-2 bg-[#0E121A] border border-zinc-800 rounded-lg text-white focus:outline-none"
+                    className="w-full text-xs px-3 py-2 bg-[#09090b] border border-[#27272a] rounded-xl text-white focus:outline-none focus:border-white"
                   />
                 </div>
                 <div>
@@ -189,23 +236,23 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                     placeholder="e.g. ramesh@codetantra.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full text-xs px-3 py-2 bg-[#0E121A] border border-zinc-800 rounded-lg text-white focus:outline-none"
+                    className="w-full text-xs px-3 py-2 bg-[#09090b] border border-[#27272a] rounded-xl text-white font-mono focus:outline-none focus:border-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-zinc-400 mb-1">Assigned Role</label>
+                  <label className="block text-[11px] text-zinc-400 mb-1">Initial Role</label>
                   <CustomDropdown
                     value={role}
                     options={[
                       {
                         value: 'admin',
-                        label: 'Basic Admin (Intake & Live Sync)',
-                        badge: 'Scoped',
-                        badgeColor: 'bg-indigo-500/20 text-indigo-300',
+                        label: 'Basic Admin (Scanning, Eval, Result Ops)',
+                        badge: 'Default',
+                        badgeColor: 'bg-zinc-800 text-zinc-300',
                       },
                       {
                         value: 'super_admin',
-                        label: 'Super Admin (Full Console)',
+                        label: 'Super Admin (Full Console & User Admin)',
                         badge: 'Master',
                         badgeColor: 'bg-amber-500/20 text-amber-300',
                       },
@@ -219,17 +266,17 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                   <label className="block text-[11px] text-zinc-400 mb-1">Station / Center</label>
                   <input
                     type="text"
-                    placeholder="e.g. Scanning Station 2"
+                    placeholder="e.g. KIIT University - Station 2"
                     value={station}
                     onChange={(e) => setStation(e.target.value)}
-                    className="w-full text-xs px-3 py-2 bg-[#0E121A] border border-zinc-800 rounded-lg text-white focus:outline-none"
+                    className="w-full text-xs px-3 py-2 bg-[#09090b] border border-[#27272a] rounded-xl text-white focus:outline-none focus:border-white"
                   />
                 </div>
               </div>
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-[#1E2536] hover:bg-[#283248] text-white text-xs font-semibold rounded-lg border border-[#303D57] transition-all"
+                  className="px-4 py-2 bg-white hover:bg-zinc-200 text-black text-xs font-bold rounded-xl transition-all"
                 >
                   Save Account
                 </button>
@@ -238,38 +285,41 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
           )}
 
           {/* User List */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {displayUsers.map((u) => {
-              const isOwner = u.email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase();
+              const isOwner =
+                u.email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase() ||
+                isSuperAdminEmail(u.email);
               const isSuper = u.role === 'super_admin' || isOwner;
 
               return (
                 <div
                   key={u.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-zinc-900 border border-[#1E2430] hover:border-[#273244] transition-all gap-3"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-[#000000] border border-[#27272a] hover:border-zinc-600 transition-all gap-3"
                 >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-[#18202E] border border-[#28354A] flex items-center justify-center font-bold text-white text-xs">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-[#18181b] border border-[#27272a] flex items-center justify-center font-bold text-white text-xs shrink-0">
                       {u.name.charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs font-semibold text-white">{u.name}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center space-x-2 flex-wrap">
+                        <span className="text-xs font-bold text-white">{u.name}</span>
                         {isOwner ? (
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white/10 text-white border border-zinc-700">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white text-black font-bold">
                             Owner / Super Admin
                           </span>
                         ) : isSuper ? (
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            Super Admin
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold flex items-center space-x-1">
+                            <Crown className="w-2.5 h-2.5" />
+                            <span>Super Admin</span>
                           </span>
                         ) : (
-                          <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 font-semibold">
                             Basic Admin
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                      <div className="text-[11px] text-zinc-400 font-mono mt-0.5 truncate">
                         {u.email} • {u.station || 'Partner Station'}
                       </div>
                     </div>
@@ -282,16 +332,9 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                         {u.role === 'admin' ? (
                           <button
                             type="button"
-                            onClick={() => {
-                              onUpdateRole(u.id, 'super_admin');
-                              setLocalUsers((prev) =>
-                                prev.map((item) =>
-                                  item.id === u.id ? { ...item, role: 'super_admin' } : item
-                                )
-                              );
-                            }}
-                            title="Promote to Super Admin"
-                            className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 font-medium transition-all flex items-center space-x-1"
+                            onClick={() => handlePromoteOrDemote(u, 'super_admin')}
+                            title="Promote this user to Super Admin"
+                            className="text-xs px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 font-bold transition-all flex items-center space-x-1.5"
                           >
                             <Crown className="w-3.5 h-3.5 text-amber-400" />
                             <span>Promote to Super Admin</span>
@@ -299,16 +342,9 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                         ) : (
                           <button
                             type="button"
-                            onClick={() => {
-                              onUpdateRole(u.id, 'admin');
-                              setLocalUsers((prev) =>
-                                prev.map((item) =>
-                                  item.id === u.id ? { ...item, role: 'admin' } : item
-                                )
-                              );
-                            }}
-                            title="Demote to Basic Admin"
-                            className="text-[11px] px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-[#202737] text-zinc-300 border border-zinc-700 font-medium transition-all flex items-center space-x-1"
+                            onClick={() => handlePromoteOrDemote(u, 'admin')}
+                            title="Demote this user to Basic Admin"
+                            className="text-xs px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 font-semibold transition-all flex items-center space-x-1.5"
                           >
                             <Shield className="w-3.5 h-3.5 text-zinc-400" />
                             <span>Demote to Basic Admin</span>
@@ -318,32 +354,42 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                     )}
 
                     <span
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
                         u.status === 'active'
                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-slate-800 text-zinc-500'
+                          : 'bg-zinc-800 text-zinc-500'
                       }`}
                     >
                       {u.status === 'active' ? 'Active' : 'Inactive'}
                     </span>
 
                     {!isOwner && (
-                      <button
-                        onClick={() => {
-                          onToggleStatus(u.id);
-                          setLocalUsers((prev) =>
-                            prev.map((item) =>
-                              item.id === u.id
-                                ? { ...item, status: item.status === 'active' ? 'inactive' : 'active' }
-                                : item
-                            )
-                          );
-                        }}
-                        title="Toggle Active Status"
-                        className="p-1.5 text-zinc-500 hover:text-white rounded hover:bg-[#1C2433] transition-colors"
-                      >
-                        <Power className="w-3.5 h-3.5" />
-                      </button>
+                      <>
+                        <button
+                          onClick={() => {
+                            onToggleStatus(u.id);
+                            setLocalUsers((prev) =>
+                              prev.map((item) =>
+                                item.id === u.id
+                                  ? { ...item, status: item.status === 'active' ? 'inactive' : 'active' }
+                                  : item
+                              )
+                            );
+                          }}
+                          title={u.status === 'active' ? 'Deactivate account' : 'Activate account'}
+                          className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
+                        >
+                          <Power className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => handleDelete(u)}
+                          title="Delete account"
+                          className="p-1.5 text-zinc-400 hover:text-rose-400 rounded-lg hover:bg-zinc-800 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

@@ -1,6 +1,21 @@
 import { User, TeamSubsheetEntry } from '../types';
 
 export const SUPER_ADMIN_EMAIL = 'shaikghousem@codetantra.in';
+export const SUPER_ADMIN_EMAILS = [
+  'shaikghousem@codetantra.in',
+  'ghousemohiuddin774@gmail.com',
+];
+
+export function isSuperAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.toLowerCase().trim();
+  return (
+    clean === SUPER_ADMIN_EMAIL.toLowerCase() ||
+    SUPER_ADMIN_EMAILS.some((e) => e.toLowerCase() === clean) ||
+    clean.includes('shaikghouse') ||
+    clean.includes('ghousemohiuddin')
+  );
+}
 
 export const SCHOOL_CODE_MAP: Record<string, string> = {
   SCE: 'School of Computer Engineering',

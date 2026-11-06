@@ -17,6 +17,8 @@ import {
   Filter,
   Home,
   Clock,
+  Crown,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +27,7 @@ interface SidebarProps {
   setActiveTab: (tab: string) => void;
   onSignOut: () => void;
   onOpenAccountModal?: () => void;
+  usersCount?: number;
   netDiscrepancy?: number;
   isSyncing?: boolean;
 }
@@ -35,6 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveTab,
   onSignOut,
   onOpenAccountModal,
+  usersCount = 0,
   netDiscrepancy = 0,
   isSyncing = false,
 }) => {
@@ -362,24 +366,67 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
             </div>
           )}
+
+          {/* Super Admin Dedicated Channel: Team Access & Role Promotion */}
+          {isSuperAdmin && onOpenAccountModal && (
+            <button
+              type="button"
+              onClick={onOpenAccountModal}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-[#09090b] hover:bg-[#121214] text-zinc-200 hover:text-white border border-[#27272a] hover:border-zinc-500 transition-all shadow-sm"
+              title="Review registered users and promote them to Super Admin"
+            >
+              <div className="flex items-center space-x-3">
+                <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="font-bold">Team Access &amp; Roles</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-amber-300 border border-zinc-700 text-[10px] font-mono font-semibold">
+                {usersCount} {usersCount === 1 ? 'User' : 'Users'}
+              </span>
+            </button>
+          )}
         </nav>
       </div>
 
       {/* Bottom Profile Section */}
       <div className="p-3 border-t border-[#222222] space-y-2 bg-[#000000]">
         <div className="p-2.5 rounded-xl bg-[#09090b] border border-[#222222] flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-full bg-[#18181b] border border-[#2e2e33] flex items-center justify-center text-xs font-bold text-white">
-            {currentUser.name.charAt(0)}
+          <div className="w-8 h-8 rounded-full bg-[#18181b] border border-[#2e2e33] flex items-center justify-center text-xs font-bold text-white shrink-0">
+            {currentUser.name.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-white truncate">
               {currentUser.name}
             </p>
-            <p className="text-[11px] text-zinc-400 truncate font-mono">
-              {isSuperAdmin ? 'Super Admin' : 'Basic Admin'}
-            </p>
+            <div className="flex items-center space-x-1.5 mt-0.5">
+              <span
+                className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-semibold ${
+                  isSuperAdmin
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
+                }`}
+              >
+                {isSuperAdmin ? 'Super Admin' : 'Basic Admin'}
+              </span>
+            </div>
           </div>
         </div>
+
+        {/* Super Admin Quick Manage Button */}
+        {isSuperAdmin && onOpenAccountModal && (
+          <button
+            type="button"
+            onClick={onOpenAccountModal}
+            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs border border-zinc-800 transition-colors"
+          >
+            <div className="flex items-center space-x-2">
+              <Crown className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-[11px] font-semibold">Promote / Manage Users</span>
+            </div>
+            <span className="text-[10px] font-mono text-amber-400 font-bold">
+              {usersCount}
+            </span>
+          </button>
+        )}
 
         <button
           onClick={onSignOut}
