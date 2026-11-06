@@ -399,7 +399,7 @@ export const EvalOpsDashboard: React.FC = () => {
                     Step 1: Student &amp; Evaluator Details
                   </h3>
                   <span className="text-[10px] text-zinc-400 font-mono block">
-                    Upload Student Name, Course Code &amp; Evaluator Email
+                    Drop clean data file here
                   </span>
                 </div>
               </div>
@@ -431,7 +431,7 @@ export const EvalOpsDashboard: React.FC = () => {
             {/* Common Drag and Drop FileDropzone */}
             <FileDropzone
               className="mt-4"
-              title="Drop Student & Evaluator Excel here"
+              title="Drop clean data file here"
               subtitle="Supports .xlsx, .xls, .csv"
               selectedFile={studentFile}
               onFileSelect={handleStudentFileUpload}
@@ -591,7 +591,7 @@ export const EvalOpsDashboard: React.FC = () => {
                     Step 2: Test Schedule Details
                   </h3>
                   <span className="text-[10px] text-zinc-400 font-mono block">
-                    Upload Course Code &amp; Schedule ID (e.g. Reason Column)
+                    Drop target scheduling file here
                   </span>
                 </div>
               </div>
@@ -623,7 +623,7 @@ export const EvalOpsDashboard: React.FC = () => {
             {/* Common Drag and Drop FileDropzone */}
             <FileDropzone
               className="mt-4"
-              title="Drop Test Schedule Excel here"
+              title="Drop target scheduling file here"
               subtitle="Supports .xlsx, .xls, .csv"
               selectedFile={scheduleFile}
               onFileSelect={handleScheduleFileUpload}
@@ -1002,13 +1002,24 @@ export const EvalOpsDashboard: React.FC = () => {
 
           {/* Master Output Preview Table (Shows the exact columns that will be exported) */}
           <div className="bg-[#09090b] rounded-2xl border border-[#27272a] overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="p-4 border-b border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
               <span className="font-semibold text-white">
                 Final Output Preview ({filteredResults.length} records)
               </span>
-              <span className="text-[11px] font-mono text-zinc-400">
-                Target: <strong className="text-white">{schoolCode || 'School'} - Evaluator assignment.xlsx</strong> (Cols A to H)
-              </span>
+              <div className="flex items-center space-x-3">
+                <span className="text-[11px] font-mono text-zinc-400">
+                  Target: <strong className="text-white">{schoolCode || 'School'} - Evaluator assignment.xlsx</strong> (Cols A to H)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => generateEvalOpsExcel(filteredResults, false, schoolCode)}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-colors shadow-sm shrink-0"
+                  title={`Download "${schoolCode || 'School'} - Evaluator assignment.xlsx"`}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Excel Final Result</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto max-h-[500px]">
