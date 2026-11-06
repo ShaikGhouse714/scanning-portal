@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Filter,
   Home,
+  Clock,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -40,6 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isSuperAdmin = currentUser.role === 'super_admin';
   const [isNavExpanded, setIsNavExpanded] = useState<boolean>(false);
   const [isEvalNavExpanded, setIsEvalNavExpanded] = useState<boolean>(true);
+  const [isResultNavExpanded, setIsResultNavExpanded] = useState<boolean>(true);
 
   // Sub-navigation Items that elaborate downwards when Scanning Ops is clicked
   const subNavItems = [
@@ -79,8 +81,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ].filter((item) => item.allowedRoles.includes(currentUser.role));
 
+  // Sub-navigation Items that elaborate downwards when Result Ops is clicked
+  const resultSubNavItems = [
+    {
+      id: 'result_ops',
+      label: 'Result & Re-eval Tracker',
+      icon: Clock,
+      allowedRoles: ['super_admin', 'admin', 'operator'],
+    },
+  ].filter((item) => item.allowedRoles.includes(currentUser.role));
+
   const isMainTabActive = activeTab === 'reconciliation';
   const isEvalTabActive = activeTab === 'eval_ops' || activeTab === 'eval_schedule_extractor';
+  const isResultTabActive = activeTab === 'result_ops';
 
   return (
     <aside className="w-64 bg-[#000000] border-r border-[#222222] flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none font-sans">
@@ -260,6 +273,73 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isEvalNavExpanded && (
             <div className="pt-1.5 pl-3 space-y-1 border-l-2 border-zinc-800 ml-4 animate-in fade-in slide-in-from-top-1 duration-150">
               {evalSubNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveTab(item.id)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                      isActive
+                        ? 'bg-white text-black font-semibold shadow-sm'
+                        : 'text-zinc-400 hover:text-white hover:bg-[#121214]'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : 'text-zinc-500'}`} />
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Section: Result Ops (Placed below Eval Ops and Scanning Ops) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (activeTab !== 'result_ops') {
+                setActiveTab('result_ops');
+              }
+              setIsResultNavExpanded((prev) => !prev);
+            }}
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              isResultTabActive
+                ? 'bg-white text-black shadow-md border border-white'
+                : 'text-zinc-300 hover:text-white hover:bg-[#121214] border border-[#27272a]'
+            }`}
+          >
+            <div className="flex items-center space-x-3">
+              <Clock
+                className={`w-4 h-4 shrink-0 ${isResultTabActive ? 'text-black' : 'text-zinc-400'}`}
+              />
+              <span className="font-bold">Result Ops</span>
+            </div>
+
+            <div className="flex items-center space-x-2 shrink-0">
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsResultNavExpanded((prev) => !prev);
+                }}
+                className={`p-0.5 rounded transition-transform duration-200 ${
+                  isResultNavExpanded ? 'rotate-180' : ''
+                }`}
+                title={isResultNavExpanded ? 'Collapse' : 'Elaborate options'}
+              >
+                <ChevronDown
+                  className={`w-3.5 h-3.5 ${isResultTabActive ? 'text-black' : 'text-zinc-400'}`}
+                />
+              </div>
+            </div>
+          </button>
+
+          {/* Downward Elaborating Sub-Toggles for Result Ops */}
+          {isResultNavExpanded && (
+            <div className="pt-1.5 pl-3 space-y-1 border-l-2 border-zinc-800 ml-4 animate-in fade-in slide-in-from-top-1 duration-150">
+              {resultSubNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 return (

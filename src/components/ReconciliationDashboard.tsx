@@ -748,10 +748,18 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
             <button
               onClick={() => setActiveTab('eval_schedule_extractor')}
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-[#18181b] hover:bg-[#27272a] text-zinc-200 hover:text-white text-xs font-semibold border border-[#3f3f46] transition-all shadow-sm"
+            >
+              <Filter className="w-3.5 h-3.5 text-zinc-300" />
+              <span>Schedule ID Extractor →</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('result_ops')}
               className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-bold transition-all shadow-sm"
             >
-              <Filter className="w-3.5 h-3.5 text-black" />
-              <span>Schedule ID Extractor →</span>
+              <Clock className="w-3.5 h-3.5 text-black" />
+              <span>Result &amp; Re-evaluation Tracker →</span>
             </button>
           </div>
         </div>

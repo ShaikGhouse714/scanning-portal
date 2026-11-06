@@ -28,6 +28,7 @@ import { Sidebar } from '../components/Sidebar';
 import { ReconciliationDashboard } from '../components/ReconciliationDashboard';
 import { EvalOpsDashboard } from '../components/EvalOpsDashboard';
 import { EvalScheduleExtractor } from '../components/EvalScheduleExtractor';
+import { ResultOpsDashboard } from '../components/ResultOpsDashboard';
 import { UserManagementModal } from '../components/UserManagementModal';
 import { AuthScreen } from '../components/AuthScreen';
 
@@ -419,6 +420,8 @@ export default function Home() {
             <EvalOpsDashboard />
           ) : activeTab === 'eval_schedule_extractor' ? (
             <EvalScheduleExtractor />
+          ) : activeTab === 'result_ops' ? (
+            <ResultOpsDashboard />
           ) : (
             <ReconciliationDashboard
               currentUser={currentUser}
