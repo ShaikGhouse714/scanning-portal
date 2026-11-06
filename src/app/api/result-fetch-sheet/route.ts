@@ -147,8 +147,8 @@ function formatSheetTime(val: any): string {
   return str;
 }
 
-// Parse combined DateTime for comparison against current local time
-function parseCloseDateTime(dateStr: string, timeStr: string): Date | null {
+// Parse combined DateTime for comparison against current local time with explicit timezone offset
+function parseCloseDateTime(dateStr: string, timeStr: string, tzOffsetStr = '+05:30'): Date | null {
   if (!dateStr) return null;
   const dClean = dateStr.trim();
   const tClean = timeStr ? timeStr.trim() : '23:59:59';
@@ -206,18 +206,38 @@ function parseCloseDateTime(dateStr: string, timeStr: string): Date | null {
     let p2 = parseInt(parts[1], 10);
     let y = parseInt(parts[2], 10);
 
+    let year = y;
+    let month = 1;
+    let day = 1;
+
     if (p1 > 1000) {
       // YYYY-MM-DD
-      const dt = new Date(p1, p2 - 1, y, hours, minutes, seconds);
-      if (!isNaN(dt.getTime())) return dt;
+      year = p1;
+      month = p2;
+      day = y;
     } else {
       if (y < 100) y += 2000;
-      // MM/DD/YYYY
-      const month = p1 <= 12 ? p1 - 1 : p2 - 1;
-      const day = p1 <= 12 ? p2 : p1;
-      const dt = new Date(y, month, day, hours, minutes, seconds);
-      if (!isNaN(dt.getTime())) return dt;
+      year = y;
+      // In the user's sheet (e.g. 10/12/2026, 11/6/2026), format is MM/DD/YYYY
+      month = p1 <= 12 ? p1 : p2;
+      day = p1 <= 12 ? p2 : p1;
     }
+
+    const yStr = String(year).padStart(4, '0');
+    const mStr = String(month).padStart(2, '0');
+    const dStr = String(day).padStart(2, '0');
+    const hhStr = String(hours).padStart(2, '0');
+    const mmStr = String(minutes).padStart(2, '0');
+    const ssStr = String(seconds).padStart(2, '0');
+
+    // Attach timezone offset (+05:30) so servers everywhere interpret it identically
+    const offset = tzOffsetStr.startsWith('+') || tzOffsetStr.startsWith('-') ? tzOffsetStr : `+${tzOffsetStr}`;
+    const isoString = `${yStr}-${mStr}-${dStr}T${hhStr}:${mmStr}:${ssStr}${offset}`;
+    const dt = new Date(isoString);
+    if (!isNaN(dt.getTime())) return dt;
+
+    const fallback = new Date(year, month - 1, day, hours, minutes, seconds);
+    if (!isNaN(fallback.getTime())) return fallback;
   }
 
   const direct = new Date(`${dClean} ${tClean}`);
@@ -229,7 +249,9 @@ function parseCloseDateTime(dateStr: string, timeStr: string): Date | null {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { url, targetSubsheet } = body;
+    const { url, targetSubsheet, clientTime, tzOffset } = body;
+    const now = clientTime ? new Date(clientTime) : new Date();
+    const effectiveTzOffset = tzOffset || '+05:30';
 
     if (!url || typeof url !== 'string') {
       return NextResponse.json(
@@ -315,7 +337,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const now = new Date();
     const schoolsSet = new Set<string>();
 
     let actionRequiredCount = 0;
@@ -429,8 +450,8 @@ export async function POST(request: Request) {
         rawNextAssigned.toLowerCase().includes('assigned');
       const nextRoundAssigned = isAssigned ? 'Yes' : rawNextAssigned ? rawNextAssigned : '';
 
-      // Determine Date & Time Expiration against current local time
-      const closeDateTime = parseCloseDateTime(resultCloseDate, resultCloseTime);
+      // Determine Date & Time Expiration against current local time with explicit timezone
+      const closeDateTime = parseCloseDateTime(resultCloseDate, resultCloseTime, effectiveTzOffset);
       const isExpired = closeDateTime ? closeDateTime.getTime() <= now.getTime() : false;
 
       // Status classification

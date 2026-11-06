@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import {
   Clock,
@@ -212,6 +212,8 @@ export const ResultOpsDashboard: React.FC = () => {
         body: JSON.stringify({
           url: urlToUse,
           targetSubsheet: subsheetToUse || 'Result view',
+          clientTime: Date.now(),
+          tzOffset: '+05:30',
         }),
       });
 
@@ -302,15 +304,27 @@ export const ResultOpsDashboard: React.FC = () => {
     }
   };
 
+  // Helper to dynamically calculate precise status based on client's local time & timestamps
+  const getRowStatus = useCallback((r: ResultRow) => {
+    const isAssigned = r.nextRoundAssigned === 'Yes';
+    const isNotRequired = r.nextRoundRequired === 'Not Required';
+    const expired = r.closeTimestamp ? r.closeTimestamp <= Date.now() : r.isExpired;
+
+    if (isAssigned) return 'ASSIGNED';
+    if (!expired) return 'ACTIVE';
+    if (isNotRequired) return 'NOT_REQUIRED';
+    return 'EXPIRED_ACTION_REQUIRED';
+  }, []);
+
   // Action Required Schedules (Expired and re-evaluation not yet assigned)
   const actionRequiredRows = useMemo(() => {
-    return rows.filter((r) => r.status === 'EXPIRED_ACTION_REQUIRED');
-  }, [rows]);
+    return rows.filter((r) => getRowStatus(r) === 'EXPIRED_ACTION_REQUIRED');
+  }, [rows, getRowStatus]);
 
   // Active / Currently Open Schedules (Result window currently open)
   const activeRows = useMemo(() => {
-    return rows.filter((r) => r.status === 'ACTIVE');
-  }, [rows]);
+    return rows.filter((r) => getRowStatus(r) === 'ACTIVE');
+  }, [rows, getRowStatus]);
 
   // Next Round Evaluation Assigned: Yes (Completed)
   const assignedRows = useMemo(() => {
@@ -884,7 +898,8 @@ export const ResultOpsDashboard: React.FC = () => {
                 </tr>
               ) : (
                 displayedRows.map((r) => {
-                  const isAction = r.status === 'EXPIRED_ACTION_REQUIRED';
+                  const currentStatus = getRowStatus(r);
+                  const isAction = currentStatus === 'EXPIRED_ACTION_REQUIRED';
                   return (
                     <tr
                       key={r.id}
@@ -970,11 +985,11 @@ export const ResultOpsDashboard: React.FC = () => {
                             <AlertTriangle className="w-3.5 h-3.5 text-white" />
                             <span>Time Expired — Check &amp; Assign!</span>
                           </span>
-                        ) : r.status === 'ASSIGNED' ? (
+                        ) : currentStatus === 'ASSIGNED' ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                             Assigned &amp; Done
                           </span>
-                        ) : r.status === 'NOT_REQUIRED' ? (
+                        ) : currentStatus === 'NOT_REQUIRED' ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-900 text-zinc-400 border border-zinc-800">
                             Not Required / Closed
                           </span>
