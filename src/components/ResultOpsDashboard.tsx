@@ -65,7 +65,14 @@ function formatDisplayTime(val: any): string {
   if (!val) return '–';
   const str = String(val).trim();
   const num = typeof val === 'number' ? val : Number(str);
-  if (!isNaN(num) && num >= 0 && !str.includes(':')) {
+  if (
+    !isNaN(num) &&
+    num >= 0 &&
+    !str.includes(':') &&
+    !str.includes('AM') &&
+    !str.includes('PM') &&
+    !str.match(/\.\d{2}\./)
+  ) {
     let fraction = num % 1;
     if (fraction === 0 && num > 0 && num < 1) fraction = num;
     const totalSeconds = Math.round(fraction * 86400);
@@ -76,6 +83,34 @@ function formatDisplayTime(val: any): string {
     const displayHours = rawHours % 12 || 12;
     return `${displayHours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')} ${ampm}`;
   }
+
+  // Normalize dots to colons between digits (e.g. "10.00.00 AM" or "10.30 AM" -> "10:00:00 AM")
+  const normalized = str.replace(/(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?/g, (m, h, min, s) => {
+    return `${h}:${min}:${s || '00'}`;
+  });
+
+  const match = normalized.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (match) {
+    let h = parseInt(match[1], 10);
+    const m = match[2];
+    const s = match[3] || '00';
+    const ampm = match[4] ? match[4].toUpperCase() : null;
+    if (ampm) {
+      return `${h}:${m}:${s} ${ampm}`;
+    } else {
+      const isPM = h >= 12;
+      const displayH = h % 12 || 12;
+      return `${displayH}:${m}:${s} ${isPM ? 'PM' : 'AM'}`;
+    }
+  }
+
+  const simpleMatch = str.match(/(\d{1,2})\s*(AM|PM)/i);
+  if (simpleMatch) {
+    const h = parseInt(simpleMatch[1], 10);
+    const ampm = simpleMatch[2].toUpperCase();
+    return `${h}:00:00 ${ampm}`;
+  }
+
   return str;
 }
 
@@ -100,7 +135,7 @@ export const ResultOpsDashboard: React.FC = () => {
   const [schoolsList, setSchoolsList] = useState<string[]>([]);
 
   // Filtering & Search
-  const [activeTabFilter, setActiveTabFilter] = useState<'ACTION_REQUIRED' | 'ALL' | 'ACTIVE' | 'ASSIGNED'>('ALL');
+  const [activeTabFilter, setActiveTabFilter] = useState<'ACTION_REQUIRED' | 'ALL' | 'ACTIVE' | 'ASSIGNED' | 'NOT_ASSIGNED'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSchool, setSelectedSchool] = useState<string>('ALL');
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
@@ -272,12 +307,19 @@ export const ResultOpsDashboard: React.FC = () => {
     return rows.filter((r) => r.status === 'EXPIRED_ACTION_REQUIRED');
   }, [rows]);
 
+  // Active / Currently Open Schedules (Result window currently open)
   const activeRows = useMemo(() => {
-    return rows.filter((r) => r.status === 'ACTIVE' || (!r.isExpired && r.status !== 'ASSIGNED'));
+    return rows.filter((r) => r.status === 'ACTIVE');
   }, [rows]);
 
+  // Next Round Evaluation Assigned: Yes (Completed)
   const assignedRows = useMemo(() => {
-    return rows.filter((r) => r.status === 'ASSIGNED');
+    return rows.filter((r) => r.nextRoundAssigned === 'Yes');
+  }, [rows]);
+
+  // Next Round Evaluation Not Assigned: Pending (matches total with assignedRows)
+  const notAssignedRows = useMemo(() => {
+    return rows.filter((r) => r.nextRoundAssigned !== 'Yes');
   }, [rows]);
 
   // Filtered rows for data table
@@ -290,6 +332,8 @@ export const ResultOpsDashboard: React.FC = () => {
       list = activeRows;
     } else if (activeTabFilter === 'ASSIGNED') {
       list = assignedRows;
+    } else if (activeTabFilter === 'NOT_ASSIGNED') {
+      list = notAssignedRows;
     }
 
     if (selectedSchool !== 'ALL') {
@@ -308,7 +352,7 @@ export const ResultOpsDashboard: React.FC = () => {
     }
 
     return list;
-  }, [rows, activeTabFilter, actionRequiredRows, activeRows, assignedRows, selectedSchool, searchQuery]);
+  }, [rows, activeTabFilter, actionRequiredRows, activeRows, assignedRows, notAssignedRows, selectedSchool, searchQuery]);
 
   // Copy Action Required Schedule IDs to Clipboard
   const handleCopyActionRequiredIds = () => {
@@ -587,7 +631,7 @@ export const ResultOpsDashboard: React.FC = () => {
       )}
 
       {/* KPI METRIC CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
         {/* KPI 1: Action Required */}
         <div
           onClick={() => setActiveTabFilter('ACTION_REQUIRED')}
@@ -618,11 +662,11 @@ export const ResultOpsDashboard: React.FC = () => {
           onClick={() => setActiveTabFilter('ACTIVE')}
           className={`p-4 rounded-2xl cursor-pointer transition-all ${
             activeTabFilter === 'ACTIVE'
-              ? 'bg-zinc-800 border-2 border-white text-white shadow-lg'
+              ? 'bg-sky-500/15 border-2 border-sky-400 text-white shadow-lg'
               : 'bg-[#09090b] border border-[#27272a] hover:border-zinc-500'
           }`}
         >
-          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block font-semibold">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-sky-400 block font-semibold">
             Result Open (Active)
           </span>
           <span className="text-2xl font-bold font-mono text-white block mt-1">
@@ -653,7 +697,27 @@ export const ResultOpsDashboard: React.FC = () => {
           </span>
         </div>
 
-        {/* KPI 4: Total Tracked */}
+        {/* KPI 4: Not Assigned (Pending) */}
+        <div
+          onClick={() => setActiveTabFilter('NOT_ASSIGNED')}
+          className={`p-4 rounded-2xl cursor-pointer transition-all ${
+            activeTabFilter === 'NOT_ASSIGNED'
+              ? 'bg-amber-500/15 border-2 border-amber-500 text-white shadow-lg'
+              : 'bg-[#09090b] border border-[#27272a] hover:border-amber-500/40'
+          }`}
+        >
+          <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 block font-semibold">
+            Not Assigned
+          </span>
+          <span className="text-2xl font-bold font-mono text-white block mt-1">
+            {notAssignedRows.length}
+          </span>
+          <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
+            Pending assignment ({notAssignedRows.length} / {rows.length})
+          </span>
+        </div>
+
+        {/* KPI 5: Total Tracked */}
         <div
           onClick={() => setActiveTabFilter('ALL')}
           className={`p-4 rounded-2xl cursor-pointer transition-all ${
@@ -669,7 +733,7 @@ export const ResultOpsDashboard: React.FC = () => {
             {rows.length}
           </span>
           <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
-            Subsheet: {activeSheetName}
+            Assigned: {assignedRows.length} | Not: {notAssignedRows.length}
           </span>
         </div>
       </div>
@@ -709,7 +773,7 @@ export const ResultOpsDashboard: React.FC = () => {
               onClick={() => setActiveTabFilter('ACTIVE')}
               className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors ${
                 activeTabFilter === 'ACTIVE'
-                  ? 'bg-white text-black'
+                  ? 'bg-sky-500 text-white'
                   : 'bg-zinc-900 text-zinc-400 hover:text-white border border-[#27272a]'
               }`}
             >
@@ -726,6 +790,18 @@ export const ResultOpsDashboard: React.FC = () => {
               }`}
             >
               Assigned ({assignedRows.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTabFilter('NOT_ASSIGNED')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors ${
+                activeTabFilter === 'NOT_ASSIGNED'
+                  ? 'bg-amber-500 text-black font-bold'
+                  : 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 border border-amber-500/30'
+              }`}
+            >
+              Not Assigned ({notAssignedRows.length})
             </button>
           </div>
 

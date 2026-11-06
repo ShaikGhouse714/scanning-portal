@@ -92,9 +92,16 @@ function formatSheetTime(val: any): string {
 
   const str = String(val).trim();
 
-  // If it's a numeric decimal or Excel time code (e.g. 0.8333333333333334 or "0.4166666666666667")
+  // 1. If it's a numeric decimal or Excel time code (e.g. 0.8333333333333334 or 0.4166666666666667)
   const num = typeof val === 'number' ? val : Number(str);
-  if (!isNaN(num) && num >= 0 && !str.includes(':')) {
+  if (
+    !isNaN(num) &&
+    num >= 0 &&
+    !str.includes(':') &&
+    !str.includes('AM') &&
+    !str.includes('PM') &&
+    !str.match(/\.\d{2}\./)
+  ) {
     let fraction = num % 1;
     if (fraction === 0 && num > 0 && num < 1) fraction = num;
 
@@ -108,8 +115,13 @@ function formatSheetTime(val: any): string {
     return `${displayHours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')} ${ampm}`;
   }
 
-  // If it's already a formatted string (e.g. "8:00:00 PM", "10:30 AM", "14:00")
-  const match = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  // 2. Normalize dot time notation common in typing (e.g. "10.00.00 AM", "10.30 AM", "2.00 PM")
+  const normalized = str.replace(/(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?/g, (m, h, min, s) => {
+    return `${h}:${min}:${s || '00'}`;
+  });
+
+  // 3. If it's formatted string (e.g. "8:00:00 PM", "10:30 AM", "14:00")
+  const match = normalized.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
   if (match) {
     let h = parseInt(match[1], 10);
     const m = match[2];
@@ -122,6 +134,14 @@ function formatSheetTime(val: any): string {
       const displayH = h % 12 || 12;
       return `${displayH}:${m}:${s} ${isPM ? 'PM' : 'AM'}`;
     }
+  }
+
+  // 4. Fallback for "10 AM", "2 PM"
+  const simpleMatch = str.match(/(\d{1,2})\s*(AM|PM)/i);
+  if (simpleMatch) {
+    const h = parseInt(simpleMatch[1], 10);
+    const ampm = simpleMatch[2].toUpperCase();
+    return `${h}:00:00 ${ampm}`;
   }
 
   return str;
@@ -137,16 +157,28 @@ function parseCloseDateTime(dateStr: string, timeStr: string): Date | null {
   let minutes = 59;
   let seconds = 59;
 
-  // Handle decimal time input if passed directly
+  // 1. If decimal number like 0.4166666666666667
   const numTime = Number(tClean);
-  if (!isNaN(numTime) && numTime >= 0 && !tClean.includes(':')) {
-    const fraction = numTime % 1 || numTime;
-    const totalSecs = Math.round(fraction * 86400);
+  if (
+    !isNaN(numTime) &&
+    numTime >= 0 &&
+    numTime < 1 &&
+    !tClean.includes(':') &&
+    !tClean.includes('AM') &&
+    !tClean.includes('PM') &&
+    !tClean.match(/\.\d{2}\./)
+  ) {
+    const totalSecs = Math.round(numTime * 86400);
     hours = Math.floor(totalSecs / 3600) % 24;
     minutes = Math.floor((totalSecs % 3600) / 60);
     seconds = totalSecs % 60;
   } else {
-    const tMatch = tClean.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+    // 2. Normalize dots to colons: "10.00.00 AM" or "10.30 AM" -> "10:00:00 AM"
+    const normalized = tClean.replace(/(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?/g, (m, h, min, s) => {
+      return `${h}:${min}:${s || '00'}`;
+    });
+
+    const tMatch = normalized.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
     if (tMatch) {
       hours = parseInt(tMatch[1], 10);
       minutes = parseInt(tMatch[2], 10);
@@ -154,6 +186,16 @@ function parseCloseDateTime(dateStr: string, timeStr: string): Date | null {
       const ampm = tMatch[4] ? tMatch[4].toUpperCase() : null;
       if (ampm === 'PM' && hours < 12) hours += 12;
       if (ampm === 'AM' && hours === 12) hours = 0;
+    } else {
+      const simpleMatch = tClean.match(/(\d{1,2})\s*(AM|PM)/i);
+      if (simpleMatch) {
+        hours = parseInt(simpleMatch[1], 10);
+        minutes = 0;
+        seconds = 0;
+        const ampm = simpleMatch[2].toUpperCase();
+        if (ampm === 'PM' && hours < 12) hours += 12;
+        if (ampm === 'AM' && hours === 12) hours = 0;
+      }
     }
   }
 
@@ -280,6 +322,7 @@ export async function POST(request: Request) {
     let expiredCount = 0;
     let activeCount = 0;
     let assignedCount = 0;
+    let notAssignedCount = 0;
     let notRequiredCount = 0;
 
     const rows = rawJson.map((row, idx) => {
@@ -397,22 +440,25 @@ export async function POST(request: Request) {
         // Evaluation assignment completed
         status = 'ASSIGNED';
         assignedCount++;
-      } else if (!isExpired) {
-        // Result is currently open (closes in future)
-        status = 'ACTIVE';
-        activeCount++;
       } else {
-        // Result close date & time has expired!
-        if (isNotRequired) {
-          // Closed and verified that re-evaluation is not required
-          status = 'NOT_REQUIRED';
-          notRequiredCount++;
+        notAssignedCount++;
+        if (!isExpired) {
+          // Result is currently open (closes in future)
+          status = 'ACTIVE';
+          activeCount++;
         } else {
-          // Time completed, but Next Round Required is EMPTY (needs review) or 'Required' and not yet assigned!
-          // Triggers critical alert: "Time is completed. Please check re-evaluations and assign."
-          status = 'EXPIRED_ACTION_REQUIRED';
-          actionRequiredCount++;
-          expiredCount++;
+          // Result close date & time has expired!
+          if (isNotRequired) {
+            // Closed and verified that re-evaluation is not required
+            status = 'NOT_REQUIRED';
+            notRequiredCount++;
+          } else {
+            // Time completed, but Next Round Required is EMPTY (needs review) or 'Required' and not yet assigned!
+            // Triggers critical alert: "Time is completed. Please check re-evaluations and assign."
+            status = 'EXPIRED_ACTION_REQUIRED';
+            actionRequiredCount++;
+            expiredCount++;
+          }
         }
       }
 
@@ -442,6 +488,7 @@ export async function POST(request: Request) {
       expiredCount,
       activeCount,
       assignedCount,
+      notAssignedCount,
       notRequiredCount,
       schools: Array.from(schoolsSet).sort(),
       rows,
