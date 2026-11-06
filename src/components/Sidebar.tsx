@@ -218,18 +218,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </button>
                 );
               })}
-
-              {/* Admin User Access & Roles inside the elaborated list */}
-              {isSuperAdmin && onOpenAccountModal && (
-                <button
-                  type="button"
-                  onClick={onOpenAccountModal}
-                  className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-[#121214] transition-all"
-                >
-                  <UserPlus className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-                  <span className="truncate">User Access &amp; Roles</span>
-                </button>
-              )}
             </div>
           )}
 
@@ -365,24 +353,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 );
               })}
             </div>
-          )}
-
-          {/* Super Admin Dedicated Channel: Team Access & Role Promotion */}
-          {isSuperAdmin && onOpenAccountModal && (
-            <button
-              type="button"
-              onClick={onOpenAccountModal}
-              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-[#09090b] hover:bg-[#121214] text-zinc-200 hover:text-white border border-[#27272a] hover:border-zinc-500 transition-all shadow-sm"
-              title="Review registered users and promote them to Super Admin"
-            >
-              <div className="flex items-center space-x-3">
-                <Crown className="w-4 h-4 text-amber-400 shrink-0" />
-                <span className="font-bold">Team Access &amp; Roles</span>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-amber-300 border border-zinc-700 text-[10px] font-mono font-semibold">
-                {usersCount} {usersCount === 1 ? 'User' : 'Users'}
-              </span>
-            </button>
           )}
         </nav>
       </div>

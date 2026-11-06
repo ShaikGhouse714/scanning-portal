@@ -40,10 +40,13 @@ export function getStoredUsers(): User[] {
       return INITIAL_USERS;
     }
 
-    // Filter out old legacy mock users (like mock operators from older versions)
-    // Only genuine accounts and Shaik Ghouse M are kept
+    // Filter out old legacy mock users and remove all accounts except shaikghousem@codetantra.in
     const legacyMockIds = new Set(['user_tester_1', 'user_tester_2', 'user_tester_3', 'user_admin_2']);
-    const filtered = users.filter((u) => !legacyMockIds.has(u.id));
+    const filtered = users.filter(
+      (u) =>
+        !legacyMockIds.has(u.id) &&
+        u.email.toLowerCase().trim() !== 'ghousemohiuddin774@gmail.com'
+    );
 
     const hasAdmin = filtered.some(
       (u) =>
