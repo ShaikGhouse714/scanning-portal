@@ -61,6 +61,24 @@ const DEFAULT_SHEETS: SavedResultSheet[] = [
   },
 ];
 
+function formatDisplayTime(val: any): string {
+  if (!val) return '–';
+  const str = String(val).trim();
+  const num = typeof val === 'number' ? val : Number(str);
+  if (!isNaN(num) && num >= 0 && !str.includes(':')) {
+    let fraction = num % 1;
+    if (fraction === 0 && num > 0 && num < 1) fraction = num;
+    const totalSeconds = Math.round(fraction * 86400);
+    const rawHours = Math.floor(totalSeconds / 3600) % 24;
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const ampm = rawHours >= 12 ? 'PM' : 'AM';
+    const displayHours = rawHours % 12 || 12;
+    return `${displayHours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')} ${ampm}`;
+  }
+  return str;
+}
+
 export const ResultOpsDashboard: React.FC = () => {
   // Saved Google Sheets List (Stored in localStorage)
   const [savedSheets, setSavedSheets] = useState<SavedResultSheet[]>([]);
@@ -255,7 +273,7 @@ export const ResultOpsDashboard: React.FC = () => {
   }, [rows]);
 
   const activeRows = useMemo(() => {
-    return rows.filter((r) => r.status === 'ACTIVE');
+    return rows.filter((r) => r.status === 'ACTIVE' || (!r.isExpired && r.status !== 'ASSIGNED'));
   }, [rows]);
 
   const assignedRows = useMemo(() => {
@@ -310,16 +328,18 @@ export const ResultOpsDashboard: React.FC = () => {
       'Evaluation Cycle': r.evaluationCycle,
       'Result Open Date': r.resultOpenDate,
       'Result Close Date': r.resultCloseDate,
-      'Result Close Time': r.resultCloseTime,
+      'Result Close Time': formatDisplayTime(r.resultCloseTime),
       'School Name': r.schoolName,
-      'Next Round of Evaluation Required': r.nextRoundRequired,
+      'Next Round of Evaluation Required': r.nextRoundRequired || 'Pending / Blank',
       'Next Round Evaluation Assigned': r.nextRoundAssigned || 'Pending / Blank',
       'Action Status':
         r.status === 'EXPIRED_ACTION_REQUIRED'
           ? 'Time Completed - Re-evaluation Assignment Needed'
           : r.status === 'ACTIVE'
           ? 'Active / Open'
-          : 'Assigned',
+          : r.status === 'ASSIGNED'
+          ? 'Assigned & Done'
+          : 'Not Required / Closed',
     }));
 
     const wb = XLSX.utils.book_new();
@@ -827,8 +847,8 @@ export const ResultOpsDashboard: React.FC = () => {
                       </td>
 
                       {/* Result Close Time */}
-                      <td className="py-3 px-3 whitespace-nowrap text-zinc-300 font-semibold">
-                        {r.resultCloseTime || '–'}
+                      <td className="py-3 px-3 whitespace-nowrap text-zinc-300 font-semibold font-mono text-xs">
+                        {formatDisplayTime(r.resultCloseTime)}
                       </td>
 
                       {/* School Name */}
@@ -842,9 +862,13 @@ export const ResultOpsDashboard: React.FC = () => {
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 border border-rose-500/30 text-rose-300">
                             Required
                           </span>
-                        ) : (
+                        ) : r.nextRoundRequired === 'Not Required' ? (
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 border border-emerald-500/25 text-emerald-400">
                             Not Required
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-500">
+                            Blank / Pending
                           </span>
                         )}
                       </td>
@@ -866,16 +890,20 @@ export const ResultOpsDashboard: React.FC = () => {
                       {/* Alert Status */}
                       <td className="py-3 px-3.5 text-center whitespace-nowrap">
                         {isAction ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500 text-white shadow-sm inline-flex items-center space-x-1">
-                            <AlertTriangle className="w-3 h-3" />
+                          <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-rose-500 text-white shadow-md inline-flex items-center space-x-1.5 animate-pulse">
+                            <AlertTriangle className="w-3.5 h-3.5 text-white" />
                             <span>Time Expired — Check &amp; Assign!</span>
                           </span>
                         ) : r.status === 'ASSIGNED' ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                             Assigned &amp; Done
                           </span>
+                        ) : r.status === 'NOT_REQUIRED' ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-900 text-zinc-400 border border-zinc-800">
+                            Not Required / Closed
+                          </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-500/10 border border-sky-500/25 text-sky-400">
                             Active / Open
                           </span>
                         )}
@@ -973,3 +1001,4 @@ export const ResultOpsDashboard: React.FC = () => {
     </div>
   );
 };
+

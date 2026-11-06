@@ -63,11 +63,16 @@ function getRowField(row: Record<string, any>, ...aliases: string[]): string {
 function formatSheetDate(val: any): string {
   if (!val) return '';
   if (val instanceof Date) {
-    return val.toISOString().split('T')[0];
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    const y = val.getFullYear();
+    return `${m}/${d}/${y}`;
   }
-  if (typeof val === 'number' || (!isNaN(Number(val)) && Number(val) > 30000 && Number(val) < 60000)) {
+  const str = String(val).trim();
+  const num = typeof val === 'number' ? val : Number(str);
+  if (!isNaN(num) && num > 30000 && num < 60000) {
     try {
-      const parsed = XLSX.SSF.parse_date_code(Number(val));
+      const parsed = XLSX.SSF.parse_date_code(num);
       if (parsed) {
         const m = String(parsed.m).padStart(2, '0');
         const d = String(parsed.d).padStart(2, '0');
@@ -78,51 +83,70 @@ function formatSheetDate(val: any): string {
       // fallback
     }
   }
-  return String(val).trim();
+  return str;
 }
 
-// Cleanly format Excel time
+// Cleanly format Excel time into standard 12-hour AM/PM format (e.g. 10:00:00 AM, 8:00:00 PM)
 function formatSheetTime(val: any): string {
-  if (!val) return '';
-  if (typeof val === 'number' && val >= 0 && val < 1) {
-    // Decimal time of day
-    const totalSeconds = Math.round(val * 86400);
-    const hours = Math.floor(totalSeconds / 3600);
+  if (val === null || val === undefined || val === '') return '';
+
+  const str = String(val).trim();
+
+  // If it's a numeric decimal or Excel time code (e.g. 0.8333333333333334 or "0.4166666666666667")
+  const num = typeof val === 'number' ? val : Number(str);
+  if (!isNaN(num) && num >= 0 && !str.includes(':')) {
+    let fraction = num % 1;
+    if (fraction === 0 && num > 0 && num < 1) fraction = num;
+
+    const totalSeconds = Math.round(fraction * 86400);
+    const rawHours = Math.floor(totalSeconds / 3600) % 24;
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    return `${displayHours}:${String(minutes).padStart(2, '0')}:00 ${ampm}`;
+    const seconds = totalSeconds % 60;
+
+    const ampm = rawHours >= 12 ? 'PM' : 'AM';
+    const displayHours = rawHours % 12 || 12;
+    return `${displayHours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')} ${ampm}`;
   }
-  return String(val).trim();
+
+  // If it's already a formatted string (e.g. "8:00:00 PM", "10:30 AM", "14:00")
+  const match = str.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (match) {
+    let h = parseInt(match[1], 10);
+    const m = match[2];
+    const s = match[3] || '00';
+    const ampm = match[4] ? match[4].toUpperCase() : null;
+    if (ampm) {
+      return `${h}:${m}:${s} ${ampm}`;
+    } else {
+      const isPM = h >= 12;
+      const displayH = h % 12 || 12;
+      return `${displayH}:${m}:${s} ${isPM ? 'PM' : 'AM'}`;
+    }
+  }
+
+  return str;
 }
 
-// Parse combined DateTime for comparison
+// Parse combined DateTime for comparison against current local time
 function parseCloseDateTime(dateStr: string, timeStr: string): Date | null {
   if (!dateStr) return null;
   const dClean = dateStr.trim();
   const tClean = timeStr ? timeStr.trim() : '23:59:59';
 
-  // 1. Try standard JS parse
-  const direct = new Date(`${dClean} ${tClean}`);
-  if (!isNaN(direct.getTime())) return direct;
+  let hours = 23;
+  let minutes = 59;
+  let seconds = 59;
 
-  // 2. Parse MM/DD/YYYY or DD/MM/YYYY
-  const parts = dClean.split(/[\/\-\.]/);
-  if (parts.length === 3) {
-    let p1 = parseInt(parts[0], 10);
-    let p2 = parseInt(parts[1], 10);
-    let y = parseInt(parts[2], 10);
-    if (y < 100) y += 2000;
-
-    // Default to MM/DD/YYYY if p1 <= 12, else DD/MM/YYYY
-    const month = p1 <= 12 ? p1 - 1 : p2 - 1;
-    const day = p1 <= 12 ? p2 : p1;
-
-    let hours = 23;
-    let minutes = 59;
-    let seconds = 59;
-
-    const tMatch = tClean.match(/(\d+):(\d+)(?::(\d+))?\s*(AM|PM)?/i);
+  // Handle decimal time input if passed directly
+  const numTime = Number(tClean);
+  if (!isNaN(numTime) && numTime >= 0 && !tClean.includes(':')) {
+    const fraction = numTime % 1 || numTime;
+    const totalSecs = Math.round(fraction * 86400);
+    hours = Math.floor(totalSecs / 3600) % 24;
+    minutes = Math.floor((totalSecs % 3600) / 60);
+    seconds = totalSecs % 60;
+  } else {
+    const tMatch = tClean.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
     if (tMatch) {
       hours = parseInt(tMatch[1], 10);
       minutes = parseInt(tMatch[2], 10);
@@ -131,10 +155,31 @@ function parseCloseDateTime(dateStr: string, timeStr: string): Date | null {
       if (ampm === 'PM' && hours < 12) hours += 12;
       if (ampm === 'AM' && hours === 12) hours = 0;
     }
-
-    const constructed = new Date(y, month, day, hours, minutes, seconds);
-    if (!isNaN(constructed.getTime())) return constructed;
   }
+
+  // Parse Date parts
+  const parts = dClean.split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    let p1 = parseInt(parts[0], 10);
+    let p2 = parseInt(parts[1], 10);
+    let y = parseInt(parts[2], 10);
+
+    if (p1 > 1000) {
+      // YYYY-MM-DD
+      const dt = new Date(p1, p2 - 1, y, hours, minutes, seconds);
+      if (!isNaN(dt.getTime())) return dt;
+    } else {
+      if (y < 100) y += 2000;
+      // MM/DD/YYYY
+      const month = p1 <= 12 ? p1 - 1 : p2 - 1;
+      const day = p1 <= 12 ? p2 : p1;
+      const dt = new Date(y, month, day, hours, minutes, seconds);
+      if (!isNaN(dt.getTime())) return dt;
+    }
+  }
+
+  const direct = new Date(`${dClean} ${tClean}`);
+  if (!isNaN(direct.getTime())) return direct;
 
   return null;
 }
@@ -313,11 +358,19 @@ export async function POST(request: Request) {
       const isNotRequired =
         rawNextRequired.toLowerCase().includes('not') ||
         rawNextRequired.toLowerCase() === 'no';
+      const isExplicitlyRequired =
+        rawNextRequired.toLowerCase() === 'required' ||
+        rawNextRequired.toLowerCase() === 'yes' ||
+        rawNextRequired.toLowerCase() === 'y';
+
+      // Keep blank/empty if not filled! The user fills this only after result close
       const nextRoundRequired = isNotRequired
         ? 'Not Required'
-        : rawNextRequired
+        : isExplicitlyRequired
         ? 'Required'
-        : 'Required'; // Default to Required if marked or under review
+        : rawNextRequired
+        ? rawNextRequired
+        : '';
 
       // 8. Next Round Evaluation Assigned (Col H)
       const rawNextAssigned = getRowField(
@@ -333,26 +386,34 @@ export async function POST(request: Request) {
         rawNextAssigned.toLowerCase().includes('assigned');
       const nextRoundAssigned = isAssigned ? 'Yes' : rawNextAssigned ? rawNextAssigned : '';
 
-      // Determine Date & Time Expiration
+      // Determine Date & Time Expiration against current local time
       const closeDateTime = parseCloseDateTime(resultCloseDate, resultCloseTime);
       const isExpired = closeDateTime ? closeDateTime.getTime() <= now.getTime() : false;
 
       // Status classification
       let status: 'EXPIRED_ACTION_REQUIRED' | 'ACTIVE' | 'ASSIGNED' | 'NOT_REQUIRED' = 'ACTIVE';
 
-      if (isNotRequired) {
-        status = 'NOT_REQUIRED';
-        notRequiredCount++;
-      } else if (isAssigned) {
+      if (isAssigned) {
+        // Evaluation assignment completed
         status = 'ASSIGNED';
         assignedCount++;
-      } else if (isExpired) {
-        status = 'EXPIRED_ACTION_REQUIRED';
-        actionRequiredCount++;
-        expiredCount++;
-      } else {
+      } else if (!isExpired) {
+        // Result is currently open (closes in future)
         status = 'ACTIVE';
         activeCount++;
+      } else {
+        // Result close date & time has expired!
+        if (isNotRequired) {
+          // Closed and verified that re-evaluation is not required
+          status = 'NOT_REQUIRED';
+          notRequiredCount++;
+        } else {
+          // Time completed, but Next Round Required is EMPTY (needs review) or 'Required' and not yet assigned!
+          // Triggers critical alert: "Time is completed. Please check re-evaluations and assign."
+          status = 'EXPIRED_ACTION_REQUIRED';
+          actionRequiredCount++;
+          expiredCount++;
+        }
       }
 
       return {
@@ -396,3 +457,4 @@ export async function POST(request: Request) {
     );
   }
 }
+
