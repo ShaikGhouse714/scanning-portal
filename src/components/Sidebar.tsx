@@ -40,8 +40,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const isSuperAdmin = currentUser.role === 'super_admin';
   const [isNavExpanded, setIsNavExpanded] = useState<boolean>(false);
-  const [isEvalNavExpanded, setIsEvalNavExpanded] = useState<boolean>(true);
-  const [isResultNavExpanded, setIsResultNavExpanded] = useState<boolean>(true);
+  const [isEvalNavExpanded, setIsEvalNavExpanded] = useState<boolean>(false);
+  const [isResultNavExpanded, setIsResultNavExpanded] = useState<boolean>(false);
 
   // Sub-navigation Items that elaborate downwards when Scanning Ops is clicked
   const subNavItems = [

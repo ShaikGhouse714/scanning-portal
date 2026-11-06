@@ -135,7 +135,7 @@ export const ResultOpsDashboard: React.FC = () => {
   const [schoolsList, setSchoolsList] = useState<string[]>([]);
 
   // Filtering & Search
-  const [activeTabFilter, setActiveTabFilter] = useState<'ACTION_REQUIRED' | 'ALL' | 'ACTIVE' | 'ASSIGNED' | 'NOT_ASSIGNED'>('ALL');
+  const [activeTabFilter, setActiveTabFilter] = useState<'ACTION_REQUIRED' | 'ALL' | 'ACTIVE' | 'ASSIGNED' | 'NOT_REQUIRED'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSchool, setSelectedSchool] = useState<string>('ALL');
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
@@ -331,10 +331,10 @@ export const ResultOpsDashboard: React.FC = () => {
     return rows.filter((r) => r.nextRoundAssigned === 'Yes');
   }, [rows]);
 
-  // Next Round Evaluation Not Assigned: Pending (matches total with assignedRows)
-  const notAssignedRows = useMemo(() => {
-    return rows.filter((r) => r.nextRoundAssigned !== 'Yes');
-  }, [rows]);
+  // Next Round of Evaluation Not Required
+  const notRequiredRows = useMemo(() => {
+    return rows.filter((r) => getRowStatus(r) === 'NOT_REQUIRED' || r.nextRoundRequired === 'Not Required');
+  }, [rows, getRowStatus]);
 
   // Filtered rows for data table
   const displayedRows = useMemo(() => {
@@ -346,8 +346,8 @@ export const ResultOpsDashboard: React.FC = () => {
       list = activeRows;
     } else if (activeTabFilter === 'ASSIGNED') {
       list = assignedRows;
-    } else if (activeTabFilter === 'NOT_ASSIGNED') {
-      list = notAssignedRows;
+    } else if (activeTabFilter === 'NOT_REQUIRED') {
+      list = notRequiredRows;
     }
 
     if (selectedSchool !== 'ALL') {
@@ -366,7 +366,7 @@ export const ResultOpsDashboard: React.FC = () => {
     }
 
     return list;
-  }, [rows, activeTabFilter, actionRequiredRows, activeRows, assignedRows, notAssignedRows, selectedSchool, searchQuery]);
+  }, [rows, activeTabFilter, actionRequiredRows, activeRows, assignedRows, notRequiredRows, selectedSchool, searchQuery]);
 
   // Copy Action Required Schedule IDs to Clipboard
   const handleCopyActionRequiredIds = () => {
@@ -711,23 +711,23 @@ export const ResultOpsDashboard: React.FC = () => {
           </span>
         </div>
 
-        {/* KPI 4: Not Assigned (Pending) */}
+        {/* KPI 4: Not Required */}
         <div
-          onClick={() => setActiveTabFilter('NOT_ASSIGNED')}
+          onClick={() => setActiveTabFilter('NOT_REQUIRED')}
           className={`p-4 rounded-2xl cursor-pointer transition-all ${
-            activeTabFilter === 'NOT_ASSIGNED'
-              ? 'bg-amber-500/15 border-2 border-amber-500 text-white shadow-lg'
-              : 'bg-[#09090b] border border-[#27272a] hover:border-amber-500/40'
+            activeTabFilter === 'NOT_REQUIRED'
+              ? 'bg-zinc-800 border-2 border-zinc-400 text-white shadow-lg'
+              : 'bg-[#09090b] border border-[#27272a] hover:border-zinc-500'
           }`}
         >
-          <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 block font-semibold">
-            Not Assigned
+          <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block font-semibold">
+            Not Required
           </span>
           <span className="text-2xl font-bold font-mono text-white block mt-1">
-            {notAssignedRows.length}
+            {notRequiredRows.length}
           </span>
           <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
-            Pending assignment ({notAssignedRows.length} / {rows.length})
+            Re-evaluation not needed
           </span>
         </div>
 
@@ -747,7 +747,7 @@ export const ResultOpsDashboard: React.FC = () => {
             {rows.length}
           </span>
           <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
-            Assigned: {assignedRows.length} | Not: {notAssignedRows.length}
+            Subsheet: {activeSheetName}
           </span>
         </div>
       </div>
@@ -808,14 +808,14 @@ export const ResultOpsDashboard: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setActiveTabFilter('NOT_ASSIGNED')}
+              onClick={() => setActiveTabFilter('NOT_REQUIRED')}
               className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors ${
-                activeTabFilter === 'NOT_ASSIGNED'
-                  ? 'bg-amber-500 text-black font-bold'
-                  : 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 border border-amber-500/30'
+                activeTabFilter === 'NOT_REQUIRED'
+                  ? 'bg-zinc-300 text-black font-bold'
+                  : 'bg-zinc-900 text-zinc-400 hover:text-white border border-[#27272a]'
               }`}
             >
-              Not Assigned ({notAssignedRows.length})
+              Not Required ({notRequiredRows.length})
             </button>
           </div>
 
