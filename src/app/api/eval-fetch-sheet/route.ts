@@ -4,13 +4,16 @@ import * as XLSX from 'xlsx';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Convert Google Sheet URL to direct CSV or XLSX download link
-function convertToFetchUrl(inputUrl: string): string {
+// Convert Google Sheet URL to direct XLSX or CSV download link
+function convertToFetchUrl(inputUrl: string, preferFormat: 'xlsx' | 'csv' = 'xlsx'): string {
   if (!inputUrl) return '';
   const trimmed = inputUrl.trim();
 
   // If already output=csv or output=xlsx
   if (trimmed.includes('output=csv') || trimmed.includes('output=xlsx')) {
+    if (preferFormat === 'xlsx' && trimmed.includes('output=csv')) {
+      return trimmed.replace('output=csv', 'output=xlsx');
+    }
     return trimmed;
   }
 
@@ -18,9 +21,15 @@ function convertToFetchUrl(inputUrl: string): string {
   if (trimmed.includes('/pubhtml') || trimmed.includes('/pub')) {
     const base = trimmed.split('?')[0].replace(/\/pubhtml$/, '/pub').replace(/\/pub$/, '/pub');
     // Extract any existing gid if specified in query
-    const urlObj = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
-    const gid = urlObj.searchParams.get('gid');
-    return gid ? `${base}?gid=${gid}&single=true&output=csv` : `${base}?output=csv`;
+    try {
+      const urlObj = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+      const gid = urlObj.searchParams.get('gid');
+      return gid
+        ? `${base}?gid=${gid}&single=true&output=${preferFormat}`
+        : `${base}?output=${preferFormat}`;
+    } catch {
+      return `${base}?output=${preferFormat}`;
+    }
   }
 
   // If standard edit / view Google Sheet URL (e.g. /spreadsheets/d/<SHEET_ID>/edit#gid=<GID>)
@@ -33,9 +42,10 @@ function convertToFetchUrl(inputUrl: string): string {
     if (gidMatch) {
       gid = gidMatch[1];
     }
-    return gid
+    // Exporting as xlsx downloads the entire workbook with all subsheets (Total Data, etc.)
+    return gid && preferFormat === 'csv'
       ? `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
-      : `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+      : `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=${preferFormat}`;
   }
 
   return trimmed;
@@ -71,7 +81,7 @@ function getRowField(row: Record<string, any>, ...aliases: string[]): string {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { url } = body;
+    const { url, targetSheet } = body;
 
     if (!url || typeof url !== 'string') {
       return NextResponse.json(
@@ -80,10 +90,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const downloadUrl = convertToFetchUrl(url);
-
-    // Fetch live data from Google Sheets
-    const res = await fetch(downloadUrl, {
+    // Attempt 1: Fetch as XLSX so all subsheets (including "Total Data") are available
+    const xlsxUrl = convertToFetchUrl(url, 'xlsx');
+    let res = await fetch(xlsxUrl, {
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -91,28 +100,23 @@ export async function POST(request: Request) {
       cache: 'no-store',
     });
 
+    // Fallback: If XLSX fetch fails, attempt CSV fetch
     if (!res.ok) {
-      // Fallback: If CSV export failed, try XLSX export
-      if (downloadUrl.includes('format=csv') || downloadUrl.includes('output=csv')) {
-        const xlsxUrl = downloadUrl.replace('format=csv', 'format=xlsx').replace('output=csv', 'output=xlsx');
-        const fallbackRes = await fetch(xlsxUrl, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          },
-          cache: 'no-store',
-        });
+      const csvUrl = convertToFetchUrl(url, 'csv');
+      res = await fetch(csvUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        },
+        cache: 'no-store',
+      });
+    }
 
-        if (fallbackRes.ok) {
-          const ab = await fallbackRes.arrayBuffer();
-          return parseBufferAndRespond(ab);
-        }
-      }
-
+    if (!res.ok) {
       return NextResponse.json(
         {
           success: false,
-          message: `Unable to access Google Sheet (HTTP ${res.status}: ${res.statusText}). Please ensure the sheet is "Published to web" (File > Share > Publish to web) or link sharing is set to "Anyone with the link".`,
+          message: `Unable to access Google Sheet (HTTP ${res.status}: ${res.statusText}). Please ensure the sheet is "Published to web" (File > Share > Publish to web) or link sharing is set to "Anyone with the link can view".`,
         },
         { status: 400 }
       );
@@ -123,13 +127,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: 'The received Google Sheet content is empty. Verify that the published sheet contains data.',
+          message: 'The received Google Sheet content is empty. Verify that the sheet contains data.',
         },
         { status: 400 }
       );
     }
 
-    return parseBufferAndRespond(arrayBuffer);
+    return parseBufferAndRespond(arrayBuffer, targetSheet);
   } catch (error: any) {
     console.error('Error fetching published sheet:', error);
     return NextResponse.json(
@@ -142,7 +146,7 @@ export async function POST(request: Request) {
   }
 }
 
-function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
+function parseBufferAndRespond(arrayBuffer: ArrayBuffer, requestedSheetName?: string) {
   try {
     const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
     const sheetNames = workbook.SheetNames || [];
@@ -153,13 +157,30 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
       );
     }
 
-    const firstSheetName = sheetNames[0];
-    const sheet = workbook.Sheets[firstSheetName];
+    // 1. If explicit sheet name requested
+    let selectedSheetName = sheetNames.find(
+      (s) => s.toLowerCase().trim() === (requestedSheetName || '').toLowerCase().trim()
+    );
+
+    // 2. Target subsheet "Total Data" (case-insensitive, ignoring spaces/underscores)
+    if (!selectedSheetName) {
+      selectedSheetName = sheetNames.find((s) => {
+        const clean = s.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return clean === 'totaldata' || clean.includes('totaldata');
+      });
+    }
+
+    // 3. Fallback to first sheet
+    if (!selectedSheetName) {
+      selectedSheetName = sheetNames[0];
+    }
+
+    const sheet = workbook.Sheets[selectedSheetName];
     const rawJson: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
     if (rawJson.length === 0) {
       return NextResponse.json(
-        { success: false, message: `Sheet "${firstSheetName}" contains no rows or entries.` },
+        { success: false, message: `Subsheet "${selectedSheetName}" contains no rows or data entries.` },
         { status: 400 }
       );
     }
@@ -167,6 +188,7 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
     const uniqueScheduleIdsSet = new Set<string>();
     const uniqueSchoolsSet = new Set<string>();
     const uniqueCoursesSet = new Set<string>();
+    const uniqueChiefEvaluatorsSet = new Set<string>();
 
     const rows = rawJson.map((row, idx) => {
       // 1. Schedule ID
@@ -194,7 +216,83 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
         'faculty email'
       );
 
-      // 3. Student Details / Student Email
+      // 3. Chief Evaluator Email ID (with all variations and common misspellings like cheif)
+      let chiefEvaluatorEmail = getRowField(
+        row,
+        'chief evaluator email id',
+        'chief evaluator email',
+        'chief evaluator email_id',
+        'chief evaluator mail id',
+        'chief evaluator mail',
+        'chief email id',
+        'chief email',
+        'chief_evaluator_email',
+        'chiefevaluatoremail',
+        'chief_email',
+        'cheif evaluator email id',
+        'cheif evaluator email',
+        'cheif evaluator email_id',
+        'cheif evaluator mail id',
+        'cheif evaluator mail',
+        'cheif email id',
+        'cheif email',
+        'cheif_evaluator_email',
+        'cheifevaluatoremail',
+        'cheif_email',
+        'chief examiner email',
+        'cheif examiner email',
+        'head evaluator email',
+        'lead evaluator email'
+      );
+
+      // 4. Chief Evaluator Name / Details
+      let chiefEvaluatorName = getRowField(
+        row,
+        'chief evaluator name',
+        'chief evaluator',
+        'chiefevaluator',
+        'chief name',
+        'cheif evaluator name',
+        'cheif evaluator',
+        'cheifevaluator',
+        'cheif name',
+        'chief examiner name',
+        'cheif examiner name',
+        'head evaluator',
+        'lead evaluator'
+      );
+
+      // Deep fallback: If not found, scan any row key containing "chief" or "cheif"
+      if (!chiefEvaluatorEmail) {
+        for (const [k, v] of Object.entries(row)) {
+          const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (cleanK.includes('chief') || cleanK.includes('cheif')) {
+            const strVal = String(v ?? '').trim();
+            if (strVal.includes('@')) {
+              chiefEvaluatorEmail = strVal;
+              break;
+            } else if (!chiefEvaluatorName && strVal) {
+              chiefEvaluatorName = strVal;
+            }
+          }
+        }
+      }
+
+      // If chief name contains @ and no chief email, treat name as email
+      if (!chiefEvaluatorEmail && chiefEvaluatorName.includes('@')) {
+        chiefEvaluatorEmail = chiefEvaluatorName;
+      }
+
+      const hasChiefDetails = Boolean(
+        (chiefEvaluatorEmail && chiefEvaluatorEmail.trim().length > 0) ||
+        (chiefEvaluatorName && chiefEvaluatorName.trim().length > 0)
+      );
+
+      if (chiefEvaluatorEmail) {
+        uniqueChiefEvaluatorsSet.add(chiefEvaluatorEmail);
+      }
+
+      // 5. Student Details / Student Email
       const studentEmail = getRowField(
         row,
         'student details',
@@ -206,7 +304,7 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
         'student id'
       );
 
-      // 4. Student Name
+      // 6. Student Name
       const studentName = getRowField(
         row,
         'student name',
@@ -216,7 +314,7 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
         'name'
       );
 
-      // 5. Course Code
+      // 7. Course Code
       const courseCode = getRowField(
         row,
         'course code',
@@ -226,7 +324,7 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
       ).toUpperCase();
       if (courseCode) uniqueCoursesSet.add(courseCode);
 
-      // 6. Course Name
+      // 8. Course Name
       const courseName = getRowField(
         row,
         'course name',
@@ -236,7 +334,7 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
         'subject'
       );
 
-      // 7. School Code
+      // 9. School Code
       const schoolCode = getRowField(
         row,
         'school code',
@@ -248,7 +346,7 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
       ).toUpperCase();
       if (schoolCode) uniqueSchoolsSet.add(schoolCode);
 
-      // 8. Exam Date
+      // 10. Exam Date
       const examDate = getRowField(
         row,
         'exam date',
@@ -264,6 +362,9 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
         id: `row_${idx + 1}_${scheduleId || 'nosched'}`,
         scheduleId,
         evaluatorEmail,
+        chiefEvaluatorEmail: chiefEvaluatorEmail || '',
+        chiefEvaluatorName: chiefEvaluatorName || '',
+        hasChiefDetails,
         studentEmail: studentEmail || studentName,
         studentName: studentName || studentEmail,
         courseCode,
@@ -274,15 +375,23 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
       };
     });
 
+    const isTotalData = Boolean(
+      selectedSheetName.toLowerCase().replace(/[^a-z0-9]/g, '').includes('totaldata')
+    );
+
     return NextResponse.json({
       success: true,
-      sheetName: firstSheetName,
+      sheetName: selectedSheetName,
+      isTotalDataSheet: isTotalData,
       sheetNames,
       totalRows: rows.length,
       rows,
       uniqueScheduleIds: Array.from(uniqueScheduleIdsSet).sort(),
       uniqueSchools: Array.from(uniqueSchoolsSet).sort(),
       uniqueCourses: Array.from(uniqueCoursesSet).sort(),
+      uniqueChiefEvaluators: Array.from(uniqueChiefEvaluatorsSet).sort(),
+      totalWithChiefDetails: rows.filter((r) => r.hasChiefDetails).length,
+      totalWithoutChiefDetails: rows.filter((r) => !r.hasChiefDetails).length,
     });
   } catch (err: any) {
     return NextResponse.json(
@@ -294,4 +403,3 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer) {
     );
   }
 }
-
