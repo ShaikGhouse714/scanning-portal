@@ -83,6 +83,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Filter,
       allowedRoles: ['super_admin', 'admin', 'operator'],
     },
+    {
+      id: 'chief_eval_extractor',
+      label: 'Chief Evaluator Extractor',
+      icon: ShieldCheck,
+      allowedRoles: ['super_admin', 'admin', 'operator'],
+    },
   ].filter((item) => item.allowedRoles.includes(currentUser.role));
 
   // Sub-navigation Items that elaborate downwards when Result Ops is clicked
@@ -96,7 +102,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ].filter((item) => item.allowedRoles.includes(currentUser.role));
 
   const isMainTabActive = activeTab === 'reconciliation';
-  const isEvalTabActive = activeTab === 'eval_ops' || activeTab === 'eval_schedule_extractor';
+  const isEvalTabActive =
+    activeTab === 'eval_ops' ||
+    activeTab === 'eval_schedule_extractor' ||
+    activeTab === 'chief_eval_extractor';
   const isResultTabActive = activeTab === 'result_ops';
 
   return (
@@ -225,7 +234,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (activeTab !== 'eval_ops' && activeTab !== 'eval_schedule_extractor') {
+              if (
+                activeTab !== 'eval_ops' &&
+                activeTab !== 'eval_schedule_extractor' &&
+                activeTab !== 'chief_eval_extractor'
+              ) {
                 setActiveTab('eval_ops');
               }
               setIsEvalNavExpanded((prev) => !prev);
