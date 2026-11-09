@@ -64,6 +64,7 @@ export const EvalOpsDashboard: React.FC = () => {
     examDate: boolean;
     evaluatorName: boolean;
     evaluatorEmail: boolean;
+    chiefEvaluatorEmail: boolean;
   } | null>(null);
 
   const [scheduleRows, setScheduleRows] = useState<RawScheduleRow[]>([]);
@@ -327,6 +328,7 @@ export const EvalOpsDashboard: React.FC = () => {
           item.courseName.toLowerCase().includes(q) ||
           item.evaluatorName.toLowerCase().includes(q) ||
           item.evaluatorEmail.toLowerCase().includes(q) ||
+          item.chiefEvaluatorEmail.toLowerCase().includes(q) ||
           item.scheduleId.toLowerCase().includes(q)
       );
     }
@@ -508,6 +510,15 @@ export const EvalOpsDashboard: React.FC = () => {
                     </span>
                     <span>Evaluator Email ID</span>
                   </div>
+                  <div className="flex items-center space-x-1.5">
+                    <span className={studentDetection.chiefEvaluatorEmail ? 'text-amber-400' : 'text-zinc-500'}>
+                      {studentDetection.chiefEvaluatorEmail ? '✓' : '–'}
+                    </span>
+                    <span>Chief Evaluator Email</span>
+                    {!studentDetection.chiefEvaluatorEmail && (
+                      <span className="text-[9px] text-zinc-500 font-mono">(Not in file)</span>
+                    )}
+                  </div>
 
                   {/* School Code Picked from Student File */}
                   <div className="flex items-center space-x-2 col-span-2 pt-2 mt-1 border-t border-[#222222]">
@@ -558,6 +569,7 @@ export const EvalOpsDashboard: React.FC = () => {
                     <th className="py-2 px-2.5">School Code</th>
                     <th className="py-2 px-2.5">Exam Date</th>
                     <th className="py-2 px-2.5">Evaluator Email</th>
+                    <th className="py-2 px-2.5">Chief Evaluator Email</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#222222] text-zinc-300">
@@ -570,6 +582,13 @@ export const EvalOpsDashboard: React.FC = () => {
                       <td className="py-1.5 px-2.5 text-zinc-300 font-semibold">{r.schoolCode || schoolCode || '–'}</td>
                       <td className="py-1.5 px-2.5 text-zinc-400 whitespace-nowrap">{r.examDate || '–'}</td>
                       <td className="py-1.5 px-2.5 truncate max-w-[160px] text-zinc-400">{r.evaluatorEmail || '–'}</td>
+                      <td className="py-1.5 px-2.5 truncate max-w-[160px]">
+                        {r.chiefEvaluatorEmail ? (
+                          <span className="text-amber-200">{r.chiefEvaluatorEmail}</span>
+                        ) : (
+                          <span className="text-amber-400/80 text-[10px]">No details available</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -765,7 +784,7 @@ export const EvalOpsDashboard: React.FC = () => {
       {/* Mapping Summary & Telemetry Cards */}
       {summary && hasMapped && (
         <div className="space-y-5 animate-in fade-in duration-150">
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
             <div className="p-4 rounded-xl bg-[#09090b] border border-[#27272a]">
               <span className="text-[10px] font-mono text-zinc-400 block uppercase">Total Student Records</span>
               <span className="text-2xl font-bold text-white font-mono mt-1 block">
@@ -792,6 +811,16 @@ export const EvalOpsDashboard: React.FC = () => {
               <span className="text-[10px] text-zinc-500 font-mono block mt-0.5">Distinct email IDs</span>
             </div>
 
+            <div className={`p-4 rounded-xl bg-[#09090b] border ${summary.missingChiefEvaluatorCount > 0 ? 'border-amber-500/30' : 'border-[#27272a]'}`}>
+              <span className="text-[10px] font-mono text-amber-400 block uppercase">Chief Evaluators</span>
+              <span className="text-2xl font-bold text-white font-mono mt-1 block">
+                {summary.totalChiefEvaluators}
+              </span>
+              <span className={`text-[10px] font-mono block mt-0.5 ${summary.missingChiefEvaluatorCount > 0 ? 'text-amber-400/90' : 'text-zinc-500'}`}>
+                {summary.missingChiefEvaluatorCount > 0 ? `${summary.missingChiefEvaluatorCount} not available` : 'All allocated'}
+              </span>
+            </div>
+
             <div className="p-4 rounded-xl bg-[#09090b] border border-[#27272a]">
               <span className="text-[10px] font-mono text-zinc-400 block uppercase">Successfully Mapped</span>
               <span className="text-2xl font-bold text-white font-mono mt-1 block">
@@ -815,6 +844,7 @@ export const EvalOpsDashboard: React.FC = () => {
           {(summary.coursesMissingFromScheduleFile.length > 0 ||
             summary.coursesMissingFromStudentFile.length > 0 ||
             summary.missingEvaluatorEmailCount > 0 ||
+            summary.missingChiefEvaluatorCount > 0 ||
             summary.duplicateScheduleCourses.length > 0) && (
             <div className="p-4 rounded-2xl bg-[#0e0e11] border border-amber-500/30 space-y-3">
               <div className="flex items-center space-x-2">
@@ -862,6 +892,17 @@ export const EvalOpsDashboard: React.FC = () => {
                   <div className="p-2.5 rounded-xl bg-[#050505] border border-zinc-800 text-zinc-300">
                     <span className="text-rose-400 font-semibold">
                       ⚠️ {summary.missingEvaluatorEmailCount} student record(s) have missing Evaluator Email IDs.
+                    </span>
+                  </div>
+                )}
+
+                {summary.missingChiefEvaluatorCount > 0 && (
+                  <div className="p-2.5 rounded-xl bg-[#050505] border border-amber-500/20 text-zinc-300">
+                    <span className="text-amber-400 font-semibold">
+                      ⚠️ {summary.missingChiefEvaluatorCount} student record(s) have No Chief Evaluator details available in the clean data file.
+                    </span>
+                    <span className="text-zinc-400 text-[11px] block mt-0.5 font-mono">
+                      These rows will display &quot;No details are available&quot; in the table and exported file.
                     </span>
                   </div>
                 )}
@@ -1008,7 +1049,7 @@ export const EvalOpsDashboard: React.FC = () => {
               </span>
               <div className="flex items-center space-x-3">
                 <span className="text-[11px] font-mono text-zinc-400">
-                  Target: <strong className="text-white">{schoolCode || 'School'} - Evaluator assignment.xlsx</strong> (Cols A to H)
+                  Target: <strong className="text-white">{schoolCode || 'School'} - Evaluator assignment.xlsx</strong> (Cols A to I)
                 </span>
                 <button
                   type="button"
@@ -1028,6 +1069,7 @@ export const EvalOpsDashboard: React.FC = () => {
                   <tr>
                     <th className="py-3 px-4">SCHEDULE ID</th>
                     <th className="py-3 px-4">EVALUATOR EMAIL ID</th>
+                    <th className="py-3 px-4">CHIEF EVALUATOR EMAIL ID</th>
                     <th className="py-3 px-4">STUDENT DETAILS</th>
                     <th className="py-3 px-4">STUDENT NAME</th>
                     <th className="py-3 px-4">COURSE CODE</th>
@@ -1040,7 +1082,7 @@ export const EvalOpsDashboard: React.FC = () => {
                 <tbody className="divide-y divide-[#27272a] font-mono text-zinc-300">
                   {filteredResults.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-zinc-500 text-xs">
+                      <td colSpan={10} className="py-12 text-center text-zinc-500 text-xs">
                         No records match your search or filter selection.
                       </td>
                     </tr>
@@ -1069,7 +1111,22 @@ export const EvalOpsDashboard: React.FC = () => {
                           )}
                         </td>
 
-                        {/* Column C: Student Details (Student Email ID) */}
+                        {/* Column C: Chief Evaluator Email ID */}
+                        <td className="py-3 px-4 text-zinc-200">
+                          {item.chiefEvaluatorEmail ? (
+                            <div className="flex items-center space-x-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                              <span className="text-amber-200 font-sans text-xs">{item.chiefEvaluatorEmail}</span>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-sans font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap">
+                              <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+                              <span>No details are available</span>
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Column D: Student Details (Student Email ID) */}
                         <td className="py-3 px-4 font-sans font-medium text-white whitespace-nowrap">
                           {item.studentEmail ? (
                             <span>{item.studentEmail}</span>

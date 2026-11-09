@@ -10,6 +10,9 @@ export interface RawStudentRow {
   examDate: string;
   evaluatorName: string;
   evaluatorEmail: string;
+  chiefEvaluatorEmail: string;
+  chiefEvaluatorName: string;
+  hasChiefDetails: boolean;
   raw: Record<string, any>;
   rowIndex: number;
 }
@@ -32,6 +35,9 @@ export interface MappedStudentAllocation {
   examDate: string;
   evaluatorName: string;
   evaluatorEmail: string;
+  chiefEvaluatorEmail: string;
+  chiefEvaluatorName: string;
+  hasChiefDetails: boolean;
   scheduleId: string;
   isMapped: boolean;
   issues: string[];
@@ -42,6 +48,8 @@ export interface EvalOpsValidationSummary {
   totalUniqueCoursesStudentFile: number;
   totalUniqueCoursesScheduleFile: number;
   totalUniqueEvaluators: number;
+  totalChiefEvaluators: number;
+  missingChiefEvaluatorCount: number;
   successfullyMappedCount: number;
   unmappedCount: number;
   missingEvaluatorEmailCount: number;
@@ -159,6 +167,7 @@ export function parseStudentEvaluatorFile(
     examDate: boolean;
     evaluatorName: boolean;
     evaluatorEmail: boolean;
+    chiefEvaluatorEmail: boolean;
   };
   sampleHeaders: string[];
 } {
@@ -185,6 +194,7 @@ export function parseStudentEvaluatorFile(
         examDate: false,
         evaluatorName: false,
         evaluatorEmail: false,
+        chiefEvaluatorEmail: false,
       },
       sampleHeaders: [],
     };
@@ -206,6 +216,7 @@ export function parseStudentEvaluatorFile(
         examDate: false,
         evaluatorName: false,
         evaluatorEmail: false,
+        chiefEvaluatorEmail: false,
       },
       sampleHeaders: [],
     };
@@ -394,7 +405,81 @@ export function parseStudentEvaluatorFile(
       'teacher email'
     );
 
-    // 7. School Code for row
+    // 7. Chief Evaluator Email ID (with all variations and common misspellings)
+    let chiefEvaluatorEmail = getRowVal(
+      row,
+      'chief evaluator email id',
+      'chief evaluator email',
+      'chief evaluator email_id',
+      'chief evaluator mail id',
+      'chief evaluator mail',
+      'chief email id',
+      'chief email',
+      'chief mail id',
+      'chief mail',
+      'chief_evaluator_email',
+      'chiefevaluatoremail',
+      'chief_email',
+      'cheif evaluator email id',
+      'cheif evaluator email',
+      'cheif evaluator email_id',
+      'cheif evaluator mail id',
+      'cheif evaluator mail',
+      'cheif email id',
+      'cheif email',
+      'cheif mail id',
+      'cheif mail',
+      'cheif_evaluator_email',
+      'cheifevaluatoremail',
+      'cheif_email',
+      'chief examiner email',
+      'cheif examiner email',
+      'head evaluator email',
+      'lead evaluator email'
+    );
+
+    let chiefEvaluatorName = getRowVal(
+      row,
+      'chief evaluator name',
+      'chief evaluator',
+      'chiefevaluator',
+      'chief name',
+      'cheif evaluator name',
+      'cheif evaluator',
+      'cheifevaluator',
+      'cheif name',
+      'chief examiner name',
+      'cheif examiner name',
+      'head evaluator',
+      'lead evaluator'
+    );
+
+    // Deep fallback: Scan any column containing chief or cheif
+    if (!chiefEvaluatorEmail) {
+      for (const [k, v] of Object.entries(row)) {
+        const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanK.includes('chief') || cleanK.includes('cheif')) {
+          const strVal = String(v ?? '').trim();
+          if (strVal.includes('@')) {
+            chiefEvaluatorEmail = strVal;
+            break;
+          } else if (!chiefEvaluatorName && strVal) {
+            chiefEvaluatorName = strVal;
+          }
+        }
+      }
+    }
+
+    if (!chiefEvaluatorEmail && chiefEvaluatorName.includes('@')) {
+      chiefEvaluatorEmail = chiefEvaluatorName;
+    }
+
+    const hasChiefDetails = Boolean(
+      (chiefEvaluatorEmail && chiefEvaluatorEmail.trim().length > 0) ||
+      (chiefEvaluatorName && chiefEvaluatorName.trim().length > 0)
+    );
+
+    // 8. School Code for row
     const rowSchoolVal = getRowVal(
       row,
       'school code',
@@ -413,7 +498,7 @@ export function parseStudentEvaluatorFile(
       rowSchoolCode = (norm && norm.code && norm.code !== 'GEN') ? norm.code : rowSchoolVal.trim().toUpperCase();
     }
 
-    // 8. Exam Date for row
+    // 9. Exam Date for row
     const rawExamDate = getRowVal(
       row,
       'exam date',
@@ -437,6 +522,9 @@ export function parseStudentEvaluatorFile(
       examDate,
       evaluatorName: evaluatorName || 'Unknown Evaluator',
       evaluatorEmail: evaluatorEmail.trim(),
+      chiefEvaluatorEmail: chiefEvaluatorEmail.trim(),
+      chiefEvaluatorName: chiefEvaluatorName.trim(),
+      hasChiefDetails,
       raw: row,
       rowIndex: idx + 2, // Excel 1-based index (header is row 1)
     };
@@ -451,6 +539,7 @@ export function parseStudentEvaluatorFile(
   const hasExamDate = rows.some((r) => r.examDate.length > 0);
   const hasEvaluatorEmail = rows.some((r) => r.evaluatorEmail.length > 0);
   const hasEvaluatorName = rows.some((r) => r.evaluatorName && r.evaluatorName !== 'Unknown Evaluator');
+  const hasChiefEvaluatorEmail = rows.some((r) => r.chiefEvaluatorEmail.length > 0);
 
   return {
     rows,
@@ -466,6 +555,7 @@ export function parseStudentEvaluatorFile(
       examDate: hasExamDate,
       evaluatorName: hasEvaluatorName,
       evaluatorEmail: hasEvaluatorEmail,
+      chiefEvaluatorEmail: hasChiefEvaluatorEmail,
     },
     sampleHeaders,
   };
@@ -701,17 +791,34 @@ export function mapStudentEvaluatorSchedules(
       examDate: st.examDate || '',
       evaluatorName: st.evaluatorName,
       evaluatorEmail: st.evaluatorEmail,
+      chiefEvaluatorEmail: st.chiefEvaluatorEmail || '',
+      chiefEvaluatorName: st.chiefEvaluatorName || '',
+      hasChiefDetails: st.hasChiefDetails,
       scheduleId: scheduleId || 'UNMAPPED',
       isMapped,
       issues,
     };
   });
 
+  const uniqueChiefEvaluators = new Set<string>();
+  let totalWithChief = 0;
+  let missingChiefCount = 0;
+  for (const st of studentRows) {
+    if (st.chiefEvaluatorEmail) {
+      uniqueChiefEvaluators.add(st.chiefEvaluatorEmail.toLowerCase());
+      totalWithChief++;
+    } else {
+      missingChiefCount++;
+    }
+  }
+
   const summary: EvalOpsValidationSummary = {
     totalStudentRecords: studentRows.length,
     totalUniqueCoursesStudentFile: studentCourses.size,
     totalUniqueCoursesScheduleFile: scheduleCourses.size,
     totalUniqueEvaluators: uniqueEvaluators.size,
+    totalChiefEvaluators: uniqueChiefEvaluators.size,
+    missingChiefEvaluatorCount: missingChiefCount,
     successfullyMappedCount,
     unmappedCount,
     missingEvaluatorEmailCount,
@@ -749,7 +856,8 @@ export function generateEvalOpsExcel(
     const sCode = item.schoolCode || schoolCode;
     return {
       'Schedule ID': item.scheduleId === 'UNMAPPED' ? '' : item.scheduleId,
-      'Evaluator Email ID': item.evaluatorEmail,
+      'Evaluator Email ID': item.evaluatorEmail || 'No details are available',
+      'Chief Evaluator Email ID': item.chiefEvaluatorEmail || 'No details are available',
       'Student Details': item.studentEmail || item.studentName,
       'Student Name': item.studentName,
       'Course Code': item.courseCode,
@@ -764,6 +872,7 @@ export function generateEvalOpsExcel(
     header: [
       'Schedule ID',
       'Evaluator Email ID',
+      'Chief Evaluator Email ID',
       'Student Details',
       'Student Name',
       'Course Code',
@@ -777,12 +886,13 @@ export function generateEvalOpsExcel(
   ws['!cols'] = [
     { wch: 18 }, // Col A: Schedule ID
     { wch: 34 }, // Col B: Evaluator Email ID
-    { wch: 34 }, // Col C: Student Details (Email ID)
-    { wch: 28 }, // Col D: Student Name
-    { wch: 16 }, // Col E: Course Code
-    { wch: 32 }, // Col F: Course Name
-    { wch: 16 }, // Col G: School Code
-    { wch: 18 }, // Col H: Exam Date
+    { wch: 34 }, // Col C: Chief Evaluator Email ID
+    { wch: 34 }, // Col D: Student Details (Email ID)
+    { wch: 28 }, // Col E: Student Name
+    { wch: 16 }, // Col F: Course Code
+    { wch: 32 }, // Col G: Course Name
+    { wch: 16 }, // Col H: School Code
+    { wch: 18 }, // Col I: Exam Date
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Evaluator Assignment');
