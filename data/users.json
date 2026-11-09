@@ -1,0 +1,13 @@
+[
+  {
+    "id": "user_super_admin",
+    "name": "Shaik Ghouse M",
+    "role": "super_admin",
+    "email": "shaikghousem@codetantra.in",
+    "status": "active",
+    "station": "HQ / Scanning Dept Management",
+    "createdAt": "2026-11-06T07:03:53.531Z",
+    "department": "Scanning Dept - Administration",
+    "avatarColor": "bg-indigo-600"
+  }
+]
