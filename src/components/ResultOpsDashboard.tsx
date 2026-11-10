@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import {
   Clock,
@@ -25,6 +25,7 @@ import {
   FileCheck,
   Settings2,
   Edit2,
+  Eye,
 } from 'lucide-react';
 
 export interface SavedResultSheet {
@@ -140,6 +141,28 @@ export const ResultOpsDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSchool, setSelectedSchool] = useState<string>('ALL');
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
+
+  // CSV Export & Actions State (Action Required Tab Only)
+  const [showCsvMenu, setShowCsvMenu] = useState<boolean>(false);
+  const [showCsvPreviewModal, setShowCsvPreviewModal] = useState<boolean>(false);
+  const [csvDownloadSuccess, setCsvDownloadSuccess] = useState<boolean>(false);
+  const [csvCopiedMessage, setCsvCopiedMessage] = useState<string | null>(null);
+  const csvMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close CSV dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (csvMenuRef.current && !csvMenuRef.current.contains(event.target as Node)) {
+        setShowCsvMenu(false);
+      }
+    };
+    if (showCsvMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCsvMenu]);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
@@ -439,6 +462,71 @@ export const ResultOpsDashboard: React.FC = () => {
     navigator.clipboard.writeText(ids);
     setCopiedSuccess(true);
     setTimeout(() => setCopiedSuccess(false), 2500);
+  };
+
+  // Download Action Required IDs as CSV
+  const handleDownloadActionRequiredIdsCsv = (includeDetails: boolean = false) => {
+    const targetRows = displayedRows;
+    if (targetRows.length === 0) return;
+
+    let csvContent = '';
+    const dateStr = new Date().toISOString().split('T')[0];
+
+    if (includeDetails) {
+      const headers = [
+        'Schedule ID',
+        'School Name',
+        'Evaluation Cycle',
+        'Result Close Date',
+        'Result Close Time',
+        'Next Round Required',
+        'Next Round Assigned',
+      ];
+      const escapeCsv = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+      const contentRows = targetRows.map((r) =>
+        [
+          escapeCsv(r.scheduleId),
+          escapeCsv(r.schoolName),
+          escapeCsv(r.evaluationCycle),
+          escapeCsv(r.resultCloseDate),
+          escapeCsv(formatDisplayTime(r.resultCloseTime)),
+          escapeCsv(r.nextRoundRequired || ''),
+          escapeCsv(r.nextRoundAssigned || ''),
+        ].join(',')
+      );
+      csvContent = [headers.join(','), ...contentRows].join('\r\n');
+    } else {
+      const headers = ['Schedule ID'];
+      const contentRows = targetRows.map((r) => `"${String(r.scheduleId).replace(/"/g, '""')}"`);
+      csvContent = [headers.join(','), ...contentRows].join('\r\n');
+    }
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    const suffix = includeDetails ? 'Details' : 'IDs';
+    link.setAttribute('download', `Action_Required_Schedule_${suffix}_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setCsvDownloadSuccess(true);
+    setTimeout(() => setCsvDownloadSuccess(false), 2500);
+  };
+
+  // Copy Action Required IDs in CSV format
+  const handleCopyActionRequiredIdsCsv = (format: 'comma' | 'newline' = 'comma') => {
+    const targetRows = displayedRows;
+    if (targetRows.length === 0) return;
+
+    const ids = targetRows.map((r) => r.scheduleId);
+    const text = format === 'comma' ? ids.join(', ') : ids.join('\n');
+    navigator.clipboard.writeText(text);
+
+    setCsvCopiedMessage(format === 'comma' ? `Copied ${ids.length} CSV IDs!` : `Copied ${ids.length} IDs column!`);
+    setTimeout(() => setCsvCopiedMessage(null), 2500);
   };
 
   // Export to Excel
@@ -931,6 +1019,135 @@ export const ResultOpsDashboard: React.FC = () => {
               </select>
             )}
 
+            {/* ONLY FOR ACTION REQUIRED TAB: Small option on the side where it gives all IDs in CSV */}
+            {activeTabFilter === 'ACTION_REQUIRED' && (
+              <div className="relative inline-flex items-center shrink-0" ref={csvMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadActionRequiredIdsCsv(false)}
+                  disabled={displayedRows.length === 0}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-l-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-xs transition-colors shadow-sm border-r border-rose-700/60"
+                  title="Download all Action Required Schedule IDs as CSV (.csv)"
+                >
+                  {csvDownloadSuccess ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-white" />
+                      <span>Downloaded CSV!</span>
+                    </>
+                  ) : csvCopiedMessage ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-white" />
+                      <span>{csvCopiedMessage}</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>IDs in CSV ({displayedRows.length})</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCsvMenu((prev) => !prev)}
+                  disabled={displayedRows.length === 0}
+                  className="px-2 py-1.5 rounded-r-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs transition-colors shadow-sm"
+                  title="More CSV options (Copy comma-separated, preview, details)"
+                >
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showCsvMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {showCsvMenu && (
+                  <div className="absolute right-0 top-full mt-1.5 w-64 bg-[#111114] border border-[#27272a] rounded-xl shadow-2xl p-1.5 z-50 text-xs font-sans animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-2.5 py-1.5 text-[10px] uppercase font-mono font-bold tracking-wider text-rose-400 border-b border-[#222222] mb-1 flex items-center justify-between">
+                      <span>Action Required IDs (CSV)</span>
+                      <span className="text-zinc-400 font-normal">({displayedRows.length})</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDownloadActionRequiredIdsCsv(false);
+                        setShowCsvMenu(false);
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-zinc-800 text-zinc-200 hover:text-white flex items-center space-x-2 transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-semibold block text-white text-[11px]">Download IDs (.csv)</span>
+                        <span className="text-[10px] text-zinc-400 block font-mono">Single column Schedule ID file</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDownloadActionRequiredIdsCsv(true);
+                        setShowCsvMenu(false);
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-zinc-800 text-zinc-200 hover:text-white flex items-center space-x-2 transition-colors"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-semibold block text-white text-[11px]">Download Full Details (.csv)</span>
+                        <span className="text-[10px] text-zinc-400 block font-mono">IDs with cycle, school &amp; deadlines</span>
+                      </div>
+                    </button>
+
+                    <div className="my-1 border-t border-[#222222]" />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCopyActionRequiredIdsCsv('comma');
+                        setShowCsvMenu(false);
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-zinc-800 text-zinc-200 hover:text-white flex items-center space-x-2 transition-colors"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-semibold block text-white text-[11px]">Copy as Comma-Separated</span>
+                        <span className="text-[10px] text-zinc-400 block font-mono">ID1, ID2, ID3... (CSV format)</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCopyActionRequiredIdsCsv('newline');
+                        setShowCsvMenu(false);
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-zinc-800 text-zinc-200 hover:text-white flex items-center space-x-2 transition-colors"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-semibold block text-white text-[11px]">Copy One per Line</span>
+                        <span className="text-[10px] text-zinc-400 block font-mono">Column list for spreadsheets</span>
+                      </div>
+                    </button>
+
+                    <div className="my-1 border-t border-[#222222]" />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCsvPreviewModal(true);
+                        setShowCsvMenu(false);
+                      }}
+                      className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-zinc-800 text-zinc-200 hover:text-white flex items-center space-x-2 transition-colors"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-semibold block text-white text-[11px]">View All IDs in CSV</span>
+                        <span className="text-[10px] text-zinc-400 block font-mono">Preview, edit, or quick copy</span>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Download Excel */}
             <button
               type="button"
@@ -1237,6 +1454,80 @@ export const ResultOpsDashboard: React.FC = () => {
               >
                 Save Changes &amp; Sync
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ACTION REQUIRED IDS CSV PREVIEW MODAL */}
+      {showCsvPreviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[#09090b] border border-[#27272a] rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl font-sans">
+            <div className="flex items-center justify-between pb-3 border-b border-[#222222]">
+              <div className="flex items-center space-x-2.5">
+                <FileSpreadsheet className="w-5 h-5 text-rose-400" />
+                <div>
+                  <h3 className="text-sm font-bold text-white">Action Required IDs (CSV)</h3>
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    {displayedRows.length} schedule ID{displayedRows.length === 1 ? '' : 's'} available in Action Required tab
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCsvPreviewModal(false)}
+                className="text-zinc-500 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-zinc-300">
+                  Comma-Separated Schedule IDs (CSV format):
+                </label>
+                <span className="text-[10px] font-mono text-rose-400 font-bold bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded">
+                  {displayedRows.length} IDs
+                </span>
+              </div>
+              <textarea
+                readOnly
+                value={displayedRows.map((r) => r.scheduleId).join(', ')}
+                className="w-full h-36 bg-[#000000] border border-[#27272a] rounded-xl p-3 text-xs font-mono text-zinc-200 focus:outline-none resize-none selection:bg-rose-500 selection:text-white"
+              />
+            </div>
+
+            <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#222222]">
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => handleCopyActionRequiredIdsCsv('comma')}
+                  className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold inline-flex items-center space-x-1.5 transition-colors border border-zinc-700"
+                >
+                  {csvCopiedMessage ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{csvCopiedMessage || 'Copy CSV'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCopyActionRequiredIdsCsv('newline')}
+                  className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-semibold inline-flex items-center space-x-1.5 transition-colors border border-zinc-700"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Column</span>
+                </button>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadActionRequiredIdsCsv(false)}
+                  className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold inline-flex items-center space-x-1.5 transition-colors shadow-sm"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download .csv</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
