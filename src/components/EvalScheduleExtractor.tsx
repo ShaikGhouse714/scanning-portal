@@ -79,7 +79,7 @@ export const EvalScheduleExtractor: React.FC = () => {
   }, [scheduleIdsInput]);
 
   // Connect & Fetch Master Sheet ("Total Data" subsheet priority)
-  const handleFetchSheet = async (overrideUrl?: string, targetSheetName?: string) => {
+  const handleFetchSheet = async (overrideUrl?: string, targetSheetName?: string, isExplicitRefresh: boolean = false) => {
     const urlToFetch = (overrideUrl || sheetUrl).trim();
     if (!urlToFetch) {
       setSheetError('Please enter a Google Sheet URL or Published Web link.');
@@ -89,13 +89,22 @@ export const EvalScheduleExtractor: React.FC = () => {
     setIsLoadingSheet(true);
     setSheetError(null);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
+
     try {
       const res = await fetch('/api/eval-fetch-sheet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlToFetch, targetSheet: targetSheetName }),
+        body: JSON.stringify({
+          url: urlToFetch,
+          targetSheet: targetSheetName,
+          forceRefresh: isExplicitRefresh,
+        }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.message || 'Failed to fetch Google Sheet data.');
@@ -116,7 +125,13 @@ export const EvalScheduleExtractor: React.FC = () => {
         // ignore
       }
     } catch (err: any) {
-      setSheetError(err.message || 'Failed to connect to Google Sheet.');
+      clearTimeout(timeoutId);
+      const isTimeout = err.name === 'AbortError';
+      setSheetError(
+        isTimeout
+          ? 'Sync timed out. Google Sheets took too long to respond. Please check your link or try again.'
+          : err.message || 'Failed to connect to Google Sheet.'
+      );
     } finally {
       setIsLoadingSheet(false);
     }
@@ -512,14 +527,14 @@ export const EvalScheduleExtractor: React.FC = () => {
             {/* Connect Button */}
             <button
               type="button"
-              onClick={() => handleFetchSheet()}
+              onClick={() => handleFetchSheet(undefined, undefined, true)}
               disabled={isLoadingSheet}
               className="w-full inline-flex items-center justify-center space-x-2 px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs transition-colors border border-zinc-700 disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSheet ? 'animate-spin' : ''}`} />
               <span>
                 {isLoadingSheet
-                  ? 'Connecting...'
+                  ? 'Syncing Google Sheet...'
                   : masterRows.length > 0
                   ? 'Re-sync Live Sheet'
                   : 'Connect Sheet'}

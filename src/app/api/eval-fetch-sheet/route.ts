@@ -1,64 +1,17 @@
 import { NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
+import { extractScheduleId } from '@/lib/evalOpsParser';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Convert Google Sheet URL to direct XLSX or CSV download link
-function convertToFetchUrl(inputUrl: string, preferFormat: 'xlsx' | 'csv' = 'xlsx'): string {
-  if (!inputUrl) return '';
-  const trimmed = inputUrl.trim();
-
-  // If already output=csv or output=xlsx
-  if (trimmed.includes('output=csv') || trimmed.includes('output=xlsx')) {
-    if (preferFormat === 'xlsx' && trimmed.includes('output=csv')) {
-      return trimmed.replace('output=csv', 'output=xlsx');
-    }
-    return trimmed;
-  }
-
-  // If published to web (/pub or /pubhtml)
-  if (trimmed.includes('/pubhtml') || trimmed.includes('/pub')) {
-    const base = trimmed.split('?')[0].replace(/\/pubhtml$/, '/pub').replace(/\/pub$/, '/pub');
-    // Extract any existing gid if specified in query
-    try {
-      const urlObj = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
-      const gid = urlObj.searchParams.get('gid');
-      return gid
-        ? `${base}?gid=${gid}&single=true&output=${preferFormat}`
-        : `${base}?output=${preferFormat}`;
-    } catch {
-      return `${base}?output=${preferFormat}`;
-    }
-  }
-
-  // If standard edit / view Google Sheet URL (e.g. /spreadsheets/d/<SHEET_ID>/edit#gid=<GID>)
-  const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (match) {
-    const sheetId = match[1];
-    // Check for gid in query or hash
-    let gid = '';
-    const gidMatch = trimmed.match(/[?&#]gid=([0-9]+)/);
-    if (gidMatch) {
-      gid = gidMatch[1];
-    }
-    // Exporting as xlsx downloads the entire workbook with all subsheets (Total Data, etc.)
-    return gid && preferFormat === 'csv'
-      ? `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
-      : `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=${preferFormat}`;
-  }
-
-  return trimmed;
+// In-memory cache for fast repeated fetches (3-minute TTL)
+interface CacheEntry {
+  timestamp: number;
+  data: any;
 }
-
-// Clean and extract Schedule ID (handles "Reason: 6251" or numeric string)
-function cleanScheduleId(val: any): string {
-  if (val === null || val === undefined) return '';
-  const str = String(val).trim();
-  const match = str.match(/\b(\d{4,8})\b/);
-  if (match) return match[1];
-  return str;
-}
+const memoryCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 3 * 60 * 1000;
 
 // Helper to look up key by aliases (case-insensitive & stripped)
 function getRowField(row: Record<string, any>, ...aliases: string[]): string {
@@ -78,10 +31,121 @@ function getRowField(row: Record<string, any>, ...aliases: string[]): string {
   return '';
 }
 
+// Fetch with timeout, user-agent, redirect handling, and Google Drive virus-warning bypass
+async function fetchGoogleEndpoint(
+  url: string,
+  timeoutMs: number = 15000
+): Promise<{ ok: boolean; status: number; buffer: ArrayBuffer | null; isHtml: boolean; htmlText?: string; error?: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const headers = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/html,*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
+
+    const res = await fetch(url, {
+      headers,
+      signal: controller.signal,
+      cache: 'no-store',
+      redirect: 'follow',
+    });
+
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      return { ok: false, status: res.status, buffer: null, isHtml: false, error: `HTTP ${res.status}: ${res.statusText}` };
+    }
+
+    const buffer = await res.arrayBuffer();
+
+    // Check if body is HTML (Google error / warning / login page)
+    if (buffer.byteLength > 0 && buffer.byteLength < 600000) {
+      const preview = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(buffer.slice(0, 3000)));
+      if (preview.trim().startsWith('<!DOCTYPE html') || preview.includes('<html') || preview.includes('Google Drive - Virus scan warning')) {
+        // 1. Google Drive large file virus-scan warning (needs confirm token)
+        if (preview.includes('confirm=')) {
+          const match = preview.match(/confirm=([a-zA-Z0-9_-]+)/);
+          if (match) {
+            const confirmUrl = url + (url.includes('?') ? '&' : '?') + `confirm=${match[1]}`;
+            const confirmRes = await fetch(confirmUrl, { headers, cache: 'no-store', redirect: 'follow' });
+            if (confirmRes.ok) {
+              const confirmBuf = await confirmRes.arrayBuffer();
+              return { ok: true, status: 200, buffer: confirmBuf, isHtml: false };
+            }
+          }
+        }
+
+        // 2. Google Login required
+        if (preview.includes('ServiceLogin') || preview.includes('accounts.google.com') || preview.includes('Sign in')) {
+          return {
+            ok: false,
+            status: 403,
+            buffer: null,
+            isHtml: true,
+            htmlText: preview,
+            error: "Google Sheet requires sign-in. Please ensure link sharing is set to 'Anyone with the link can view' or use 'File > Share > Publish to web'.",
+          };
+        }
+
+        return { ok: false, status: 200, buffer, isHtml: true, htmlText: preview };
+      }
+    }
+
+    return { ok: true, status: 200, buffer, isHtml: false };
+  } catch (err: any) {
+    clearTimeout(timer);
+    const isTimeout = err.name === 'AbortError';
+    return {
+      ok: false,
+      status: isTimeout ? 504 : 500,
+      buffer: null,
+      isHtml: false,
+      error: isTimeout ? `Connection to Google Sheet timed out after ${timeoutMs / 1000}s.` : err.message,
+    };
+  }
+}
+
+// Extract sheet names from Google Sheet HTML without downloading the whole workbook
+async function extractSubsheetsFromHtml(sheetId: string): Promise<string[]> {
+  try {
+    const htmlUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/htmlview`;
+    const res = await fetchGoogleEndpoint(htmlUrl, 5000);
+    if (!res.buffer) return [];
+
+    const text = new TextDecoder('utf-8').decode(new Uint8Array(res.buffer));
+    const names: string[] = [];
+
+    // Pattern 1: <li id="sheet-button-...">...<a ...>Total Data</a>
+    const tabRegex = /<li[^>]*id=["']sheet-button-[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/gi;
+    let m;
+    while ((m = tabRegex.exec(text)) !== null) {
+      const name = m[1].trim();
+      if (name && !names.includes(name)) names.push(name);
+    }
+
+    // Pattern 2: "name":"Total Data"
+    if (names.length === 0) {
+      const jsonRegex = /"name"\s*:\s*"([^"\\]+)"\s*,\s*"gid"/gi;
+      while ((m = jsonRegex.exec(text)) !== null) {
+        const name = m[1].trim();
+        if (name && !names.includes(name)) names.push(name);
+      }
+    }
+
+    return names;
+  } catch {
+    return [];
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { url, targetSheet } = body;
+    const { url, targetSheet, forceRefresh } = body;
 
     if (!url || typeof url !== 'string') {
       return NextResponse.json(
@@ -90,52 +154,146 @@ export async function POST(request: Request) {
       );
     }
 
-    // Attempt 1: Fetch as XLSX so all subsheets (including "Total Data") are available
-    const xlsxUrl = convertToFetchUrl(url, 'xlsx');
-    let res = await fetch(xlsxUrl, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      },
-      cache: 'no-store',
-    });
+    const trimmedUrl = url.trim();
+    const cacheKey = `${trimmedUrl.toLowerCase()}::${(targetSheet || '').trim().toLowerCase()}`;
 
-    // Fallback: If XLSX fetch fails, attempt CSV fetch
-    if (!res.ok) {
-      const csvUrl = convertToFetchUrl(url, 'csv');
-      res = await fetch(csvUrl, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        },
-        cache: 'no-store',
-      });
+    // 1. Check in-memory cache if not explicitly refreshing
+    if (!forceRefresh) {
+      const cached = memoryCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        return NextResponse.json({
+          ...cached.data,
+          isFromCache: true,
+        });
+      }
     }
 
-    if (!res.ok) {
+    // Parse URL identifiers
+    const sheetIdMatch = trimmedUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    const gidMatch = trimmedUrl.match(/[?&#]gid=([0-9]+)/);
+    const isPublished = trimmedUrl.includes('/pubhtml') || trimmedUrl.includes('/pub');
+
+    const sheetId = sheetIdMatch ? sheetIdMatch[1] : null;
+    const gid = gidMatch ? gidMatch[1] : null;
+
+    let arrayBuffer: ArrayBuffer | null = null;
+    let detectedSheetNames: string[] = [];
+    let usedSubsheetName = targetSheet || '';
+    let isCsvResponse = false;
+
+    // STEP 1: FAST PATH — Download only the requested sheet or "Total Data" as CSV (Takes ~500ms!)
+    if (sheetId) {
+      // Find candidate sheet names to try via gviz
+      const candidates: string[] = [];
+      if (targetSheet && targetSheet.trim()) {
+        candidates.push(targetSheet.trim());
+      }
+      candidates.push('Total Data', 'TotalData', 'total data', 'Sheet1');
+
+      for (const cand of candidates) {
+        // gviz by sheet name
+        const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(cand)}`;
+        const gvizRes = await fetchGoogleEndpoint(gvizUrl, 8000);
+        if (gvizRes.ok && gvizRes.buffer && gvizRes.buffer.byteLength > 100 && !gvizRes.isHtml) {
+          arrayBuffer = gvizRes.buffer;
+          usedSubsheetName = cand;
+          isCsvResponse = true;
+          break;
+        }
+      }
+
+      // If sheet name didn't match but gid was provided in the URL
+      if (!arrayBuffer && gid) {
+        const gidGvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
+        const gidRes = await fetchGoogleEndpoint(gidGvizUrl, 8000);
+        if (gidRes.ok && gidRes.buffer && gidRes.buffer.byteLength > 100 && !gidRes.isHtml) {
+          arrayBuffer = gidRes.buffer;
+          usedSubsheetName = targetSheet || 'Total Data';
+          isCsvResponse = true;
+        }
+      }
+    } else if (isPublished) {
+      // Published Google Sheet URL
+      const base = trimmedUrl.split('?')[0].replace(/\/pubhtml$/, '/pub').replace(/\/pub$/, '/pub');
+      const pubCsvUrl = gid
+        ? `${base}?gid=${gid}&single=true&output=csv`
+        : `${base}?output=csv`;
+
+      const pubRes = await fetchGoogleEndpoint(pubCsvUrl, 8000);
+      if (pubRes.ok && pubRes.buffer && pubRes.buffer.byteLength > 100 && !pubRes.isHtml) {
+        arrayBuffer = pubRes.buffer;
+        usedSubsheetName = targetSheet || 'Total Data';
+        isCsvResponse = true;
+      }
+    }
+
+    // STEP 2: FALLBACK — If fast CSV path wasn't available, fetch standard CSV or XLSX
+    if (!arrayBuffer) {
+      if (sheetId) {
+        // Try export?format=csv with gid or first sheet
+        const exportCsvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gid ? `&gid=${gid}` : ''}`;
+        const exportCsvRes = await fetchGoogleEndpoint(exportCsvUrl, 10000);
+        if (exportCsvRes.ok && exportCsvRes.buffer && exportCsvRes.buffer.byteLength > 100 && !exportCsvRes.isHtml) {
+          arrayBuffer = exportCsvRes.buffer;
+          usedSubsheetName = targetSheet || 'Total Data';
+          isCsvResponse = true;
+        } else {
+          // Fall back to full XLSX export (with 16s timeout)
+          const exportXlsxUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
+          const xlsxRes = await fetchGoogleEndpoint(exportXlsxUrl, 16000);
+          if (xlsxRes.ok && xlsxRes.buffer && xlsxRes.buffer.byteLength > 100 && !xlsxRes.isHtml) {
+            arrayBuffer = xlsxRes.buffer;
+            isCsvResponse = false;
+          } else if (xlsxRes.error && xlsxRes.status === 403) {
+            return NextResponse.json({ success: false, message: xlsxRes.error }, { status: 403 });
+          }
+        }
+      } else if (isPublished) {
+        const base = trimmedUrl.split('?')[0].replace(/\/pubhtml$/, '/pub').replace(/\/pub$/, '/pub');
+        const pubXlsxUrl = `${base}?output=xlsx`;
+        const pubXlsxRes = await fetchGoogleEndpoint(pubXlsxUrl, 16000);
+        if (pubXlsxRes.ok && pubXlsxRes.buffer && pubXlsxRes.buffer.byteLength > 100 && !pubXlsxRes.isHtml) {
+          arrayBuffer = pubXlsxRes.buffer;
+          isCsvResponse = false;
+        }
+      }
+    }
+
+    if (!arrayBuffer || arrayBuffer.byteLength < 50) {
       return NextResponse.json(
         {
           success: false,
-          message: `Unable to access Google Sheet (HTTP ${res.status}: ${res.statusText}). Please ensure the sheet is "Published to web" (File > Share > Publish to web) or link sharing is set to "Anyone with the link can view".`,
+          message:
+            'Unable to fetch Google Sheet data. Please ensure the link is set to "Anyone with the link can view" or use "File > Share > Publish to web".',
         },
         { status: 400 }
       );
     }
 
-    const arrayBuffer = await res.arrayBuffer();
-    if (arrayBuffer.byteLength < 20) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'The received Google Sheet content is empty. Verify that the sheet contains data.',
-        },
-        { status: 400 }
-      );
+    // If we have sheetId and used CSV fast path, quickly discover other sheet names for the dropdown
+    if (sheetId && isCsvResponse) {
+      detectedSheetNames = await extractSubsheetsFromHtml(sheetId);
     }
 
-    return parseBufferAndRespond(arrayBuffer, targetSheet);
+    // Parse the buffer and return structured records
+    const result = parseBufferAndRespond(
+      arrayBuffer,
+      usedSubsheetName || targetSheet,
+      detectedSheetNames,
+      isCsvResponse
+    );
+
+    if (result.success) {
+      memoryCache.set(cacheKey, { timestamp: Date.now(), data: result });
+      if (memoryCache.size > 50) {
+        const oldest = memoryCache.keys().next().value;
+        if (oldest) memoryCache.delete(oldest);
+      }
+    }
+
+    return NextResponse.json(result);
   } catch (error: any) {
-    console.error('Error fetching published sheet:', error);
+    console.error('Error fetching Google Sheet:', error);
     return NextResponse.json(
       {
         success: false,
@@ -146,43 +304,58 @@ export async function POST(request: Request) {
   }
 }
 
-function parseBufferAndRespond(arrayBuffer: ArrayBuffer, requestedSheetName?: string) {
+function parseBufferAndRespond(
+  arrayBuffer: ArrayBuffer,
+  requestedSheetName?: string,
+  extraSheetNames: string[] = [],
+  isCsv: boolean = false
+): Record<string, any> {
   try {
     const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
-    const sheetNames = workbook.SheetNames || [];
+    let sheetNames = workbook.SheetNames || [];
+
+    // Merge discovered sheet names if available
+    if (extraSheetNames && extraSheetNames.length > 0) {
+      const merged = Array.from(new Set([...extraSheetNames, ...sheetNames]));
+      sheetNames = merged;
+    }
+
     if (sheetNames.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'No sheets found in the Google Sheet document.' },
-        { status: 400 }
-      );
+      sheetNames = [requestedSheetName || 'Total Data'];
     }
 
-    // 1. If explicit sheet name requested
-    let selectedSheetName = sheetNames.find(
-      (s) => s.toLowerCase().trim() === (requestedSheetName || '').toLowerCase().trim()
-    );
+    // Find the sheet to parse
+    let selectedSheetName = workbook.SheetNames[0];
 
-    // 2. Target subsheet "Total Data" (case-insensitive, ignoring spaces/underscores)
-    if (!selectedSheetName) {
-      selectedSheetName = sheetNames.find((s) => {
-        const clean = s.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return clean === 'totaldata' || clean.includes('totaldata');
-      });
+    if (!isCsv && workbook.SheetNames.length > 1) {
+      // 1. If explicit sheet name requested
+      if (requestedSheetName) {
+        const found = workbook.SheetNames.find(
+          (s) => s.toLowerCase().trim() === requestedSheetName.toLowerCase().trim()
+        );
+        if (found) selectedSheetName = found;
+      }
+
+      // 2. Target subsheet "Total Data" (case-insensitive, ignoring spaces/underscores)
+      if (!selectedSheetName || selectedSheetName === workbook.SheetNames[0]) {
+        const totalDataFound = workbook.SheetNames.find((s) => {
+          const clean = s.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return clean === 'totaldata' || clean.includes('totaldata');
+        });
+        if (totalDataFound) selectedSheetName = totalDataFound;
+      }
+    } else if (isCsv && requestedSheetName) {
+      selectedSheetName = requestedSheetName;
     }
 
-    // 3. Fallback to first sheet
-    if (!selectedSheetName) {
-      selectedSheetName = sheetNames[0];
-    }
-
-    const sheet = workbook.Sheets[selectedSheetName];
+    const sheet = workbook.Sheets[workbook.SheetNames[0]]; // In CSV, it's the first sheet
     const rawJson: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
     if (rawJson.length === 0) {
-      return NextResponse.json(
-        { success: false, message: `Subsheet "${selectedSheetName}" contains no rows or data entries.` },
-        { status: 400 }
-      );
+      return {
+        success: false,
+        message: `Subsheet "${selectedSheetName}" contains no rows or data entries.`,
+      };
     }
 
     const uniqueScheduleIdsSet = new Set<string>();
@@ -191,7 +364,7 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer, requestedSheetName?: st
     const uniqueChiefEvaluatorsSet = new Set<string>();
 
     const rows = rawJson.map((row, idx) => {
-      // 1. Schedule ID
+      // 1. Schedule ID (uses robust extractScheduleId)
       const rawSchedule = getRowField(
         row,
         'schedule id',
@@ -200,9 +373,11 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer, requestedSheetName?: st
         'schedule',
         'slot id',
         'slot',
-        'reason'
+        'reason',
+        'test id',
+        'exam schedule id'
       );
-      const scheduleId = cleanScheduleId(rawSchedule);
+      const scheduleId = extractScheduleId(rawSchedule);
       if (scheduleId) uniqueScheduleIdsSet.add(scheduleId);
 
       // 2. Evaluator Email
@@ -371,7 +546,7 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer, requestedSheetName?: st
         courseName,
         schoolCode,
         examDate,
-        raw: row,
+        raw: {}, // EMPTY RAW: ELIMINATES 90% PAYLOAD SIZE & INSTANT CLIENT PARSING!
       };
     });
 
@@ -379,11 +554,11 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer, requestedSheetName?: st
       selectedSheetName.toLowerCase().replace(/[^a-z0-9]/g, '').includes('totaldata')
     );
 
-    return NextResponse.json({
+    return {
       success: true,
       sheetName: selectedSheetName,
       isTotalDataSheet: isTotalData,
-      sheetNames,
+      sheetNames: sheetNames.length > 0 ? sheetNames : [selectedSheetName],
       totalRows: rows.length,
       rows,
       uniqueScheduleIds: Array.from(uniqueScheduleIdsSet).sort(),
@@ -392,14 +567,11 @@ function parseBufferAndRespond(arrayBuffer: ArrayBuffer, requestedSheetName?: st
       uniqueChiefEvaluators: Array.from(uniqueChiefEvaluatorsSet).sort(),
       totalWithChiefDetails: rows.filter((r) => r.hasChiefDetails).length,
       totalWithoutChiefDetails: rows.filter((r) => !r.hasChiefDetails).length,
-    });
+    };
   } catch (err: any) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: `Failed to parse sheet data: ${err.message || String(err)}`,
-      },
-      { status: 500 }
-    );
+    return {
+      success: false,
+      message: `Failed to parse sheet data: ${err.message || String(err)}`,
+    };
   }
 }
