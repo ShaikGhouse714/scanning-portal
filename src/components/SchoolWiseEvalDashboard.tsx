@@ -161,23 +161,6 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
     }
   };
 
-  // Reset / Clear Sheet URL
-  const handleResetSheet = () => {
-    setSheetUrl('');
-    setMasterRows([]);
-    setSheetName('');
-    setIsTotalDataSheet(false);
-    setAvailableSheets([]);
-    setLastSyncTime(null);
-    setSheetError(null);
-    setSelectedSchool('ALL');
-    try {
-      localStorage.removeItem('eval_ops_master_sheet_url');
-    } catch {
-      // ignore
-    }
-  };
-
   // =========================================================================
   // SCHOOL-WISE AGGREGATION & METRICS
   // =========================================================================
@@ -722,15 +705,6 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                 placeholder="Paste Google Sheet URL or Publish to web link..."
                 className="w-full px-3 py-2 text-xs font-mono rounded-xl bg-black border border-[#27272a] text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
               />
-              {sheetUrl && (
-                <button
-                  onClick={handleResetSheet}
-                  className="absolute right-2.5 top-2.5 text-zinc-500 hover:text-zinc-300"
-                  title="Clear URL"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
             </div>
 
             <button
@@ -1518,3 +1492,4 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
     </div>
   );
 };
+

@@ -137,25 +137,6 @@ export const EvalScheduleExtractor: React.FC = () => {
     }
   };
 
-  // Scrap / Reset Old Google Sheet and clear local cache
-  const handleScrapOldSheet = () => {
-    setSheetUrl('');
-    setMasterRows([]);
-    setSheetName('');
-    setIsTotalDataSheet(false);
-    setAvailableSheets([]);
-    setAllAvailableScheduleIds([]);
-    setAvailableSchools([]);
-    setLastSyncTime(null);
-    setHasExtracted(false);
-    setSheetError(null);
-    try {
-      localStorage.removeItem('eval_ops_master_sheet_url');
-    } catch {
-      // ignore
-    }
-  };
-
   // Perform Extraction Filtering
   const handleExtractEntries = () => {
     if (masterRows.length === 0) {
@@ -482,18 +463,8 @@ export const EvalScheduleExtractor: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-zinc-400">
+            <div className="text-[11px] text-zinc-400">
               <span>Google Sheet URL:</span>
-              {sheetUrl && (
-                <button
-                  type="button"
-                  onClick={handleScrapOldSheet}
-                  className="text-rose-400 hover:text-rose-300 text-[10px] font-mono underline cursor-pointer"
-                  title="Scrap old sheet & clear cache"
-                >
-                  Scrap old sheet
-                </button>
-              )}
             </div>
 
             {/* URL Input */}

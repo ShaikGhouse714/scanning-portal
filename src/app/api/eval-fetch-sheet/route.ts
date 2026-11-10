@@ -16,7 +16,7 @@ const CACHE_TTL_MS = 3 * 60 * 1000;
 // Fetch with timeout, user-agent, redirect handling, and Google Drive virus-warning bypass
 async function fetchGoogleEndpoint(
   url: string,
-  timeoutMs: number = 8000
+  timeoutMs: number = 25000
 ): Promise<{ ok: boolean; status: number; buffer: ArrayBuffer | null; isHtml: boolean; htmlText?: string; error?: string }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -100,62 +100,91 @@ async function fetchGoogleEndpoint(
   }
 }
 
-// Extract sheet names from Google Sheet HTML without downloading the whole workbook
-async function extractSubsheetsFromHtml(sheetId: string): Promise<string[]> {
+// Extract all subsheet names and their GIDs from pubhtml HTML view
+async function extractSubsheetsAndGidsFromHtml(pubHtmlUrl: string): Promise<{ name: string; gid: string }[]> {
   try {
-    const htmlUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/htmlview`;
-    const res = await fetchGoogleEndpoint(htmlUrl, 2500);
+    const res = await fetchGoogleEndpoint(pubHtmlUrl, 4000);
     if (!res.buffer) return [];
 
     const text = new TextDecoder('utf-8').decode(new Uint8Array(res.buffer));
-    const names: string[] = [];
+    const map = new Map<string, string>();
 
-    // Pattern 1: <li id="sheet-button-...">...<a ...>Total Data</a>
-    const tabRegex = /<li[^>]*id=["']sheet-button-[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/gi;
+    // Pattern 1: <li id="sheet-button-([0-9]+)"[^>]*>.*?<a[^>]*>(.*?)<\/a>
+    const p1 = /<li[^>]*id=["']sheet-button-([0-9]+)["'][^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/gi;
     let m;
-    while ((m = tabRegex.exec(text)) !== null) {
+    while ((m = p1.exec(text)) !== null) {
+      const gid = m[1].trim();
+      const name = m[2].trim();
+      if (name) map.set(name, gid);
+    }
+
+    // Pattern 2: ?gid=([0-9]+) ... >(.*?)<
+    const p2 = /[?&#]gid=([0-9]+)[^"'>]*["'][^>]*>([^<]+)<\/a>/gi;
+    while ((m = p2.exec(text)) !== null) {
+      const gid = m[1].trim();
+      const name = m[2].trim();
+      if (name && !map.has(name)) map.set(name, gid);
+    }
+
+    // Pattern 3: JSON "name": "...", "gid": "..."
+    const p3 = /"name"\s*:\s*"([^"\\]+)"\s*,\s*"[^"]*"\s*:\s*"[^"]*"\s*,\s*"gid"\s*:\s*"?([0-9]+)"?/gi;
+    while ((m = p3.exec(text)) !== null) {
       const name = m[1].trim();
-      if (name && !names.includes(name)) names.push(name);
+      const gid = m[2].trim();
+      if (name && !map.has(name)) map.set(name, gid);
     }
 
-    // Pattern 2: "name":"Total Data"
-    if (names.length === 0) {
-      const jsonRegex = /"name"\s*:\s*"([^"\\]+)"\s*,\s*"gid"/gi;
-      while ((m = jsonRegex.exec(text)) !== null) {
-        const name = m[1].trim();
-        if (name && !names.includes(name)) names.push(name);
-      }
+    // Pattern 4: JSON "gid": "...", "name": "..."
+    const p4 = /"gid"\s*:\s*"?([0-9]+)"?\s*,\s*"name"\s*:\s*"([^"\\]+)"/gi;
+    while ((m = p4.exec(text)) !== null) {
+      const gid = m[1].trim();
+      const name = m[2].trim();
+      if (name && !map.has(name)) map.set(name, gid);
     }
 
-    return names;
+    return Array.from(map.entries()).map(([name, gid]) => ({ name, gid }));
   } catch {
     return [];
   }
 }
 
-// Fetch and parse candidate URLs in parallel; return the fastest candidate that produces valid data
+// Fetch and parse candidate URLs in parallel; return the fastest candidate that produces valid data matching requirements
 async function fetchFirstValid(
   candidates: { url: string; isCsv: boolean }[],
   targetSheetName: string,
-  timeoutMs: number = 6000
+  extraSheetNames: string[] = [],
+  timeoutMs: number = 25000
 ): Promise<Record<string, any> | null> {
   if (candidates.length === 0) return null;
+
+  const isTargetingTotalData =
+    !targetSheetName || targetSheetName.toLowerCase().replace(/[^a-z0-9]/g, '').includes('totaldata');
 
   const attempts = candidates.map(async (cand) => {
     const res = await fetchGoogleEndpoint(cand.url, timeoutMs);
     if (!res.ok || !res.buffer || res.buffer.byteLength < 50) {
       throw new Error(res.error || 'Empty response');
     }
-    const parsed = parseBufferAndRespond(res.buffer, targetSheetName, [], cand.isCsv);
+    const parsed = parseBufferAndRespond(res.buffer, targetSheetName, extraSheetNames, cand.isCsv);
     if (!parsed.success || parsed.totalRows === 0) {
       throw new Error(parsed.message || 'No valid rows found');
     }
+
+    // CRITICAL VALIDATION:
+    // If we are targeting "Total Data" (the master allocation sheet for schedules/evaluators):
+    // The sheet MUST contain Schedule IDs! A 13-row cover sheet with 0 Schedule IDs is NOT Total Data.
+    if (isTargetingTotalData && parsed.uniqueScheduleIds.length === 0) {
+      throw new Error(
+        `Sheet "${parsed.sheetName}" contains 0 Schedule IDs (${parsed.totalRows} rows); skipping non-allocation sheet.`
+      );
+    }
+
     return parsed;
   });
 
   try {
     return await Promise.any(attempts);
-  } catch {
+  } catch (err: any) {
     return null;
   }
 }
@@ -176,9 +205,15 @@ export async function POST(request: Request) {
     const cacheKey = `${trimmedUrl.toLowerCase()}::${(targetSheet || '').trim().toLowerCase()}`;
 
     // 1. Check in-memory cache if not explicitly refreshing
+    // Also ensure cached entry has valid data (> 50 rows and > 0 schedule IDs for Total Data)
     if (!forceRefresh) {
       const cached = memoryCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      if (
+        cached &&
+        Date.now() - cached.timestamp < CACHE_TTL_MS &&
+        cached.data?.totalRows > 50 &&
+        cached.data?.uniqueScheduleIds?.length > 0
+      ) {
         return NextResponse.json({
           ...cached.data,
           isFromCache: true,
@@ -193,7 +228,7 @@ export async function POST(request: Request) {
       trimmedUrl.includes('/pub');
 
     const gidMatch = trimmedUrl.match(/[?&#]gid=([0-9]+)/);
-    const gid = gidMatch ? gidMatch[1] : null;
+    const urlGid = gidMatch ? gidMatch[1] : null;
 
     // Standard sheet ID: match only when NOT followed by /e/ (so /spreadsheets/d/e/ is NOT matched as "e")
     const standardMatch = trimmedUrl.match(/\/spreadsheets\/d\/(?!e\/)([a-zA-Z0-9-_]+)/);
@@ -212,40 +247,62 @@ export async function POST(request: Request) {
 
       const pubHtmlUrl = pubBase.replace(/\/pub$/, '/pubhtml');
 
-      // TIER 1 (FAST PARALLEL PATH): Ultra-fast CSV and direct pubhtml CDN streams (~300-600ms)
-      const fastCandidates: { url: string; isCsv: boolean }[] = [
-        { url: `${pubBase}?output=csv`, isCsv: true },
-        { url: trimmedUrl, isCsv: trimmedUrl.includes('output=csv') || trimmedUrl.includes('output=tsv') },
-      ];
+      // 1. Fetch pubhtml to discover all tabs and their exact GIDs
+      const tabsPromise = extractSubsheetsAndGidsFromHtml(pubHtmlUrl);
 
-      if (gid) {
-        fastCandidates.push({
-          url: `${pubBase}?gid=${gid}&single=true&output=csv`,
+      let effectiveGid = urlGid;
+      let discoveredTabs: { name: string; gid: string }[] = [];
+
+      try {
+        discoveredTabs = await tabsPromise;
+      } catch {
+        discoveredTabs = [];
+      }
+
+      const allDiscoveredSheetNames = discoveredTabs.map((t) => t.name);
+
+      // 2. If no GID was in the URL, find the GID of "Total Data" or the requested sheet
+      if (!effectiveGid && discoveredTabs.length > 0) {
+        const cleanTarget = requestedSheet.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const targetTab =
+          discoveredTabs.find((t) => t.name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanTarget) ||
+          discoveredTabs.find((t) => t.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes('totaldata'));
+        if (targetTab) {
+          effectiveGid = targetTab.gid;
+        }
+      }
+
+      // 3. Build Candidates
+      const candidates: { url: string; isCsv: boolean }[] = [];
+
+      // Candidate 1: Targeted CSV for the exact GID of Total Data (fastest, ~400ms)
+      if (effectiveGid) {
+        candidates.push({
+          url: `${pubBase}?gid=${effectiveGid}&single=true&output=csv`,
           isCsv: true,
         });
       }
 
-      if (trimmedUrl !== pubHtmlUrl) {
-        fastCandidates.push({
-          url: gid ? `${pubHtmlUrl}?gid=${gid}&single=true` : pubHtmlUrl,
-          isCsv: false,
-        });
+      // Candidate 2: Full XLSX workbook export (guaranteed to contain all sheets and all 55,000+ rows)
+      candidates.push({
+        url: `${pubBase}?output=xlsx`,
+        isCsv: false,
+      });
+
+      // Candidate 3: If user already provided output=csv with gid in their URL
+      if (trimmedUrl.includes('output=csv') && urlGid) {
+        candidates.push({ url: trimmedUrl, isCsv: true });
       }
 
-      parsedResult = await fetchFirstValid(fastCandidates, requestedSheet, 6000);
+      // Execute parallel candidate resolution with 25s timeout for complete 55,000+ row datasets
+      parsedResult = await fetchFirstValid(candidates, requestedSheet, allDiscoveredSheetNames, 25000);
 
-      // TIER 2 (FALLBACK): If fast tier did not resolve, try published XLSX export
+      // If still not parsed and we didn't have GID, try full XLSX directly as fallback
       if (!parsedResult) {
-        const fallbackCandidates: { url: string; isCsv: boolean }[] = [
-          { url: `${pubBase}?output=xlsx`, isCsv: false },
-        ];
-        if (gid) {
-          fallbackCandidates.push({
-            url: `${pubBase}?gid=${gid}&single=true&output=xlsx`,
-            isCsv: false,
-          });
+        const fallbackRes = await fetchGoogleEndpoint(`${pubBase}?output=xlsx`, 25000);
+        if (fallbackRes.ok && fallbackRes.buffer && fallbackRes.buffer.byteLength > 100) {
+          parsedResult = parseBufferAndRespond(fallbackRes.buffer, requestedSheet, allDiscoveredSheetNames, false);
         }
-        parsedResult = await fetchFirstValid(fallbackCandidates, requestedSheet, 10000);
       }
     }
 
@@ -253,7 +310,7 @@ export async function POST(request: Request) {
     // BRANCH B: STANDARD GOOGLE SHEET (e.g. /spreadsheets/d/<ID>/edit#gid=...)
     // =========================================================================
     else if (sheetId) {
-      // TIER 1 (FAST PARALLEL PATH): Google gviz queries concurrently (~400-600ms)
+      // 1. Fast Google gviz queries
       const fastCandidates: { url: string; isCsv: boolean }[] = [
         {
           url: `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(requestedSheet)}`,
@@ -263,49 +320,30 @@ export async function POST(request: Request) {
           url: `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=Total%20Data`,
           isCsv: true,
         },
-        {
-          url: `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`,
-          isCsv: true,
-        },
       ];
 
-      if (gid) {
+      if (urlGid) {
         fastCandidates.push({
-          url: `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`,
+          url: `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${urlGid}`,
           isCsv: true,
         });
       }
 
-      parsedResult = await fetchFirstValid(fastCandidates, requestedSheet, 5000);
+      parsedResult = await fetchFirstValid(fastCandidates, requestedSheet, [], 7000);
 
-      // TIER 2 (FALLBACK): Standard export endpoints
+      // 2. Fallback: Full XLSX export (guaranteed all sheets and rows)
       if (!parsedResult) {
         const fallbackCandidates: { url: string; isCsv: boolean }[] = [
-          {
-            url: `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gid ? `&gid=${gid}` : ''}`,
-            isCsv: true,
-          },
           {
             url: `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`,
             isCsv: false,
           },
+          {
+            url: `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${urlGid ? `&gid=${urlGid}` : ''}`,
+            isCsv: true,
+          },
         ];
-        parsedResult = await fetchFirstValid(fallbackCandidates, requestedSheet, 9000);
-      }
-
-      // Non-blocking tab names discovery (max 1.5s race)
-      if (parsedResult && parsedResult.sheetNames.length <= 1) {
-        try {
-          const detectedNames = await Promise.race([
-            extractSubsheetsFromHtml(sheetId),
-            new Promise<string[]>((res) => setTimeout(() => res([]), 1500)),
-          ]);
-          if (detectedNames.length > 0) {
-            parsedResult.sheetNames = Array.from(new Set([...detectedNames, ...parsedResult.sheetNames]));
-          }
-        } catch {
-          // Ignore background tab detection errors
-        }
+        parsedResult = await fetchFirstValid(fallbackCandidates, requestedSheet, [], 25000);
       }
     }
 
@@ -314,13 +352,13 @@ export async function POST(request: Request) {
         {
           success: false,
           message:
-            'Unable to fetch Google Sheet data. Please ensure the link is set to "Anyone with the link can view" or use "File > Share > Publish to web", and verify that the sheet contains data.',
+            'Unable to fetch Google Sheet data. Please ensure the link is set to "Anyone with the link can view" or use "File > Share > Publish to web", and verify that the "Total Data" subsheet contains exam allocation rows.',
         },
         { status: 400 }
       );
     }
 
-    // Store in memory cache
+    // Store valid result in memory cache
     memoryCache.set(cacheKey, { timestamp: Date.now(), data: parsedResult });
     if (memoryCache.size > 50) {
       const oldest = memoryCache.keys().next().value;
