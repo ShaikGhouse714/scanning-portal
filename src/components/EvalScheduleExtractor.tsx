@@ -17,6 +17,7 @@ import {
   HelpCircle,
   Filter,
 } from 'lucide-react';
+import { isMissingOrPlaceholder } from '@/lib/evalOpsParser';
 
 interface ExtractedRow {
   id: string;
@@ -234,7 +235,7 @@ export const EvalScheduleExtractor: React.FC = () => {
 
     const excelRows = displayedEntries.map((item) => ({
       'Schedule ID': item.scheduleId,
-      'Evaluator Email ID': item.evaluatorEmail || 'No details are available',
+      'Evaluator Email ID': (item.evaluatorEmail && !isMissingOrPlaceholder(item.evaluatorEmail)) ? item.evaluatorEmail : 'Details Missing',
       'Student Details': item.studentEmail || item.studentName,
     }));
 
@@ -259,7 +260,7 @@ export const EvalScheduleExtractor: React.FC = () => {
     const header = ['Schedule ID', 'Evaluator Email ID', 'Student Details'].join('\t');
 
     const lines = displayedEntries.map((r) =>
-      [r.scheduleId, r.evaluatorEmail || 'No details are available', r.studentEmail || r.studentName].join('\t')
+      [r.scheduleId, (r.evaluatorEmail && !isMissingOrPlaceholder(r.evaluatorEmail)) ? r.evaluatorEmail : 'Details Missing', r.studentEmail || r.studentName].join('\t')
     );
 
     const fullText = [header, ...lines].join('\n');
@@ -737,11 +738,11 @@ export const EvalScheduleExtractor: React.FC = () => {
 
                         {/* Column B: Evaluator Email ID */}
                         <td className="py-3 px-4 text-zinc-200">
-                          {item.evaluatorEmail ? (
+                          {item.evaluatorEmail && !isMissingOrPlaceholder(item.evaluatorEmail) ? (
                             <span className="text-zinc-200 font-sans text-xs">{item.evaluatorEmail}</span>
                           ) : (
                             <span className="text-amber-400 text-[11px] font-sans px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
-                              No details are available
+                              Details Missing
                             </span>
                           )}
                         </td>

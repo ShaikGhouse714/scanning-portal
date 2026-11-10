@@ -126,6 +126,58 @@ export function extractScheduleId(val: any): string {
   return str;
 }
 
+// Check whether a cell value represents "missing details", placeholders, or empty data
+export function isMissingOrPlaceholder(val: any): boolean {
+  if (val === null || val === undefined) return true;
+  const str = String(val).trim().toLowerCase();
+  if (str.length === 0) return true;
+
+  const placeholders = [
+    'details missing',
+    'detail missing',
+    'missing details',
+    'missing detail',
+    'missing',
+    'details not available',
+    'detail not available',
+    'not available',
+    'not assigned',
+    'unassigned',
+    'no details',
+    'no detail',
+    'no evaluator',
+    'no chief',
+    'na',
+    'n/a',
+    'none',
+    'nil',
+    'null',
+    'undefined',
+    '-',
+    '--',
+    '---',
+    'tbd',
+    'pending',
+    'blank',
+    'empty',
+    'not applicable',
+  ];
+
+  if (placeholders.includes(str)) return true;
+
+  if (
+    str.includes('missing') ||
+    str.includes('not available') ||
+    str.includes('not assigned') ||
+    str.includes('unassigned') ||
+    str.includes('no detail')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 // Cleanly format Excel dates into standard YYYY-MM-DD format
 export function formatExcelDate(val: any): string {
   if (!val) return '';
@@ -377,7 +429,7 @@ export function parseStudentEvaluatorFile(
     );
 
     // 5. Evaluator Name
-    const evaluatorName = getRowVal(
+    const rawEvalName = getRowVal(
       row,
       'evaluator name',
       'evaluator_name',
@@ -388,9 +440,10 @@ export function parseStudentEvaluatorFile(
       'faculty',
       'examiner'
     );
+    const evaluatorName = isMissingOrPlaceholder(rawEvalName) ? '' : rawEvalName.trim();
 
     // 6. Evaluator Email ID
-    const evaluatorEmail = getRowVal(
+    const rawEvalEmail = getRowVal(
       row,
       'evaluator email id',
       'evaluator email',
@@ -404,6 +457,7 @@ export function parseStudentEvaluatorFile(
       'examiner email',
       'teacher email'
     );
+    const evaluatorEmail = isMissingOrPlaceholder(rawEvalEmail) ? '' : rawEvalEmail.trim();
 
     // 7. Chief Evaluator Email ID (with all variations and common misspellings)
     let chiefEvaluatorEmail = getRowVal(
@@ -437,6 +491,7 @@ export function parseStudentEvaluatorFile(
       'head evaluator email',
       'lead evaluator email'
     );
+    if (isMissingOrPlaceholder(chiefEvaluatorEmail)) chiefEvaluatorEmail = '';
 
     let chiefEvaluatorName = getRowVal(
       row,
@@ -453,6 +508,7 @@ export function parseStudentEvaluatorFile(
       'head evaluator',
       'lead evaluator'
     );
+    if (isMissingOrPlaceholder(chiefEvaluatorName)) chiefEvaluatorName = '';
 
     // Deep fallback: Scan any column containing chief or cheif
     if (!chiefEvaluatorEmail) {
@@ -460,23 +516,25 @@ export function parseStudentEvaluatorFile(
         const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
         if (cleanK.includes('chief') || cleanK.includes('cheif')) {
           const strVal = String(v ?? '').trim();
-          if (strVal.includes('@')) {
-            chiefEvaluatorEmail = strVal;
-            break;
-          } else if (!chiefEvaluatorName && strVal) {
-            chiefEvaluatorName = strVal;
+          if (!isMissingOrPlaceholder(strVal)) {
+            if (strVal.includes('@')) {
+              chiefEvaluatorEmail = strVal;
+              break;
+            } else if (!chiefEvaluatorName && strVal) {
+              chiefEvaluatorName = strVal;
+            }
           }
         }
       }
     }
 
-    if (!chiefEvaluatorEmail && chiefEvaluatorName.includes('@')) {
+    if (!chiefEvaluatorEmail && chiefEvaluatorName && chiefEvaluatorName.includes('@')) {
       chiefEvaluatorEmail = chiefEvaluatorName;
     }
 
     const hasChiefDetails = Boolean(
-      (chiefEvaluatorEmail && chiefEvaluatorEmail.trim().length > 0) ||
-      (chiefEvaluatorName && chiefEvaluatorName.trim().length > 0)
+      (chiefEvaluatorEmail && !isMissingOrPlaceholder(chiefEvaluatorEmail) && chiefEvaluatorEmail.trim().length > 0) ||
+      (chiefEvaluatorName && !isMissingOrPlaceholder(chiefEvaluatorName) && chiefEvaluatorName.trim().length > 0)
     );
 
     // 8. School Code for row
@@ -539,7 +597,7 @@ export function parseStudentEvaluatorFile(
   const hasExamDate = rows.some((r) => r.examDate.length > 0);
   const hasEvaluatorEmail = rows.some((r) => r.evaluatorEmail.length > 0);
   const hasEvaluatorName = rows.some((r) => r.evaluatorName && r.evaluatorName !== 'Unknown Evaluator');
-  const hasChiefEvaluatorEmail = rows.some((r) => r.chiefEvaluatorEmail.length > 0);
+  const hasChiefEvaluatorEmail = rows.some((r) => r.chiefEvaluatorEmail.length > 0 && !isMissingOrPlaceholder(r.chiefEvaluatorEmail));
 
   return {
     rows,
@@ -804,7 +862,7 @@ export function mapStudentEvaluatorSchedules(
   let totalWithChief = 0;
   let missingChiefCount = 0;
   for (const st of studentRows) {
-    if (st.chiefEvaluatorEmail) {
+    if (st.chiefEvaluatorEmail && !isMissingOrPlaceholder(st.chiefEvaluatorEmail)) {
       uniqueChiefEvaluators.add(st.chiefEvaluatorEmail.toLowerCase());
       totalWithChief++;
     } else {
@@ -856,8 +914,8 @@ export function generateEvalOpsExcel(
     const sCode = item.schoolCode || schoolCode;
     return {
       'Schedule ID': item.scheduleId === 'UNMAPPED' ? '' : item.scheduleId,
-      'Evaluator Email ID': item.evaluatorEmail || 'No details are available',
-      'Chief Evaluator Email ID': item.chiefEvaluatorEmail || 'No details are available',
+      'Evaluator Email ID': (item.evaluatorEmail && !isMissingOrPlaceholder(item.evaluatorEmail)) ? item.evaluatorEmail : 'No details are available',
+      'Chief Evaluator Email ID': (item.chiefEvaluatorEmail && !isMissingOrPlaceholder(item.chiefEvaluatorEmail)) ? item.chiefEvaluatorEmail : 'No details are available',
       'Student Details': item.studentEmail || item.studentName,
       'Student Name': item.studentName,
       'Course Code': item.courseCode,

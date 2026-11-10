@@ -22,11 +22,13 @@ import {
   Calendar,
 } from 'lucide-react';
 import { SCHOOL_CODE_MAP, normalizeSchool } from '@/lib/mockData';
+import { isMissingOrPlaceholder } from '@/lib/evalOpsParser';
 
 interface MasterEvalRow {
   id: string;
   scheduleId: string;
   evaluatorEmail: string;
+  evaluatorName?: string;
   chiefEvaluatorEmail: string;
   chiefEvaluatorName: string;
   hasChiefDetails: boolean;
@@ -196,10 +198,10 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
       if (r.scheduleId) scheduleIdsSet.add(r.scheduleId);
       if (r.courseCode) courseCodesSet.add(r.courseCode.toUpperCase());
 
-      const hasEval = Boolean(r.evaluatorEmail && r.evaluatorEmail.trim().length > 0);
+      const hasEval = Boolean(r.evaluatorEmail && !isMissingOrPlaceholder(r.evaluatorEmail));
       const hasChief = Boolean(
-        (r.chiefEvaluatorEmail && r.chiefEvaluatorEmail.trim().length > 0) ||
-        (r.chiefEvaluatorName && r.chiefEvaluatorName.trim().length > 0)
+        (r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail)) ||
+        (r.chiefEvaluatorName && !isMissingOrPlaceholder(r.chiefEvaluatorName))
       );
 
       if (hasEval) {
@@ -262,28 +264,28 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
     let list = selectedSchoolRows;
 
     if (statusFilter === 'EVAL_AVAILABLE') {
-      list = list.filter((r) => r.evaluatorEmail && r.evaluatorEmail.trim().length > 0);
+      list = list.filter((r) => r.evaluatorEmail && !isMissingOrPlaceholder(r.evaluatorEmail));
     } else if (statusFilter === 'EVAL_MISSING') {
-      list = list.filter((r) => !r.evaluatorEmail || r.evaluatorEmail.trim().length === 0);
+      list = list.filter((r) => !r.evaluatorEmail || isMissingOrPlaceholder(r.evaluatorEmail));
     } else if (statusFilter === 'CHIEF_AVAILABLE') {
       list = list.filter(
         (r) =>
-          (r.chiefEvaluatorEmail && r.chiefEvaluatorEmail.trim().length > 0) ||
-          (r.chiefEvaluatorName && r.chiefEvaluatorName.trim().length > 0)
+          (r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail)) ||
+          (r.chiefEvaluatorName && !isMissingOrPlaceholder(r.chiefEvaluatorName))
       );
     } else if (statusFilter === 'CHIEF_MISSING') {
       list = list.filter(
         (r) =>
-          (!r.chiefEvaluatorEmail || r.chiefEvaluatorEmail.trim().length === 0) &&
-          (!r.chiefEvaluatorName || r.chiefEvaluatorName.trim().length === 0)
+          (!r.chiefEvaluatorEmail || isMissingOrPlaceholder(r.chiefEvaluatorEmail)) &&
+          (!r.chiefEvaluatorName || isMissingOrPlaceholder(r.chiefEvaluatorName))
       );
     } else if (statusFilter === 'BOTH_AVAILABLE') {
       list = list.filter(
         (r) =>
           r.evaluatorEmail &&
-          r.evaluatorEmail.trim().length > 0 &&
-          ((r.chiefEvaluatorEmail && r.chiefEvaluatorEmail.trim().length > 0) ||
-            (r.chiefEvaluatorName && r.chiefEvaluatorName.trim().length > 0))
+          !isMissingOrPlaceholder(r.evaluatorEmail) &&
+          ((r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail)) ||
+            (r.chiefEvaluatorName && !isMissingOrPlaceholder(r.chiefEvaluatorName)))
       );
     }
 
@@ -332,9 +334,9 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
       'Course Name': r.courseName,
       'Student Name': r.studentName,
       'Student Email': r.studentEmail,
-      'Evaluator Email': r.evaluatorEmail || 'NOT AVAILABLE',
-      'Chief Evaluator Email': r.chiefEvaluatorEmail || 'NOT AVAILABLE',
-      'Chief Evaluator Name': r.chiefEvaluatorName || '',
+      'Evaluator Email': (r.evaluatorEmail && !isMissingOrPlaceholder(r.evaluatorEmail)) ? r.evaluatorEmail : 'Details Missing',
+      'Chief Evaluator Email': (r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail)) ? r.chiefEvaluatorEmail : 'Details Missing',
+      'Chief Evaluator Name': (r.chiefEvaluatorName && !isMissingOrPlaceholder(r.chiefEvaluatorName)) ? r.chiefEvaluatorName : '',
       'Exam Date': r.examDate,
     }));
 
@@ -359,8 +361,8 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
       'Course Name': r.courseName,
       'Student Name': r.studentName,
       'Student Email': r.studentEmail,
-      'Evaluator Email': r.evaluatorEmail || 'NOT AVAILABLE',
-      'Chief Evaluator Email': r.chiefEvaluatorEmail || 'NOT AVAILABLE',
+      'Evaluator Email': (r.evaluatorEmail && !isMissingOrPlaceholder(r.evaluatorEmail)) ? r.evaluatorEmail : 'Details Missing',
+      'Chief Evaluator Email': (r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail)) ? r.chiefEvaluatorEmail : 'Details Missing',
       'Exam Date': r.examDate,
     }));
 
@@ -754,7 +756,7 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                       : 'bg-[#141416] text-rose-300 hover:text-white border border-[#27272a]'
                   }`}
                 >
-                  Evaluator Missing ({schoolMetrics.evalNotAvailable.toLocaleString()})
+                  Details Missing: Evaluator ({schoolMetrics.evalNotAvailable.toLocaleString()})
                 </button>
 
                 <button
@@ -765,7 +767,7 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                       : 'bg-[#141416] text-amber-300 hover:text-white border border-[#27272a]'
                   }`}
                 >
-                  Chief Missing ({schoolMetrics.chiefNotAvailable.toLocaleString()})
+                  Details Missing: Chief ({schoolMetrics.chiefNotAvailable.toLocaleString()})
                 </button>
 
                 <button
@@ -847,10 +849,10 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-[#18181b]">
                   {displayedTableRows.slice(0, 100).map((r, idx) => {
-                    const hasEval = Boolean(r.evaluatorEmail && r.evaluatorEmail.trim().length > 0);
+                    const hasEval = Boolean(r.evaluatorEmail && !isMissingOrPlaceholder(r.evaluatorEmail));
                     const hasChief = Boolean(
-                      (r.chiefEvaluatorEmail && r.chiefEvaluatorEmail.trim().length > 0) ||
-                      (r.chiefEvaluatorName && r.chiefEvaluatorName.trim().length > 0)
+                      (r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail)) ||
+                      (r.chiefEvaluatorName && !isMissingOrPlaceholder(r.chiefEvaluatorName))
                     );
                     return (
                       <tr key={r.id || idx} className="hover:bg-[#121215] transition-colors">
@@ -876,7 +878,7 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                             <span className="font-mono text-emerald-400 text-[11px]">{r.evaluatorEmail}</span>
                           ) : (
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950/60 text-rose-300 border border-rose-800">
-                              Not Available
+                              Details Missing
                             </span>
                           )}
                         </td>
@@ -890,7 +892,7 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                             </div>
                           ) : (
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800">
-                              Not Available
+                              Details Missing
                             </span>
                           )}
                         </td>

@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   AlertOctagon,
 } from 'lucide-react';
+import { isMissingOrPlaceholder } from '@/lib/evalOpsParser';
 
 interface ExtractedChiefRow {
   id: string;
@@ -188,7 +189,7 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
     const uniqueChiefs = new Set<string>();
 
     matchedEntries.forEach((r) => {
-      if (r.chiefEvaluatorEmail && r.chiefEvaluatorEmail.trim().length > 0) {
+      if (r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail)) {
         withChief++;
         uniqueChiefs.add(r.chiefEvaluatorEmail.trim());
       } else {
@@ -199,7 +200,7 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
     const scheduleIdChiefCount = new Map<string, number>();
     matchedEntries.forEach((r) => {
       const sId = r.scheduleId;
-      const hasEmail = Boolean(r.chiefEvaluatorEmail && r.chiefEvaluatorEmail.trim().length > 0);
+      const hasEmail = Boolean(r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail));
       scheduleIdChiefCount.set(sId, (scheduleIdChiefCount.get(sId) || 0) + (hasEmail ? 1 : 0));
     });
 
@@ -228,9 +229,9 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
     }
 
     if (statusFilter === 'ASSIGNED') {
-      list = list.filter((r) => Boolean(r.chiefEvaluatorEmail && r.chiefEvaluatorEmail.trim().length > 0));
+      list = list.filter((r) => Boolean(r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail)));
     } else if (statusFilter === 'UNASSIGNED') {
-      list = list.filter((r) => !r.chiefEvaluatorEmail || r.chiefEvaluatorEmail.trim().length === 0);
+      list = list.filter((r) => !r.chiefEvaluatorEmail || isMissingOrPlaceholder(r.chiefEvaluatorEmail));
     }
 
     if (tableSearch.trim()) {
@@ -282,7 +283,7 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
 
     const excelRows = displayedEntries.map((item) => ({
       'Schedule ID': item.scheduleId,
-      'Chief Evaluator Email ID': item.chiefEvaluatorEmail || 'No details are available',
+      'Chief Evaluator Email ID': (item.chiefEvaluatorEmail && !isMissingOrPlaceholder(item.chiefEvaluatorEmail)) ? item.chiefEvaluatorEmail : 'Details Missing',
       'Student Details': item.studentEmail || item.studentName,
     }));
 
@@ -308,7 +309,7 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
     const lines = displayedEntries.map((r) =>
       [
         r.scheduleId,
-        r.chiefEvaluatorEmail || 'No details are available',
+        (r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail)) ? r.chiefEvaluatorEmail : 'Details Missing',
         r.studentEmail || r.studentName,
       ].join('\t')
     );
@@ -752,7 +753,7 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
                 >
                   <option value="ALL">All Records ({matchedEntries.length})</option>
                   <option value="ASSIGNED">Chief Assigned ({chiefMetrics.withChief})</option>
-                  <option value="UNASSIGNED">No Details Available ({chiefMetrics.withoutChief})</option>
+                  <option value="UNASSIGNED">Details Missing ({chiefMetrics.withoutChief})</option>
                 </select>
 
                 {/* School Filter */}
@@ -818,7 +819,7 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
                   ) : (
                     displayedEntries.map((item) => {
                       const hasEmail = Boolean(
-                        item.chiefEvaluatorEmail && item.chiefEvaluatorEmail.trim().length > 0
+                        item.chiefEvaluatorEmail && !isMissingOrPlaceholder(item.chiefEvaluatorEmail)
                       );
 
                       return (
@@ -847,7 +848,7 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
                             ) : (
                               <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-sans font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
                                 <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
-                                <span>No details are available</span>
+                                <span>Details Missing</span>
                               </span>
                             )}
                           </td>

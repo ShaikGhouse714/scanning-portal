@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
-import { extractScheduleId } from '@/lib/evalOpsParser';
+import { extractScheduleId, isMissingOrPlaceholder } from '@/lib/evalOpsParser';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -461,6 +461,9 @@ function parseBufferAndRespond(
     const colEvalEmail = findCol(
       'evaluator email id', 'evaluator email', 'evaluatoremail', 'evaluator_email', 'teacher email', 'faculty email', 'evaluator mail', 'evaluator'
     );
+    const colEvalName = findCol(
+      'evaluator name', 'evaluator_name', 'evaluatorname', 'faculty name', 'teacher name', 'examiner name'
+    );
     const colChiefEmail = findCol(
       'chief evaluator email id', 'chief evaluator email', 'chief evaluator email_id', 'chief evaluator mail id',
       'chief evaluator mail', 'chief email id', 'chief email', 'chief_evaluator_email', 'chiefevaluatoremail',
@@ -514,32 +517,39 @@ function parseBufferAndRespond(
       const scheduleId = extractScheduleId(rawSchedule);
       if (scheduleId) uniqueScheduleIdsSet.add(scheduleId);
 
-      // 2. Evaluator Email
-      const evaluatorEmail = colEvalEmail ? String(row[colEvalEmail] ?? '').trim() : '';
+      // 2. Evaluator Details
+      const rawEvalEmail = colEvalEmail ? String(row[colEvalEmail] ?? '').trim() : '';
+      const rawEvalName = colEvalName ? String(row[colEvalName] ?? '').trim() : '';
+      const evaluatorEmail = isMissingOrPlaceholder(rawEvalEmail) ? '' : rawEvalEmail;
+      const evaluatorName = isMissingOrPlaceholder(rawEvalName) ? '' : rawEvalName;
 
       // 3. Chief Evaluator Details
-      let chiefEvaluatorEmail = colChiefEmail ? String(row[colChiefEmail] ?? '').trim() : '';
-      let chiefEvaluatorName = colChiefName ? String(row[colChiefName] ?? '').trim() : '';
+      const rawChiefEmail = colChiefEmail ? String(row[colChiefEmail] ?? '').trim() : '';
+      const rawChiefName = colChiefName ? String(row[colChiefName] ?? '').trim() : '';
+      let chiefEvaluatorEmail = isMissingOrPlaceholder(rawChiefEmail) ? '' : rawChiefEmail;
+      let chiefEvaluatorName = isMissingOrPlaceholder(rawChiefName) ? '' : rawChiefName;
 
       if (!chiefEvaluatorEmail && colChiefFallback) {
         const strVal = String(row[colChiefFallback] ?? '').trim();
-        if (strVal.includes('@')) {
-          chiefEvaluatorEmail = strVal;
-        } else if (!chiefEvaluatorName && strVal) {
-          chiefEvaluatorName = strVal;
+        if (!isMissingOrPlaceholder(strVal)) {
+          if (strVal.includes('@')) {
+            chiefEvaluatorEmail = strVal;
+          } else if (!chiefEvaluatorName && strVal) {
+            chiefEvaluatorName = strVal;
+          }
         }
       }
 
-      if (!chiefEvaluatorEmail && chiefEvaluatorName.includes('@')) {
+      if (!chiefEvaluatorEmail && chiefEvaluatorName && chiefEvaluatorName.includes('@')) {
         chiefEvaluatorEmail = chiefEvaluatorName;
       }
 
       const hasChiefDetails = Boolean(
-        (chiefEvaluatorEmail && chiefEvaluatorEmail.length > 0) ||
-        (chiefEvaluatorName && chiefEvaluatorName.length > 0)
+        (chiefEvaluatorEmail && !isMissingOrPlaceholder(chiefEvaluatorEmail) && chiefEvaluatorEmail.length > 0) ||
+        (chiefEvaluatorName && !isMissingOrPlaceholder(chiefEvaluatorName) && chiefEvaluatorName.length > 0)
       );
 
-      if (chiefEvaluatorEmail) {
+      if (chiefEvaluatorEmail && !isMissingOrPlaceholder(chiefEvaluatorEmail)) {
         uniqueChiefEvaluatorsSet.add(chiefEvaluatorEmail);
       }
 
@@ -561,6 +571,7 @@ function parseBufferAndRespond(
         id: `row_${idx + 1}_${scheduleId || 'nosched'}`,
         scheduleId,
         evaluatorEmail,
+        evaluatorName: evaluatorName || '',
         chiefEvaluatorEmail: chiefEvaluatorEmail || '',
         chiefEvaluatorName: chiefEvaluatorName || '',
         hasChiefDetails,
