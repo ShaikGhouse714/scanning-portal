@@ -339,6 +339,37 @@ export async function POST(request: Request) {
       );
     }
 
+    const cleanKeyMap = new Map<string, string>();
+    const scanLimit = Math.min(rawJson.length, 5);
+    for (let i = 0; i < scanLimit; i++) {
+      for (const key of Object.keys(rawJson[i])) {
+        const clean = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (clean && !cleanKeyMap.has(clean)) {
+          cleanKeyMap.set(clean, key);
+        }
+      }
+    }
+
+    function findCol(...aliases: string[]): string | null {
+      for (const alias of aliases) {
+        const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanKeyMap.has(cleanAlias)) return cleanKeyMap.get(cleanAlias)!;
+        for (const [cleanKey, origKey] of cleanKeyMap) {
+          if (cleanKey.includes(cleanAlias)) return origKey;
+        }
+      }
+      return null;
+    }
+
+    const colSchedule = findCol('schedule id', 'schedule_id', 'scheduleid', 'schedule', 'slot id');
+    const colCycle = findCol('evaluation cycle', 'eval cycle', 'cycle', 'round');
+    const colOpenDate = findCol('result open date', 'open date', 'result open', 'opendate');
+    const colCloseDate = findCol('result close date', 'close date', 'result close', 'closedate');
+    const colCloseTime = findCol('result close time', 'close time', 'closetime', 'time');
+    const colSchool = findCol('school name', 'schoolname', 'school_name', 'school', 'department', 'faculty');
+    const colNextRequired = findCol('next round of evaluation required', 'next round evaluation required', 'next round required', 'next evaluation required', 're-evaluation required', 're-eval required');
+    const colNextAssigned = findCol('next round evaluation assigned', 'next round assigned', 'next evaluation assigned', 'assigned');
+
     const schoolsSet = new Set<string>();
 
     let actionRequiredCount = 0;
@@ -350,77 +381,30 @@ export async function POST(request: Request) {
 
     const rows = rawJson.map((row, idx) => {
       // 1. Schedule ID (Col A)
-      const rawSchedule = getRowField(
-        row,
-        'schedule id',
-        'schedule_id',
-        'scheduleid',
-        'schedule',
-        'slot id'
-      );
+      const rawSchedule = colSchedule ? String(row[colSchedule] ?? '').trim() : '';
       const scheduleId = cleanScheduleId(rawSchedule);
 
       // 2. Evaluation Cycle (Col B)
-      const evaluationCycle = getRowField(
-        row,
-        'evaluation cycle',
-        'eval cycle',
-        'cycle',
-        'round'
-      ) || 'primary';
+      const evaluationCycle = (colCycle ? String(row[colCycle] ?? '').trim() : '') || 'primary';
 
       // 3. Result Open Date (Col C)
-      const rawOpenDate = getRowField(
-        row,
-        'result open date',
-        'open date',
-        'result open',
-        'opendate'
-      );
+      const rawOpenDate = colOpenDate ? row[colOpenDate] : '';
       const resultOpenDate = formatSheetDate(rawOpenDate);
 
       // 4. Result Close Date (Col D)
-      const rawCloseDate = getRowField(
-        row,
-        'result close date',
-        'close date',
-        'result close',
-        'closedate'
-      );
+      const rawCloseDate = colCloseDate ? row[colCloseDate] : '';
       const resultCloseDate = formatSheetDate(rawCloseDate);
 
       // 5. Result Close Time (Col E)
-      const rawCloseTime = getRowField(
-        row,
-        'result close time',
-        'close time',
-        'closetime',
-        'time'
-      );
+      const rawCloseTime = colCloseTime ? row[colCloseTime] : '';
       const resultCloseTime = formatSheetTime(rawCloseTime);
 
       // 6. School Name (Col F)
-      const schoolName = getRowField(
-        row,
-        'school name',
-        'schoolname',
-        'school_name',
-        'school',
-        'department',
-        'faculty'
-      );
+      const schoolName = colSchool ? String(row[colSchool] ?? '').trim() : '';
       if (schoolName) schoolsSet.add(schoolName);
 
       // 7. Next Round of Evaluation Required (Col G)
-      const rawNextRequired = getRowField(
-        row,
-        'next round of evaluation required',
-        'next round evaluation required',
-        'next round required',
-        'next evaluation required',
-        're-evaluation required',
-        're-eval required'
-      );
+      const rawNextRequired = colNextRequired ? String(row[colNextRequired] ?? '').trim() : '';
       const isNotRequired =
         rawNextRequired.toLowerCase().includes('not') ||
         rawNextRequired.toLowerCase() === 'no';
@@ -439,13 +423,7 @@ export async function POST(request: Request) {
         : '';
 
       // 8. Next Round Evaluation Assigned (Col H)
-      const rawNextAssigned = getRowField(
-        row,
-        'next round evaluation assigned',
-        'next round assigned',
-        'next evaluation assigned',
-        'assigned'
-      );
+      const rawNextAssigned = colNextAssigned ? String(row[colNextAssigned] ?? '').trim() : '';
       const isAssigned =
         rawNextAssigned.toLowerCase() === 'yes' ||
         rawNextAssigned.toLowerCase() === 'y' ||

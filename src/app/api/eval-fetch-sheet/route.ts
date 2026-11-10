@@ -13,28 +13,10 @@ interface CacheEntry {
 const memoryCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 3 * 60 * 1000;
 
-// Helper to look up key by aliases (case-insensitive & stripped)
-function getRowField(row: Record<string, any>, ...aliases: string[]): string {
-  const keys = Object.keys(row);
-  for (const alias of aliases) {
-    const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
-    for (const key of keys) {
-      const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (cleanKey === cleanAlias || cleanKey.includes(cleanAlias)) {
-        const val = row[key];
-        if (val !== undefined && val !== null && String(val).trim().length > 0) {
-          return String(val).trim();
-        }
-      }
-    }
-  }
-  return '';
-}
-
 // Fetch with timeout, user-agent, redirect handling, and Google Drive virus-warning bypass
 async function fetchGoogleEndpoint(
   url: string,
-  timeoutMs: number = 15000
+  timeoutMs: number = 8000
 ): Promise<{ ok: boolean; status: number; buffer: ArrayBuffer | null; isHtml: boolean; htmlText?: string; error?: string }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -95,7 +77,7 @@ async function fetchGoogleEndpoint(
           };
         }
 
-        // 3. Published HTML table (e.g. pubhtml): if it contains a table, it is valid sheet data
+        // 3. Published HTML table (pubhtml): if it contains a table, it is valid sheet data
         if (preview.includes('<table') || preview.includes('waffle')) {
           return { ok: true, status: 200, buffer, isHtml: true, htmlText: preview };
         }
@@ -113,7 +95,7 @@ async function fetchGoogleEndpoint(
       status: isTimeout ? 504 : 500,
       buffer: null,
       isHtml: false,
-      error: isTimeout ? `Connection to Google Sheet timed out after ${timeoutMs / 1000}s.` : err.message,
+      error: isTimeout ? `Connection timed out after ${timeoutMs / 1000}s.` : err.message,
     };
   }
 }
@@ -122,7 +104,7 @@ async function fetchGoogleEndpoint(
 async function extractSubsheetsFromHtml(sheetId: string): Promise<string[]> {
   try {
     const htmlUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/htmlview`;
-    const res = await fetchGoogleEndpoint(htmlUrl, 5000);
+    const res = await fetchGoogleEndpoint(htmlUrl, 2500);
     if (!res.buffer) return [];
 
     const text = new TextDecoder('utf-8').decode(new Uint8Array(res.buffer));
@@ -148,6 +130,33 @@ async function extractSubsheetsFromHtml(sheetId: string): Promise<string[]> {
     return names;
   } catch {
     return [];
+  }
+}
+
+// Fetch and parse candidate URLs in parallel; return the fastest candidate that produces valid data
+async function fetchFirstValid(
+  candidates: { url: string; isCsv: boolean }[],
+  targetSheetName: string,
+  timeoutMs: number = 6000
+): Promise<Record<string, any> | null> {
+  if (candidates.length === 0) return null;
+
+  const attempts = candidates.map(async (cand) => {
+    const res = await fetchGoogleEndpoint(cand.url, timeoutMs);
+    if (!res.ok || !res.buffer || res.buffer.byteLength < 50) {
+      throw new Error(res.error || 'Empty response');
+    }
+    const parsed = parseBufferAndRespond(res.buffer, targetSheetName, [], cand.isCsv);
+    if (!parsed.success || parsed.totalRows === 0) {
+      throw new Error(parsed.message || 'No valid rows found');
+    }
+    return parsed;
+  });
+
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    return null;
   }
 }
 
@@ -191,6 +200,7 @@ export async function POST(request: Request) {
     const sheetId = standardMatch ? standardMatch[1] : null;
 
     let parsedResult: Record<string, any> | null = null;
+    const requestedSheet = targetSheet || 'Total Data';
 
     // =========================================================================
     // BRANCH A: PUBLISHED GOOGLE SHEET (e.g. /spreadsheets/d/e/2PACX-.../pubhtml)
@@ -200,63 +210,42 @@ export async function POST(request: Request) {
       if (pubBase.endsWith('/pubhtml')) pubBase = pubBase.replace(/\/pubhtml$/, '/pub');
       else if (!pubBase.endsWith('/pub')) pubBase = pubBase.replace(/\/$/, '') + '/pub';
 
-      const pubCandidates: { url: string; isCsv: boolean }[] = [];
+      const pubHtmlUrl = pubBase.replace(/\/pub$/, '/pubhtml');
 
-      // 1. If original URL already specifies output=csv or output=xlsx
-      if (trimmedUrl.includes('output=')) {
-        pubCandidates.push({
-          url: trimmedUrl,
-          isCsv: trimmedUrl.includes('output=csv') || trimmedUrl.includes('output=tsv'),
-        });
-      }
+      // TIER 1 (FAST PARALLEL PATH): Ultra-fast CSV and direct pubhtml CDN streams (~300-600ms)
+      const fastCandidates: { url: string; isCsv: boolean }[] = [
+        { url: `${pubBase}?output=csv`, isCsv: true },
+        { url: trimmedUrl, isCsv: trimmedUrl.includes('output=csv') || trimmedUrl.includes('output=tsv') },
+      ];
 
-      // 2. Published XLSX (downloads entire published workbook with all subsheets like "Total Data")
-      pubCandidates.push({
-        url: `${pubBase}?output=xlsx`,
-        isCsv: false,
-      });
-
-      // 3. If gid present in URL, try published CSV for that gid
       if (gid) {
-        pubCandidates.push({
+        fastCandidates.push({
           url: `${pubBase}?gid=${gid}&single=true&output=csv`,
           isCsv: true,
         });
-        pubCandidates.push({
-          url: `${pubBase}?gid=${gid}&single=true&output=xlsx`,
+      }
+
+      if (trimmedUrl !== pubHtmlUrl) {
+        fastCandidates.push({
+          url: gid ? `${pubHtmlUrl}?gid=${gid}&single=true` : pubHtmlUrl,
           isCsv: false,
         });
       }
 
-      // 4. Published CSV default
-      pubCandidates.push({
-        url: `${pubBase}?output=csv`,
-        isCsv: true,
-      });
+      parsedResult = await fetchFirstValid(fastCandidates, requestedSheet, 6000);
 
-      // 5. Direct pubhtml web table (SheetJS parses Google HTML table directly)
-      const pubHtmlUrl = pubBase.replace(/\/pub$/, '/pubhtml');
-      pubCandidates.push({
-        url: gid ? `${pubHtmlUrl}?gid=${gid}&single=true` : pubHtmlUrl,
-        isCsv: false,
-      });
-      if (trimmedUrl !== pubHtmlUrl && (trimmedUrl.includes('/pubhtml') || trimmedUrl.includes('/pub'))) {
-        pubCandidates.push({
-          url: trimmedUrl,
-          isCsv: false,
-        });
-      }
-
-      // Try candidates in order
-      for (const cand of pubCandidates) {
-        const res = await fetchGoogleEndpoint(cand.url, 14000);
-        if (res.ok && res.buffer && res.buffer.byteLength > 100) {
-          const parsed = parseBufferAndRespond(res.buffer, targetSheet || 'Total Data', [], cand.isCsv);
-          if (parsed.success && parsed.totalRows > 0) {
-            parsedResult = parsed;
-            break;
-          }
+      // TIER 2 (FALLBACK): If fast tier did not resolve, try published XLSX export
+      if (!parsedResult) {
+        const fallbackCandidates: { url: string; isCsv: boolean }[] = [
+          { url: `${pubBase}?output=xlsx`, isCsv: false },
+        ];
+        if (gid) {
+          fallbackCandidates.push({
+            url: `${pubBase}?gid=${gid}&single=true&output=xlsx`,
+            isCsv: false,
+          });
         }
+        parsedResult = await fetchFirstValid(fallbackCandidates, requestedSheet, 10000);
       }
     }
 
@@ -264,65 +253,58 @@ export async function POST(request: Request) {
     // BRANCH B: STANDARD GOOGLE SHEET (e.g. /spreadsheets/d/<ID>/edit#gid=...)
     // =========================================================================
     else if (sheetId) {
-      const targetName = targetSheet && targetSheet.trim() ? targetSheet.trim() : 'Total Data';
-      const sheetCandidates = [targetName, 'Total Data', 'TotalData', 'total data', 'Sheet1'];
+      // TIER 1 (FAST PARALLEL PATH): Google gviz queries concurrently (~400-600ms)
+      const fastCandidates: { url: string; isCsv: boolean }[] = [
+        {
+          url: `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(requestedSheet)}`,
+          isCsv: true,
+        },
+        {
+          url: `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=Total%20Data`,
+          isCsv: true,
+        },
+        {
+          url: `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`,
+          isCsv: true,
+        },
+      ];
 
-      // 1. Fast Path: Google gviz CSV by sheet name (usually responds in ~400ms)
-      for (const cand of sheetCandidates) {
-        const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(cand)}`;
-        const gvizRes = await fetchGoogleEndpoint(gvizUrl, 8000);
-        if (gvizRes.ok && gvizRes.buffer && gvizRes.buffer.byteLength > 100 && !gvizRes.isHtml) {
-          const parsed = parseBufferAndRespond(gvizRes.buffer, cand, [], true);
-          if (parsed.success && parsed.totalRows > 0) {
-            parsedResult = parsed;
-            break;
-          }
-        }
+      if (gid) {
+        fastCandidates.push({
+          url: `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`,
+          isCsv: true,
+        });
       }
 
-      // 2. If gid provided, try gviz by gid
-      if (!parsedResult && gid) {
-        const gidGvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
-        const gidRes = await fetchGoogleEndpoint(gidGvizUrl, 8000);
-        if (gidRes.ok && gidRes.buffer && gidRes.buffer.byteLength > 100 && !gidRes.isHtml) {
-          const parsed = parseBufferAndRespond(gidRes.buffer, targetSheet || 'Total Data', [], true);
-          if (parsed.success && parsed.totalRows > 0) {
-            parsedResult = parsed;
-          }
-        }
-      }
+      parsedResult = await fetchFirstValid(fastCandidates, requestedSheet, 5000);
 
-      // 3. Fallback: Standard CSV export
+      // TIER 2 (FALLBACK): Standard export endpoints
       if (!parsedResult) {
-        const exportCsvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gid ? `&gid=${gid}` : ''}`;
-        const exportCsvRes = await fetchGoogleEndpoint(exportCsvUrl, 10000);
-        if (exportCsvRes.ok && exportCsvRes.buffer && exportCsvRes.buffer.byteLength > 100 && !exportCsvRes.isHtml) {
-          const parsed = parseBufferAndRespond(exportCsvRes.buffer, targetSheet || 'Total Data', [], true);
-          if (parsed.success && parsed.totalRows > 0) {
-            parsedResult = parsed;
-          }
-        }
+        const fallbackCandidates: { url: string; isCsv: boolean }[] = [
+          {
+            url: `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gid ? `&gid=${gid}` : ''}`,
+            isCsv: true,
+          },
+          {
+            url: `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`,
+            isCsv: false,
+          },
+        ];
+        parsedResult = await fetchFirstValid(fallbackCandidates, requestedSheet, 9000);
       }
 
-      // 4. Fallback: Full workbook XLSX export
-      if (!parsedResult) {
-        const exportXlsxUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
-        const xlsxRes = await fetchGoogleEndpoint(exportXlsxUrl, 16000);
-        if (xlsxRes.ok && xlsxRes.buffer && xlsxRes.buffer.byteLength > 100 && !xlsxRes.isHtml) {
-          const parsed = parseBufferAndRespond(xlsxRes.buffer, targetSheet || 'Total Data', [], false);
-          if (parsed.success && parsed.totalRows > 0) {
-            parsedResult = parsed;
+      // Non-blocking tab names discovery (max 1.5s race)
+      if (parsedResult && parsedResult.sheetNames.length <= 1) {
+        try {
+          const detectedNames = await Promise.race([
+            extractSubsheetsFromHtml(sheetId),
+            new Promise<string[]>((res) => setTimeout(() => res([]), 1500)),
+          ]);
+          if (detectedNames.length > 0) {
+            parsedResult.sheetNames = Array.from(new Set([...detectedNames, ...parsedResult.sheetNames]));
           }
-        } else if (xlsxRes.error && xlsxRes.status === 403) {
-          return NextResponse.json({ success: false, message: xlsxRes.error }, { status: 403 });
-        }
-      }
-
-      // Discover subsheet names from HTML view if fast CSV was used
-      if (parsedResult) {
-        const detectedNames = await extractSubsheetsFromHtml(sheetId);
-        if (detectedNames.length > 0) {
-          parsedResult.sheetNames = Array.from(new Set([...detectedNames, ...parsedResult.sheetNames]));
+        } catch {
+          // Ignore background tab detection errors
         }
       }
     }
@@ -358,6 +340,7 @@ export async function POST(request: Request) {
   }
 }
 
+// High-performance sheet parser with O(1) upfront column mapping
 function parseBufferAndRespond(
   arrayBuffer: ArrayBuffer,
   requestedSheetName?: string,
@@ -370,8 +353,7 @@ function parseBufferAndRespond(
 
     // Merge discovered sheet names if available
     if (extraSheetNames && extraSheetNames.length > 0) {
-      const merged = Array.from(new Set([...extraSheetNames, ...sheetNames]));
-      sheetNames = merged;
+      sheetNames = Array.from(new Set([...extraSheetNames, ...sheetNames]));
     }
 
     if (sheetNames.length === 0) {
@@ -412,180 +394,130 @@ function parseBufferAndRespond(
       };
     }
 
+    // Upfront column index resolution (runs ONCE across first 5 rows instead of on every row!)
+    const cleanKeyMap = new Map<string, string>();
+    const scanLimit = Math.min(rawJson.length, 5);
+    for (let i = 0; i < scanLimit; i++) {
+      for (const key of Object.keys(rawJson[i])) {
+        const clean = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (clean && !cleanKeyMap.has(clean)) {
+          cleanKeyMap.set(clean, key);
+        }
+      }
+    }
+
+    function findCol(...aliases: string[]): string | null {
+      for (const alias of aliases) {
+        const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanKeyMap.has(cleanAlias)) return cleanKeyMap.get(cleanAlias)!;
+        for (const [cleanKey, origKey] of cleanKeyMap) {
+          if (cleanKey.includes(cleanAlias)) return origKey;
+        }
+      }
+      return null;
+    }
+
+    const colSchedule = findCol(
+      'schedule id', 'schedule_id', 'scheduleid', 'schedule', 'slot id', 'slot', 'reason', 'test id', 'exam schedule id'
+    );
+    const colEvalEmail = findCol(
+      'evaluator email id', 'evaluator email', 'evaluatoremail', 'evaluator_email', 'teacher email', 'faculty email', 'evaluator mail', 'evaluator'
+    );
+    const colChiefEmail = findCol(
+      'chief evaluator email id', 'chief evaluator email', 'chief evaluator email_id', 'chief evaluator mail id',
+      'chief evaluator mail', 'chief email id', 'chief email', 'chief_evaluator_email', 'chiefevaluatoremail',
+      'chief_email', 'cheif evaluator email id', 'cheif evaluator email', 'cheif evaluator email_id',
+      'cheif evaluator mail id', 'cheif evaluator mail', 'cheif email id', 'cheif email', 'cheif_evaluator_email',
+      'cheifevaluatoremail', 'cheif_email', 'chief examiner email', 'cheif examiner email', 'head evaluator email', 'lead evaluator email'
+    );
+    const colChiefName = findCol(
+      'chief evaluator name', 'chief evaluator', 'chiefevaluator', 'chief name', 'cheif evaluator name',
+      'cheif evaluator', 'cheifevaluator', 'cheif name', 'chief examiner name', 'cheif examiner name',
+      'head evaluator', 'lead evaluator'
+    );
+    const colStudentEmail = findCol(
+      'student details', 'student email id', 'student email', 'studentemail', 'student_email', 'roll no', 'student id'
+    );
+    const colStudentName = findCol(
+      'student name', 'studentname', 'student_name', 'candidate name', 'name'
+    );
+    const colCourseCode = findCol(
+      'course code', 'coursecode', 'course_code', 'subject code'
+    );
+    const colCourseName = findCol(
+      'course name', 'coursename', 'course_name', 'subject name', 'subject'
+    );
+    const colSchoolCode = findCol(
+      'school code', 'schoolcode', 'school_code', 'school', 'faculty code', 'dept'
+    );
+    const colExamDate = findCol(
+      'exam date', 'examdate', 'exam_date', 'examination date', 'date of exam', 'date', 'slot date'
+    );
+
+    // Deep fallback column for chief details if standard aliases didn't hit
+    let colChiefFallback: string | null = null;
+    if (!colChiefEmail && !colChiefName) {
+      for (const [cleanKey, origKey] of cleanKeyMap) {
+        if (cleanKey.includes('chief') || cleanKey.includes('cheif')) {
+          colChiefFallback = origKey;
+          break;
+        }
+      }
+    }
+
     const uniqueScheduleIdsSet = new Set<string>();
     const uniqueSchoolsSet = new Set<string>();
     const uniqueCoursesSet = new Set<string>();
     const uniqueChiefEvaluatorsSet = new Set<string>();
 
     const rows = rawJson.map((row, idx) => {
-      // 1. Schedule ID (uses robust extractScheduleId)
-      const rawSchedule = getRowField(
-        row,
-        'schedule id',
-        'schedule_id',
-        'scheduleid',
-        'schedule',
-        'slot id',
-        'slot',
-        'reason',
-        'test id',
-        'exam schedule id'
-      );
+      // 1. Schedule ID
+      const rawSchedule = colSchedule ? String(row[colSchedule] ?? '').trim() : '';
       const scheduleId = extractScheduleId(rawSchedule);
       if (scheduleId) uniqueScheduleIdsSet.add(scheduleId);
 
       // 2. Evaluator Email
-      const evaluatorEmail = getRowField(
-        row,
-        'evaluator email id',
-        'evaluator email',
-        'evaluatoremail',
-        'evaluator_email',
-        'teacher email',
-        'faculty email'
-      );
+      const evaluatorEmail = colEvalEmail ? String(row[colEvalEmail] ?? '').trim() : '';
 
-      // 3. Chief Evaluator Email ID (with all variations and common misspellings like cheif)
-      let chiefEvaluatorEmail = getRowField(
-        row,
-        'chief evaluator email id',
-        'chief evaluator email',
-        'chief evaluator email_id',
-        'chief evaluator mail id',
-        'chief evaluator mail',
-        'chief email id',
-        'chief email',
-        'chief_evaluator_email',
-        'chiefevaluatoremail',
-        'chief_email',
-        'cheif evaluator email id',
-        'cheif evaluator email',
-        'cheif evaluator email_id',
-        'cheif evaluator mail id',
-        'cheif evaluator mail',
-        'cheif email id',
-        'cheif email',
-        'cheif_evaluator_email',
-        'cheifevaluatoremail',
-        'cheif_email',
-        'chief examiner email',
-        'cheif examiner email',
-        'head evaluator email',
-        'lead evaluator email'
-      );
+      // 3. Chief Evaluator Details
+      let chiefEvaluatorEmail = colChiefEmail ? String(row[colChiefEmail] ?? '').trim() : '';
+      let chiefEvaluatorName = colChiefName ? String(row[colChiefName] ?? '').trim() : '';
 
-      // 4. Chief Evaluator Name / Details
-      let chiefEvaluatorName = getRowField(
-        row,
-        'chief evaluator name',
-        'chief evaluator',
-        'chiefevaluator',
-        'chief name',
-        'cheif evaluator name',
-        'cheif evaluator',
-        'cheifevaluator',
-        'cheif name',
-        'chief examiner name',
-        'cheif examiner name',
-        'head evaluator',
-        'lead evaluator'
-      );
-
-      // Deep fallback: If not found, scan any row key containing "chief" or "cheif"
-      if (!chiefEvaluatorEmail) {
-        for (const [k, v] of Object.entries(row)) {
-          const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (cleanK.includes('chief') || cleanK.includes('cheif')) {
-            const strVal = String(v ?? '').trim();
-            if (strVal.includes('@')) {
-              chiefEvaluatorEmail = strVal;
-              break;
-            } else if (!chiefEvaluatorName && strVal) {
-              chiefEvaluatorName = strVal;
-            }
-          }
+      if (!chiefEvaluatorEmail && colChiefFallback) {
+        const strVal = String(row[colChiefFallback] ?? '').trim();
+        if (strVal.includes('@')) {
+          chiefEvaluatorEmail = strVal;
+        } else if (!chiefEvaluatorName && strVal) {
+          chiefEvaluatorName = strVal;
         }
       }
 
-      // If chief name contains @ and no chief email, treat name as email
       if (!chiefEvaluatorEmail && chiefEvaluatorName.includes('@')) {
         chiefEvaluatorEmail = chiefEvaluatorName;
       }
 
       const hasChiefDetails = Boolean(
-        (chiefEvaluatorEmail && chiefEvaluatorEmail.trim().length > 0) ||
-        (chiefEvaluatorName && chiefEvaluatorName.trim().length > 0)
+        (chiefEvaluatorEmail && chiefEvaluatorEmail.length > 0) ||
+        (chiefEvaluatorName && chiefEvaluatorName.length > 0)
       );
 
       if (chiefEvaluatorEmail) {
         uniqueChiefEvaluatorsSet.add(chiefEvaluatorEmail);
       }
 
-      // 5. Student Details / Student Email
-      const studentEmail = getRowField(
-        row,
-        'student details',
-        'student email id',
-        'student email',
-        'studentemail',
-        'student_email',
-        'roll no',
-        'student id'
-      );
+      // 4. Student Details
+      const studentEmail = colStudentEmail ? String(row[colStudentEmail] ?? '').trim() : '';
+      const studentName = colStudentName ? String(row[colStudentName] ?? '').trim() : '';
 
-      // 6. Student Name
-      const studentName = getRowField(
-        row,
-        'student name',
-        'studentname',
-        'student_name',
-        'candidate name',
-        'name'
-      );
-
-      // 7. Course Code
-      const courseCode = getRowField(
-        row,
-        'course code',
-        'coursecode',
-        'course_code',
-        'subject code'
-      ).toUpperCase();
+      // 5. Course Code & Name
+      const courseCode = colCourseCode ? String(row[colCourseCode] ?? '').trim().toUpperCase() : '';
       if (courseCode) uniqueCoursesSet.add(courseCode);
+      const courseName = colCourseName ? String(row[colCourseName] ?? '').trim() : '';
 
-      // 8. Course Name
-      const courseName = getRowField(
-        row,
-        'course name',
-        'coursename',
-        'course_name',
-        'subject name',
-        'subject'
-      );
-
-      // 9. School Code
-      const schoolCode = getRowField(
-        row,
-        'school code',
-        'schoolcode',
-        'school_code',
-        'school',
-        'faculty code',
-        'dept'
-      ).toUpperCase();
+      // 6. School Code & Exam Date
+      const schoolCode = colSchoolCode ? String(row[colSchoolCode] ?? '').trim().toUpperCase() : '';
       if (schoolCode) uniqueSchoolsSet.add(schoolCode);
-
-      // 10. Exam Date
-      const examDate = getRowField(
-        row,
-        'exam date',
-        'examdate',
-        'exam_date',
-        'examination date',
-        'date of exam',
-        'date',
-        'slot date'
-      );
+      const examDate = colExamDate ? String(row[colExamDate] ?? '').trim() : '';
 
       return {
         id: `row_${idx + 1}_${scheduleId || 'nosched'}`,
