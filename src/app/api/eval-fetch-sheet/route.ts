@@ -65,7 +65,11 @@ async function fetchGoogleEndpoint(
     // Check if body is HTML (Google error / warning / login page)
     if (buffer.byteLength > 0 && buffer.byteLength < 600000) {
       const preview = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(buffer.slice(0, 3000)));
-      if (preview.trim().startsWith('<!DOCTYPE html') || preview.includes('<html') || preview.includes('Google Drive - Virus scan warning')) {
+      if (
+        preview.trim().startsWith('<!DOCTYPE html') ||
+        preview.includes('<html') ||
+        preview.includes('Google Drive - Virus scan warning')
+      ) {
         // 1. Google Drive large file virus-scan warning (needs confirm token)
         if (preview.includes('confirm=')) {
           const match = preview.match(/confirm=([a-zA-Z0-9_-]+)/);
@@ -89,6 +93,11 @@ async function fetchGoogleEndpoint(
             htmlText: preview,
             error: "Google Sheet requires sign-in. Please ensure link sharing is set to 'Anyone with the link can view' or use 'File > Share > Publish to web'.",
           };
+        }
+
+        // 3. Published HTML table (e.g. pubhtml): if it contains a table, it is valid sheet data
+        if (preview.includes('<table') || preview.includes('waffle')) {
+          return { ok: true, status: 200, buffer, isHtml: true, htmlText: preview };
         }
 
         return { ok: false, status: 200, buffer, isHtml: true, htmlText: preview };
@@ -168,130 +177,175 @@ export async function POST(request: Request) {
       }
     }
 
-    // Parse URL identifiers
-    const sheetIdMatch = trimmedUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-    const gidMatch = trimmedUrl.match(/[?&#]gid=([0-9]+)/);
-    const isPublished = trimmedUrl.includes('/pubhtml') || trimmedUrl.includes('/pub');
+    // Identify URL type: Published (/spreadsheets/d/e/...) vs Standard (/spreadsheets/d/<ID>/...)
+    const isPublished =
+      trimmedUrl.includes('/spreadsheets/d/e/') ||
+      trimmedUrl.includes('/pubhtml') ||
+      trimmedUrl.includes('/pub');
 
-    const sheetId = sheetIdMatch ? sheetIdMatch[1] : null;
+    const gidMatch = trimmedUrl.match(/[?&#]gid=([0-9]+)/);
     const gid = gidMatch ? gidMatch[1] : null;
 
-    let arrayBuffer: ArrayBuffer | null = null;
-    let detectedSheetNames: string[] = [];
-    let usedSubsheetName = targetSheet || '';
-    let isCsvResponse = false;
+    // Standard sheet ID: match only when NOT followed by /e/ (so /spreadsheets/d/e/ is NOT matched as "e")
+    const standardMatch = trimmedUrl.match(/\/spreadsheets\/d\/(?!e\/)([a-zA-Z0-9-_]+)/);
+    const sheetId = standardMatch ? standardMatch[1] : null;
 
-    // STEP 1: FAST PATH — Download only the requested sheet or "Total Data" as CSV (Takes ~500ms!)
-    if (sheetId) {
-      // Find candidate sheet names to try via gviz
-      const candidates: string[] = [];
-      if (targetSheet && targetSheet.trim()) {
-        candidates.push(targetSheet.trim());
+    let parsedResult: Record<string, any> | null = null;
+
+    // =========================================================================
+    // BRANCH A: PUBLISHED GOOGLE SHEET (e.g. /spreadsheets/d/e/2PACX-.../pubhtml)
+    // =========================================================================
+    if (isPublished) {
+      let pubBase = trimmedUrl.split('?')[0].split('#')[0];
+      if (pubBase.endsWith('/pubhtml')) pubBase = pubBase.replace(/\/pubhtml$/, '/pub');
+      else if (!pubBase.endsWith('/pub')) pubBase = pubBase.replace(/\/$/, '') + '/pub';
+
+      const pubCandidates: { url: string; isCsv: boolean }[] = [];
+
+      // 1. If original URL already specifies output=csv or output=xlsx
+      if (trimmedUrl.includes('output=')) {
+        pubCandidates.push({
+          url: trimmedUrl,
+          isCsv: trimmedUrl.includes('output=csv') || trimmedUrl.includes('output=tsv'),
+        });
       }
-      candidates.push('Total Data', 'TotalData', 'total data', 'Sheet1');
 
-      for (const cand of candidates) {
-        // gviz by sheet name
+      // 2. Published XLSX (downloads entire published workbook with all subsheets like "Total Data")
+      pubCandidates.push({
+        url: `${pubBase}?output=xlsx`,
+        isCsv: false,
+      });
+
+      // 3. If gid present in URL, try published CSV for that gid
+      if (gid) {
+        pubCandidates.push({
+          url: `${pubBase}?gid=${gid}&single=true&output=csv`,
+          isCsv: true,
+        });
+        pubCandidates.push({
+          url: `${pubBase}?gid=${gid}&single=true&output=xlsx`,
+          isCsv: false,
+        });
+      }
+
+      // 4. Published CSV default
+      pubCandidates.push({
+        url: `${pubBase}?output=csv`,
+        isCsv: true,
+      });
+
+      // 5. Direct pubhtml web table (SheetJS parses Google HTML table directly)
+      const pubHtmlUrl = pubBase.replace(/\/pub$/, '/pubhtml');
+      pubCandidates.push({
+        url: gid ? `${pubHtmlUrl}?gid=${gid}&single=true` : pubHtmlUrl,
+        isCsv: false,
+      });
+      if (trimmedUrl !== pubHtmlUrl && (trimmedUrl.includes('/pubhtml') || trimmedUrl.includes('/pub'))) {
+        pubCandidates.push({
+          url: trimmedUrl,
+          isCsv: false,
+        });
+      }
+
+      // Try candidates in order
+      for (const cand of pubCandidates) {
+        const res = await fetchGoogleEndpoint(cand.url, 14000);
+        if (res.ok && res.buffer && res.buffer.byteLength > 100) {
+          const parsed = parseBufferAndRespond(res.buffer, targetSheet || 'Total Data', [], cand.isCsv);
+          if (parsed.success && parsed.totalRows > 0) {
+            parsedResult = parsed;
+            break;
+          }
+        }
+      }
+    }
+
+    // =========================================================================
+    // BRANCH B: STANDARD GOOGLE SHEET (e.g. /spreadsheets/d/<ID>/edit#gid=...)
+    // =========================================================================
+    else if (sheetId) {
+      const targetName = targetSheet && targetSheet.trim() ? targetSheet.trim() : 'Total Data';
+      const sheetCandidates = [targetName, 'Total Data', 'TotalData', 'total data', 'Sheet1'];
+
+      // 1. Fast Path: Google gviz CSV by sheet name (usually responds in ~400ms)
+      for (const cand of sheetCandidates) {
         const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(cand)}`;
         const gvizRes = await fetchGoogleEndpoint(gvizUrl, 8000);
         if (gvizRes.ok && gvizRes.buffer && gvizRes.buffer.byteLength > 100 && !gvizRes.isHtml) {
-          arrayBuffer = gvizRes.buffer;
-          usedSubsheetName = cand;
-          isCsvResponse = true;
-          break;
+          const parsed = parseBufferAndRespond(gvizRes.buffer, cand, [], true);
+          if (parsed.success && parsed.totalRows > 0) {
+            parsedResult = parsed;
+            break;
+          }
         }
       }
 
-      // If sheet name didn't match but gid was provided in the URL
-      if (!arrayBuffer && gid) {
+      // 2. If gid provided, try gviz by gid
+      if (!parsedResult && gid) {
         const gidGvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
         const gidRes = await fetchGoogleEndpoint(gidGvizUrl, 8000);
         if (gidRes.ok && gidRes.buffer && gidRes.buffer.byteLength > 100 && !gidRes.isHtml) {
-          arrayBuffer = gidRes.buffer;
-          usedSubsheetName = targetSheet || 'Total Data';
-          isCsvResponse = true;
+          const parsed = parseBufferAndRespond(gidRes.buffer, targetSheet || 'Total Data', [], true);
+          if (parsed.success && parsed.totalRows > 0) {
+            parsedResult = parsed;
+          }
         }
       }
-    } else if (isPublished) {
-      // Published Google Sheet URL
-      const base = trimmedUrl.split('?')[0].replace(/\/pubhtml$/, '/pub').replace(/\/pub$/, '/pub');
-      const pubCsvUrl = gid
-        ? `${base}?gid=${gid}&single=true&output=csv`
-        : `${base}?output=csv`;
 
-      const pubRes = await fetchGoogleEndpoint(pubCsvUrl, 8000);
-      if (pubRes.ok && pubRes.buffer && pubRes.buffer.byteLength > 100 && !pubRes.isHtml) {
-        arrayBuffer = pubRes.buffer;
-        usedSubsheetName = targetSheet || 'Total Data';
-        isCsvResponse = true;
-      }
-    }
-
-    // STEP 2: FALLBACK — If fast CSV path wasn't available, fetch standard CSV or XLSX
-    if (!arrayBuffer) {
-      if (sheetId) {
-        // Try export?format=csv with gid or first sheet
+      // 3. Fallback: Standard CSV export
+      if (!parsedResult) {
         const exportCsvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gid ? `&gid=${gid}` : ''}`;
         const exportCsvRes = await fetchGoogleEndpoint(exportCsvUrl, 10000);
         if (exportCsvRes.ok && exportCsvRes.buffer && exportCsvRes.buffer.byteLength > 100 && !exportCsvRes.isHtml) {
-          arrayBuffer = exportCsvRes.buffer;
-          usedSubsheetName = targetSheet || 'Total Data';
-          isCsvResponse = true;
-        } else {
-          // Fall back to full XLSX export (with 16s timeout)
-          const exportXlsxUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
-          const xlsxRes = await fetchGoogleEndpoint(exportXlsxUrl, 16000);
-          if (xlsxRes.ok && xlsxRes.buffer && xlsxRes.buffer.byteLength > 100 && !xlsxRes.isHtml) {
-            arrayBuffer = xlsxRes.buffer;
-            isCsvResponse = false;
-          } else if (xlsxRes.error && xlsxRes.status === 403) {
-            return NextResponse.json({ success: false, message: xlsxRes.error }, { status: 403 });
+          const parsed = parseBufferAndRespond(exportCsvRes.buffer, targetSheet || 'Total Data', [], true);
+          if (parsed.success && parsed.totalRows > 0) {
+            parsedResult = parsed;
           }
         }
-      } else if (isPublished) {
-        const base = trimmedUrl.split('?')[0].replace(/\/pubhtml$/, '/pub').replace(/\/pub$/, '/pub');
-        const pubXlsxUrl = `${base}?output=xlsx`;
-        const pubXlsxRes = await fetchGoogleEndpoint(pubXlsxUrl, 16000);
-        if (pubXlsxRes.ok && pubXlsxRes.buffer && pubXlsxRes.buffer.byteLength > 100 && !pubXlsxRes.isHtml) {
-          arrayBuffer = pubXlsxRes.buffer;
-          isCsvResponse = false;
+      }
+
+      // 4. Fallback: Full workbook XLSX export
+      if (!parsedResult) {
+        const exportXlsxUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
+        const xlsxRes = await fetchGoogleEndpoint(exportXlsxUrl, 16000);
+        if (xlsxRes.ok && xlsxRes.buffer && xlsxRes.buffer.byteLength > 100 && !xlsxRes.isHtml) {
+          const parsed = parseBufferAndRespond(xlsxRes.buffer, targetSheet || 'Total Data', [], false);
+          if (parsed.success && parsed.totalRows > 0) {
+            parsedResult = parsed;
+          }
+        } else if (xlsxRes.error && xlsxRes.status === 403) {
+          return NextResponse.json({ success: false, message: xlsxRes.error }, { status: 403 });
+        }
+      }
+
+      // Discover subsheet names from HTML view if fast CSV was used
+      if (parsedResult) {
+        const detectedNames = await extractSubsheetsFromHtml(sheetId);
+        if (detectedNames.length > 0) {
+          parsedResult.sheetNames = Array.from(new Set([...detectedNames, ...parsedResult.sheetNames]));
         }
       }
     }
 
-    if (!arrayBuffer || arrayBuffer.byteLength < 50) {
+    if (!parsedResult || !parsedResult.success || parsedResult.totalRows === 0) {
       return NextResponse.json(
         {
           success: false,
           message:
-            'Unable to fetch Google Sheet data. Please ensure the link is set to "Anyone with the link can view" or use "File > Share > Publish to web".',
+            'Unable to fetch Google Sheet data. Please ensure the link is set to "Anyone with the link can view" or use "File > Share > Publish to web", and verify that the sheet contains data.',
         },
         { status: 400 }
       );
     }
 
-    // If we have sheetId and used CSV fast path, quickly discover other sheet names for the dropdown
-    if (sheetId && isCsvResponse) {
-      detectedSheetNames = await extractSubsheetsFromHtml(sheetId);
+    // Store in memory cache
+    memoryCache.set(cacheKey, { timestamp: Date.now(), data: parsedResult });
+    if (memoryCache.size > 50) {
+      const oldest = memoryCache.keys().next().value;
+      if (oldest) memoryCache.delete(oldest);
     }
 
-    // Parse the buffer and return structured records
-    const result = parseBufferAndRespond(
-      arrayBuffer,
-      usedSubsheetName || targetSheet,
-      detectedSheetNames,
-      isCsvResponse
-    );
-
-    if (result.success) {
-      memoryCache.set(cacheKey, { timestamp: Date.now(), data: result });
-      if (memoryCache.size > 50) {
-        const oldest = memoryCache.keys().next().value;
-        if (oldest) memoryCache.delete(oldest);
-      }
-    }
-
-    return NextResponse.json(result);
+    return NextResponse.json(parsedResult);
   } catch (error: any) {
     console.error('Error fetching Google Sheet:', error);
     return NextResponse.json(
@@ -348,7 +402,7 @@ function parseBufferAndRespond(
       selectedSheetName = requestedSheetName;
     }
 
-    const sheet = workbook.Sheets[workbook.SheetNames[0]]; // In CSV, it's the first sheet
+    const sheet = workbook.Sheets[selectedSheetName] || workbook.Sheets[workbook.SheetNames[0]];
     const rawJson: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
     if (rawJson.length === 0) {

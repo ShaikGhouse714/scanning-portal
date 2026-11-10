@@ -379,14 +379,16 @@ export function convertToXlsxExportUrl(url: string): string {
   // If already output=xlsx
   if (trimmed.includes('output=xlsx')) return trimmed;
 
-  // If publish to web URL ending with /pub or /pubhtml
-  if (trimmed.includes('/pub') || trimmed.includes('/pubhtml')) {
-    const base = trimmed.split('?')[0].replace(/\/pubhtml$/, '/pub').replace(/\/pub$/, '/pub');
+  // If publish to web URL (/spreadsheets/d/e/ or ending with /pub or /pubhtml)
+  if (trimmed.includes('/spreadsheets/d/e/') || trimmed.includes('/pub') || trimmed.includes('/pubhtml')) {
+    let base = trimmed.split('?')[0].split('#')[0];
+    if (base.endsWith('/pubhtml')) base = base.replace(/\/pubhtml$/, '/pub');
+    else if (!base.endsWith('/pub')) base = base.replace(/\/$/, '') + '/pub';
     return `${base}?output=xlsx`;
   }
 
   // If standard edit / view Google Sheet URL
-  const sheetIdMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  const sheetIdMatch = trimmed.match(/\/spreadsheets\/d\/(?!e\/)([a-zA-Z0-9-_]+)/);
   if (sheetIdMatch) {
     const sheetId = sheetIdMatch[1];
     return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;

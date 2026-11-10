@@ -14,16 +14,18 @@ function convertToFetchUrl(inputUrl: string): string {
     return trimmed;
   }
 
-  // If published to web (/pub or /pubhtml)
-  if (trimmed.includes('/pubhtml') || trimmed.includes('/pub')) {
-    const base = trimmed.split('?')[0].replace(/\/pubhtml$/, '/pub').replace(/\/pub$/, '/pub');
+  // If published to web (/spreadsheets/d/e/ or /pub or /pubhtml)
+  if (trimmed.includes('/spreadsheets/d/e/') || trimmed.includes('/pubhtml') || trimmed.includes('/pub')) {
+    let base = trimmed.split('?')[0].split('#')[0];
+    if (base.endsWith('/pubhtml')) base = base.replace(/\/pubhtml$/, '/pub');
+    else if (!base.endsWith('/pub')) base = base.replace(/\/$/, '') + '/pub';
     const urlObj = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
     const gid = urlObj.searchParams.get('gid');
     return gid ? `${base}?gid=${gid}&single=true&output=xlsx` : `${base}?output=xlsx`;
   }
 
   // If standard edit / view Google Sheet URL (e.g. /spreadsheets/d/<SHEET_ID>/edit#gid=<GID>)
-  const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  const match = trimmed.match(/\/spreadsheets\/d\/(?!e\/)([a-zA-Z0-9-_]+)/);
   if (match) {
     const sheetId = match[1];
     return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
