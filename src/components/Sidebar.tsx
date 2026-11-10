@@ -19,6 +19,7 @@ import {
   Clock,
   Crown,
   ShieldCheck,
+  GraduationCap,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -89,6 +90,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: ShieldCheck,
       allowedRoles: ['super_admin', 'admin', 'operator'],
     },
+    {
+      id: 'eval_school_dashboard',
+      label: 'School-wise Dashboard',
+      icon: GraduationCap,
+      allowedRoles: ['super_admin', 'admin', 'operator'],
+    },
   ].filter((item) => item.allowedRoles.includes(currentUser.role));
 
   // Sub-navigation Items that elaborate downwards when Result Ops is clicked
@@ -105,7 +112,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isEvalTabActive =
     activeTab === 'eval_ops' ||
     activeTab === 'eval_schedule_extractor' ||
-    activeTab === 'chief_eval_extractor';
+    activeTab === 'chief_eval_extractor' ||
+    activeTab === 'eval_school_dashboard';
   const isResultTabActive = activeTab === 'result_ops';
 
   return (
@@ -237,7 +245,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               if (
                 activeTab !== 'eval_ops' &&
                 activeTab !== 'eval_schedule_extractor' &&
-                activeTab !== 'chief_eval_extractor'
+                activeTab !== 'chief_eval_extractor' &&
+                activeTab !== 'eval_school_dashboard'
               ) {
                 setActiveTab('eval_ops');
               }
