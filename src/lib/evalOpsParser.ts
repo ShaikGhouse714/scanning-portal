@@ -58,6 +58,24 @@ export interface EvalOpsValidationSummary {
   duplicateScheduleCourses: { courseCode: string; scheduleIds: string[] }[];
 }
 
+/** Normalized row shape returned by `/api/eval-fetch-sheet` for dashboards and extractors. */
+export interface MasterEvalRow {
+  id: string;
+  scheduleId: string;
+  evaluatorEmail: string;
+  evaluatorName?: string;
+  chiefEvaluatorEmail: string;
+  chiefEvaluatorName: string;
+  hasChiefDetails: boolean;
+  studentEmail: string;
+  studentName: string;
+  courseCode: string;
+  courseName: string;
+  schoolCode: string;
+  examDate: string;
+  raw: Record<string, any>;
+}
+
 // Clean and normalize course code for matching (e.g. " CS101 " -> "CS101")
 export function normalizeCourseCode(val: any): string {
   if (!val) return '';

@@ -19,29 +19,17 @@ import {
   ChevronDown,
   Layers,
   BookOpen,
-  Calendar,
+  ArrowRight,
 } from 'lucide-react';
-import { SCHOOL_CODE_MAP, normalizeSchool } from '@/lib/mockData';
-import { isMissingOrPlaceholder } from '@/lib/evalOpsParser';
-
-interface MasterEvalRow {
-  id: string;
-  scheduleId: string;
-  evaluatorEmail: string;
-  evaluatorName?: string;
-  chiefEvaluatorEmail: string;
-  chiefEvaluatorName: string;
-  hasChiefDetails: boolean;
-  studentEmail: string;
-  studentName: string;
-  courseCode: string;
-  courseName: string;
-  schoolCode: string;
-  examDate: string;
-  raw: Record<string, any>;
-}
+import { normalizeSchool } from '@/lib/mockData';
+import { MasterEvalRow, isMissingOrPlaceholder } from '@/lib/evalOpsParser';
+import { aggregateChiefBySchool } from '@/lib/chiefEvaluatorStats';
+import { ChiefEvaluatorSchoolSpace } from './ChiefEvaluatorSchoolSpace';
 
 export const SchoolWiseEvalDashboard: React.FC = () => {
+  // Active Entity Space inside the Dashboard
+  const [activeEntity, setActiveEntity] = useState<'OVERVIEW' | 'CHIEF_SPACE'>('OVERVIEW');
+
   // Google Sheet URL & State
   const [sheetUrl, setSheetUrl] = useState<string>('');
   const [isLoadingSheet, setIsLoadingSheet] = useState<boolean>(false);
@@ -148,26 +136,21 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
     }
   };
 
-  // Distinct Schools available in the loaded Total Data
-  const availableSchoolsList = useMemo(() => {
-    if (masterRows.length === 0) return [];
-    const map = new Map<string, { code: string; name: string; studentCount: number }>();
+  // Single O(N) school aggregation powering both School Selector and Chief Evaluator Space
+  const chiefSummary = useMemo(() => aggregateChiefBySchool(masterRows), [masterRows]);
 
-    for (const r of masterRows) {
-      const code = (r.schoolCode || 'UNKNOWN').trim().toUpperCase() || 'UNKNOWN';
-      if (!map.has(code)) {
-        const norm = normalizeSchool(code);
-        map.set(code, {
-          code,
-          name: norm.name || SCHOOL_CODE_MAP[code] || `School of ${code}`,
-          studentCount: 0,
-        });
-      }
-      map.get(code)!.studentCount++;
-    }
+  const availableSchoolsList = useMemo(
+    () =>
+      chiefSummary.schoolAggregations
+        .map((s) => ({ code: s.schoolCode, name: s.schoolName, studentCount: s.totalStudents }))
+        .sort((a, b) => b.studentCount - a.studentCount),
+    [chiefSummary]
+  );
 
-    return Array.from(map.values()).sort((a, b) => b.studentCount - a.studentCount);
-  }, [masterRows]);
+  const chiefSummaryBadges = {
+    allAvailableSchools: chiefSummary.globalStats.schoolsAllAvailable,
+    missingSchools: chiefSummary.globalStats.schoolsAnyMissing,
+  };
 
   // Selected School Data Rows
   const selectedSchoolRows = useMemo(() => {
@@ -461,10 +444,115 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Empty State when no Google Sheet is connected yet */}
+      {masterRows.length === 0 && !isLoadingSheet && (
+        <div className="p-12 rounded-2xl bg-[#09090b] border border-dashed border-[#27272a] text-center max-w-lg mx-auto my-8">
+          <Building2 className="w-8 h-8 text-indigo-400 mx-auto mb-3 opacity-70" />
+          <h3 className="text-sm font-bold text-white">Connect Google Sheet Total Data</h3>
+          <p className="text-xs text-zinc-400 mt-1">
+            Paste your Google Sheet link above and click Connect to explore school-wise stats and the Chief Evaluator elaborated space.
+          </p>
+        </div>
+      )}
+
       {/* ========================================================================= */}
-      {/* 1. SCHOOL SELECTOR (PROMINENT & CLEAN) */}
+      {/* ENTITY / WORKSPACE SWITCHER (School Overview vs Chief Evaluator Space) */}
       {/* ========================================================================= */}
       {masterRows.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setActiveEntity('OVERVIEW')}
+            className={`text-left p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+              activeEntity === 'OVERVIEW'
+                ? 'bg-[#111218] border-indigo-500/70 shadow-lg shadow-indigo-950/20'
+                : 'bg-[#09090b] border-[#222222] hover:border-[#34343c]'
+            }`}
+          >
+            <div className="flex items-center space-x-3 min-w-0">
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                  activeEntity === 'OVERVIEW'
+                    ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'
+                    : 'bg-[#141418] border-[#27272a] text-zinc-400'
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-xs font-bold text-white tracking-wide uppercase">
+                  School-Wise Overview & Student Explorer
+                </h2>
+                <p className="text-[11px] text-zinc-400 truncate mt-0.5">
+                  Select a single school to view Evaluator & Chief stats and student rows
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg bg-[#16161c] text-zinc-200 border border-[#27272e] shrink-0">
+              {availableSchoolsList.length} Schools
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveEntity('CHIEF_SPACE')}
+            className={`text-left p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+              activeEntity === 'CHIEF_SPACE'
+                ? 'bg-[#14101c] border-purple-500/70 shadow-lg shadow-purple-950/25'
+                : 'bg-[#09090b] border-[#222222] hover:border-purple-800/60'
+            }`}
+          >
+            <div className="flex items-center space-x-3 min-w-0">
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                  activeEntity === 'CHIEF_SPACE'
+                    ? 'bg-purple-500/15 border-purple-500/35 text-purple-300'
+                    : 'bg-[#141418] border-[#27272a] text-purple-400'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-xs font-bold text-white tracking-wide uppercase">
+                  Chief Evaluator Elaborated Space
+                </h2>
+                <p className="text-[11px] text-zinc-400 truncate mt-0.5">
+                  School-wise categorization (All Available vs Missing), sorting & rosters
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-1.5 shrink-0 font-mono text-[10px] font-bold">
+              <span className="px-2 py-1 rounded-md bg-emerald-950/60 text-emerald-300 border border-emerald-800/60">
+                {chiefSummaryBadges.allAvailableSchools} Full
+              </span>
+              <span className="px-2 py-1 rounded-md bg-amber-950/60 text-amber-300 border border-amber-800/60">
+                {chiefSummaryBadges.missingSchools} Missing
+              </span>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SEPARATE ENTITY 2: CHIEF EVALUATOR ELABORATED SPACE (SCHOOL-WISE) */}
+      {/* ========================================================================= */}
+      {masterRows.length > 0 && activeEntity === 'CHIEF_SPACE' && (
+        <ChiefEvaluatorSchoolSpace
+          masterRows={masterRows}
+          precomputedSummary={chiefSummary}
+          onInspectSchoolInOverview={(schoolCode, filter) => {
+            setSelectedSchool(schoolCode);
+            setStatusFilter(filter);
+            setSearchQuery('');
+            setActiveEntity('OVERVIEW');
+          }}
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* ENTITY 1: 1. SCHOOL SELECTOR (PROMINENT & CLEAN) */}
+      {/* ========================================================================= */}
+      {masterRows.length > 0 && activeEntity === 'OVERVIEW' && (
         <div className="p-5 rounded-2xl bg-[#09090b] border border-[#222222] space-y-3.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center space-x-2">
@@ -550,7 +638,7 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
       )}
 
       {/* Prompt to Select a School if not selected */}
-      {masterRows.length > 0 && !selectedSchool && (
+      {masterRows.length > 0 && activeEntity === 'OVERVIEW' && !selectedSchool && (
         <div className="p-12 rounded-2xl bg-[#09090b] border border-dashed border-[#27272a] text-center max-w-md mx-auto my-8">
           <Building2 className="w-8 h-8 text-indigo-400 mx-auto mb-3 opacity-60" />
           <h3 className="text-sm font-bold text-white">Select a School Above</h3>
@@ -563,7 +651,7 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
       {/* ========================================================================= */}
       {/* 2. CATEGORIZED DATA CARDS FOR SELECTED SCHOOL */}
       {/* ========================================================================= */}
-      {selectedSchool && selectedSchoolRows.length > 0 && (
+      {activeEntity === 'OVERVIEW' && selectedSchool && selectedSchoolRows.length > 0 && (
         <>
           {/* Main Requested Metrics (Clean 5 Cards) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
@@ -718,14 +806,25 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center space-x-2.5">
-              <Users className="w-4 h-4 text-zinc-400" />
-              <div>
-                <span className="text-[10px] text-zinc-500 block uppercase">Faculty Count</span>
-                <span className="font-bold text-white">
-                  {schoolMetrics.uniqueEvaluatorsCount} Evaluators / {schoolMetrics.uniqueChiefsCount} Chiefs
-                </span>
+            <div className="flex items-center justify-between space-x-2.5">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <Users className="w-4 h-4 text-zinc-400 shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-[10px] text-zinc-500 block uppercase">Faculty Count</span>
+                  <span className="font-bold text-white truncate block">
+                    {schoolMetrics.uniqueEvaluatorsCount} Evaluators / {schoolMetrics.uniqueChiefsCount} Chiefs
+                  </span>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setActiveEntity('CHIEF_SPACE')}
+                className="px-2 py-1 rounded-md bg-purple-600/20 hover:bg-purple-600/35 border border-purple-500/30 text-[10px] font-semibold text-purple-200 inline-flex items-center space-x-1 shrink-0 transition-colors"
+                title="Open Elaborated Chief Evaluator Space across all schools"
+              >
+                <span>Chiefs Space</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
             </div>
           </div>
 
