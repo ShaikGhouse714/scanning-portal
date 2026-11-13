@@ -15,9 +15,10 @@ import {
   ClipboardPaste,
   Trash2,
   HelpCircle,
-  Filter,
+  Building2,
 } from 'lucide-react';
 import { isMissingOrPlaceholder } from '@/lib/evalOpsParser';
+import { CustomDropdown } from './CustomDropdown';
 
 interface ExtractedRow {
   id: string;
@@ -272,7 +273,7 @@ export const EvalScheduleExtractor: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans text-zinc-200">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between pb-5 border-b border-[#222222] gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between pb-5 border-b border-[#27272a] gap-4">
         <div>
           <div className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-xl bg-white text-black flex items-center justify-center font-bold shadow-md">
@@ -294,7 +295,7 @@ export const EvalScheduleExtractor: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowHelpModal(true)}
-            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-[#27272a] hover:bg-[#121214] text-zinc-300 hover:text-white text-xs transition-colors"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-[#09090b] border border-[#27272a] hover:bg-[#121214] text-zinc-300 hover:text-white text-xs transition-colors"
           >
             <HelpCircle className="w-3.5 h-3.5" />
             <span>How to Publish</span>
@@ -456,7 +457,7 @@ export const EvalScheduleExtractor: React.FC = () => {
 
               {masterRows.length > 0 ? (
                 <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   <span>Connected</span>
                 </span>
               ) : (
@@ -480,8 +481,8 @@ export const EvalScheduleExtractor: React.FC = () => {
               />
             </div>
 
-            {/* Subsheet info */}
-            {sheetName && (
+            {/* Subsheet preview indicator before connected stats appear */}
+            {sheetName && masterRows.length === 0 && (
               <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] font-mono">
                 <span className="text-zinc-400">Target Subsheet:</span>
                 <span
@@ -518,7 +519,15 @@ export const EvalScheduleExtractor: React.FC = () => {
               <div className="p-3 rounded-xl bg-[#121214] border border-[#27272a] space-y-2 text-[11px] font-mono text-zinc-400">
                 <div className="flex justify-between items-center">
                   <span className="text-zinc-500">Subsheet:</span>
-                  <strong className="text-emerald-400 font-semibold">{sheetName}</strong>
+                  <span
+                    className={`px-2 py-0.5 rounded font-semibold ${
+                      isTotalDataSheet
+                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25'
+                        : 'text-white'
+                    }`}
+                  >
+                    {sheetName} {isTotalDataSheet && '✓'}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-zinc-500">Total Rows:</span>
@@ -531,8 +540,8 @@ export const EvalScheduleExtractor: React.FC = () => {
                 {availableSchools.length > 0 && (
                   <div className="flex justify-between items-center">
                     <span className="text-zinc-500">Schools:</span>
-                    <span className="text-zinc-300 truncate max-w-[130px]" title={availableSchools.join(', ')}>
-                      {availableSchools.join(', ')}
+                    <span className="text-zinc-300 truncate max-w-[140px]" title={availableSchools.join(', ')}>
+                      {availableSchools.length} Schools
                     </span>
                   </div>
                 )}
@@ -540,7 +549,7 @@ export const EvalScheduleExtractor: React.FC = () => {
             )}
           </div>
 
-          <div className="pt-2 border-t border-[#222222]">
+          <div className="pt-2 border-t border-[#27272a]">
             <button
               type="button"
               onClick={() => setShowHelpModal(true)}
@@ -670,18 +679,19 @@ export const EvalScheduleExtractor: React.FC = () => {
 
                 {/* School Filter Dropdown */}
                 {availableSchools.length > 1 && (
-                  <select
+                  <CustomDropdown
+                    size="sm"
+                    menuAlign="right"
                     value={selectedSchoolFilter}
-                    onChange={(e) => setSelectedSchoolFilter(e.target.value)}
-                    className="bg-[#000000] border border-[#27272a] rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 focus:outline-none font-mono"
-                  >
-                    <option value="ALL">All Schools ({availableSchools.length})</option>
-                    {availableSchools.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setSelectedSchoolFilter}
+                    icon={Building2}
+                    placeholder="All Schools"
+                    minMenuWidth="min-w-[200px]"
+                    options={[
+                      { value: 'ALL', label: `All Schools (${availableSchools.length})` },
+                      ...availableSchools.map((s) => ({ value: s, label: s })),
+                    ]}
+                  />
                 )}
 
                 {/* Copy Table */}

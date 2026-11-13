@@ -1,18 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import {
-  Layers,
   LayoutDashboard,
   Users2,
   FileSpreadsheet,
   Link2,
-  UserPlus,
-  LogOut,
-  CheckCircle2,
-  AlertOctagon,
-  RefreshCw,
   ChevronDown,
   Filter,
   Home,
@@ -20,6 +14,8 @@ import {
   Crown,
   ShieldCheck,
   GraduationCap,
+  LogOut,
+  LucideIcon,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -41,12 +37,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAccountModal,
   usersCount = 0,
   netDiscrepancy = 0,
-  isSyncing = false,
 }) => {
   const isSuperAdmin = currentUser.role === 'super_admin';
-  const [isNavExpanded, setIsNavExpanded] = useState<boolean>(false);
-  const [isEvalNavExpanded, setIsEvalNavExpanded] = useState<boolean>(false);
-  const [isResultNavExpanded, setIsResultNavExpanded] = useState<boolean>(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    scanning: false,
+    eval: false,
+    result: false,
+  });
 
   // Sub-navigation Items that elaborate downwards when Scanning Ops is clicked
   const subNavItems = [
@@ -109,20 +106,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ].filter((item) => item.allowedRoles.includes(currentUser.role));
 
   const isMainTabActive = activeTab === 'reconciliation';
-  const isEvalTabActive =
-    activeTab === 'eval_ops' ||
-    activeTab === 'eval_schedule_extractor' ||
-    activeTab === 'chief_eval_extractor' ||
-    activeTab === 'eval_school_dashboard';
-  const isResultTabActive = activeTab === 'result_ops';
+  const isScanningGroupActive =
+    isMainTabActive || subNavItems.some((item) => item.id === activeTab);
+  const isEvalTabActive = evalSubNavItems.some((item) => item.id === activeTab);
+  const isResultTabActive = resultSubNavItems.some((item) => item.id === activeTab);
+
+  // Auto-open the matching accordion group whenever external navigation triggers a sub-tab
+  useEffect(() => {
+    if (isScanningGroupActive && activeTab !== 'reconciliation') {
+      setExpandedGroups((prev) => ({ ...prev, scanning: true }));
+    } else if (isEvalTabActive) {
+      setExpandedGroups((prev) => ({ ...prev, eval: true }));
+    } else if (isResultTabActive) {
+      setExpandedGroups((prev) => ({ ...prev, result: true }));
+    }
+  }, [activeTab, isScanningGroupActive, isEvalTabActive, isResultTabActive]);
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  interface NavGroupConfig {
+    key: string;
+    label: string;
+    icon: LucideIcon;
+    isHeaderActive: boolean;
+    isGroupOpen: boolean;
+    defaultTab: string;
+    items: { id: string; label: string; icon: LucideIcon }[];
+    badgeCount?: number;
+  }
+
+  const navGroups: NavGroupConfig[] = [
+    {
+      key: 'scanning',
+      label: 'Scanning Ops',
+      icon: LayoutDashboard,
+      isHeaderActive: isMainTabActive,
+      isGroupOpen: expandedGroups.scanning,
+      defaultTab: 'reconciliation',
+      items: subNavItems,
+      badgeCount: netDiscrepancy > 0 ? netDiscrepancy : undefined,
+    },
+    {
+      key: 'eval',
+      label: 'Eval Ops',
+      icon: FileSpreadsheet,
+      isHeaderActive: isEvalTabActive,
+      isGroupOpen: expandedGroups.eval,
+      defaultTab: 'eval_ops',
+      items: evalSubNavItems,
+    },
+    {
+      key: 'result',
+      label: 'Result Ops',
+      icon: Clock,
+      isHeaderActive: isResultTabActive,
+      isGroupOpen: expandedGroups.result,
+      defaultTab: 'result_ops',
+      items: resultSubNavItems,
+    },
+  ];
 
   return (
-    <aside className="w-64 bg-[#000000] border-r border-[#222222] flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none font-sans">
+    <aside className="w-64 bg-[#000000] border-r border-[#27272a] flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none font-sans">
       {/* Top Header */}
       <div>
-        <div
+        <button
+          type="button"
           onClick={() => setActiveTab('intro')}
-          className="h-16 px-4 flex items-center border-b border-[#222222] bg-[#000000] cursor-pointer hover:bg-[#09090b] transition-colors"
+          className="w-full h-16 px-4 flex items-center text-left border-b border-[#27272a] bg-[#000000] hover:bg-[#09090b] transition-colors"
           title="Return to Welcome Greetings"
         >
           <div className="flex items-center space-x-3">
@@ -142,9 +195,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </div>
           </div>
-        </div>
+        </button>
 
-        {/* Navigation Section with Downward Elaborating Toggles */}
+        {/* Navigation Section with Clean Sibling Accordion Toggles */}
         <nav className="p-3 space-y-1.5">
           {/* Welcome Overview Tab */}
           <button
@@ -162,226 +215,112 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="font-bold">Welcome Overview</span>
           </button>
 
-          {/* Main Display Tab: Scanning Ops */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('reconciliation');
-              setIsNavExpanded((prev) => !prev);
-            }}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-              isMainTabActive
-                ? 'bg-white text-black shadow-md border border-white'
-                : 'text-zinc-300 hover:text-white hover:bg-[#121214] border border-[#27272a]'
-            }`}
-          >
-            <div className="flex items-center space-x-3">
-              <LayoutDashboard
-                className={`w-4 h-4 shrink-0 ${isMainTabActive ? 'text-black' : 'text-zinc-400'}`}
-              />
-              <span className="font-bold">Scanning Ops</span>
-            </div>
-
-            <div className="flex items-center space-x-2 shrink-0">
-              {netDiscrepancy > 0 && (
-                <span
-                  className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                    isMainTabActive
-                      ? 'bg-black text-white'
-                      : 'bg-zinc-800 text-zinc-200 border border-zinc-700'
+          {navGroups.map((group) => {
+            const GroupIcon = group.icon;
+            return (
+              <div key={group.key} className="space-y-1">
+                <div
+                  className={`flex items-center rounded-xl border transition-all overflow-hidden ${
+                    group.isHeaderActive
+                      ? 'bg-white text-black shadow-md border-white'
+                      : 'text-zinc-300 hover:text-white hover:bg-[#121214] border-[#27272a]'
                   }`}
                 >
-                  +{netDiscrepancy}
-                </span>
-              )}
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsNavExpanded((prev) => !prev);
-                }}
-                className={`p-0.5 rounded transition-transform duration-200 ${
-                  isNavExpanded ? 'rotate-180' : ''
-                }`}
-                title={isNavExpanded ? 'Collapse' : 'Elaborate options'}
-              >
-                <ChevronDown
-                  className={`w-3.5 h-3.5 ${isMainTabActive ? 'text-black' : 'text-zinc-400'}`}
-                />
-              </div>
-            </div>
-          </button>
-
-          {/* Downward Elaborating Sub-Toggles (only opens when clicked) */}
-          {isNavExpanded && (
-            <div className="pt-1.5 pl-3 space-y-1 border-l-2 border-zinc-800 ml-4 animate-in fade-in slide-in-from-top-1 duration-150">
-              {subNavItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
                   <button
-                    key={item.id}
                     type="button"
-                    onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                      isActive
-                        ? 'bg-white text-black font-semibold shadow-sm'
-                        : 'text-zinc-400 hover:text-white hover:bg-[#121214]'
-                    }`}
+                    onClick={() => {
+                      const inGroup =
+                        group.defaultTab === activeTab ||
+                        group.items.some((item) => item.id === activeTab);
+                      if (group.key === 'scanning' || !inGroup) {
+                        setActiveTab(group.defaultTab);
+                      }
+                      toggleGroup(group.key);
+                    }}
+                    className="flex-1 flex items-center justify-between pl-3.5 pr-1.5 py-2.5 text-xs font-semibold text-left"
                   >
-                    <div className="flex items-center space-x-2.5 min-w-0">
-                      <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : 'text-zinc-500'}`} />
-                      <span className="truncate">{item.label}</span>
+                    <div className="flex items-center space-x-3 min-w-0">
+                      <GroupIcon
+                        className={`w-4 h-4 shrink-0 ${
+                          group.isHeaderActive ? 'text-black' : 'text-zinc-400'
+                        }`}
+                      />
+                      <span className="font-bold truncate">{group.label}</span>
                     </div>
+
+                    {group.badgeCount !== undefined && (
+                      <span
+                        className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold shrink-0 ${
+                          group.isHeaderActive
+                            ? 'bg-black text-white'
+                            : 'bg-zinc-800 text-zinc-200 border border-zinc-700'
+                        }`}
+                      >
+                        +{group.badgeCount}
+                      </span>
+                    )}
                   </button>
-                );
-              })}
-            </div>
-          )}
 
-          {/* Section: Eval Ops (With downward elaborating dropdown identical to Scanning Ops) */}
-          <button
-            type="button"
-            onClick={() => {
-              if (
-                activeTab !== 'eval_ops' &&
-                activeTab !== 'eval_schedule_extractor' &&
-                activeTab !== 'chief_eval_extractor' &&
-                activeTab !== 'eval_school_dashboard'
-              ) {
-                setActiveTab('eval_ops');
-              }
-              setIsEvalNavExpanded((prev) => !prev);
-            }}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-              isEvalTabActive
-                ? 'bg-white text-black shadow-md border border-white'
-                : 'text-zinc-300 hover:text-white hover:bg-[#121214] border border-[#27272a]'
-            }`}
-          >
-            <div className="flex items-center space-x-3">
-              <FileSpreadsheet
-                className={`w-4 h-4 shrink-0 ${isEvalTabActive ? 'text-black' : 'text-zinc-400'}`}
-              />
-              <span className="font-bold">Eval Ops</span>
-            </div>
+                  {group.items.length > 0 && (
+                    <button
+                      type="button"
+                      aria-label={group.isGroupOpen ? `Collapse ${group.label}` : `Expand ${group.label}`}
+                      aria-expanded={group.isGroupOpen}
+                      onClick={() => toggleGroup(group.key)}
+                      title={group.isGroupOpen ? 'Collapse options' : 'Expand options'}
+                      className={`p-2 mr-1 rounded-lg transition-colors ${
+                        group.isHeaderActive
+                          ? 'hover:bg-black/10 text-black'
+                          : 'hover:bg-zinc-800 text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                          group.isGroupOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                  )}
+                </div>
 
-            <div className="flex items-center space-x-2 shrink-0">
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEvalNavExpanded((prev) => !prev);
-                }}
-                className={`p-0.5 rounded transition-transform duration-200 ${
-                  isEvalNavExpanded ? 'rotate-180' : ''
-                }`}
-                title={isEvalNavExpanded ? 'Collapse' : 'Elaborate options'}
-              >
-                <ChevronDown
-                  className={`w-3.5 h-3.5 ${isEvalTabActive ? 'text-black' : 'text-zinc-400'}`}
-                />
+                {group.isGroupOpen && group.items.length > 0 && (
+                  <div className="pt-1 pl-3 space-y-1 border-l-2 border-zinc-800 ml-4 animate-in fade-in slide-in-from-top-1 duration-150">
+                    {group.items.map((item) => {
+                      const ItemIcon = item.icon;
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setActiveTab(item.id)}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                            isActive
+                              ? 'bg-white text-black font-semibold shadow-sm'
+                              : 'text-zinc-400 hover:text-white hover:bg-[#121214]'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2.5 min-w-0">
+                            <ItemIcon
+                              className={`w-3.5 h-3.5 shrink-0 ${
+                                isActive ? 'text-black' : 'text-zinc-500'
+                              }`}
+                            />
+                            <span className="truncate">{item.label}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          </button>
-
-          {/* Downward Elaborating Sub-Toggles for Eval Ops */}
-          {isEvalNavExpanded && (
-            <div className="pt-1.5 pl-3 space-y-1 border-l-2 border-zinc-800 ml-4 animate-in fade-in slide-in-from-top-1 duration-150">
-              {evalSubNavItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                      isActive
-                        ? 'bg-white text-black font-semibold shadow-sm'
-                        : 'text-zinc-400 hover:text-white hover:bg-[#121214]'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5 min-w-0">
-                      <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : 'text-zinc-500'}`} />
-                      <span className="truncate">{item.label}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Section: Result Ops (Placed below Eval Ops and Scanning Ops) */}
-          <button
-            type="button"
-            onClick={() => {
-              if (activeTab !== 'result_ops') {
-                setActiveTab('result_ops');
-              }
-              setIsResultNavExpanded((prev) => !prev);
-            }}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-              isResultTabActive
-                ? 'bg-white text-black shadow-md border border-white'
-                : 'text-zinc-300 hover:text-white hover:bg-[#121214] border border-[#27272a]'
-            }`}
-          >
-            <div className="flex items-center space-x-3">
-              <Clock
-                className={`w-4 h-4 shrink-0 ${isResultTabActive ? 'text-black' : 'text-zinc-400'}`}
-              />
-              <span className="font-bold">Result Ops</span>
-            </div>
-
-            <div className="flex items-center space-x-2 shrink-0">
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsResultNavExpanded((prev) => !prev);
-                }}
-                className={`p-0.5 rounded transition-transform duration-200 ${
-                  isResultNavExpanded ? 'rotate-180' : ''
-                }`}
-                title={isResultNavExpanded ? 'Collapse' : 'Elaborate options'}
-              >
-                <ChevronDown
-                  className={`w-3.5 h-3.5 ${isResultTabActive ? 'text-black' : 'text-zinc-400'}`}
-                />
-              </div>
-            </div>
-          </button>
-
-          {/* Downward Elaborating Sub-Toggles for Result Ops */}
-          {isResultNavExpanded && (
-            <div className="pt-1.5 pl-3 space-y-1 border-l-2 border-zinc-800 ml-4 animate-in fade-in slide-in-from-top-1 duration-150">
-              {resultSubNavItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                      isActive
-                        ? 'bg-white text-black font-semibold shadow-sm'
-                        : 'text-zinc-400 hover:text-white hover:bg-[#121214]'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5 min-w-0">
-                      <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-black' : 'text-zinc-500'}`} />
-                      <span className="truncate">{item.label}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+            );
+          })}
         </nav>
       </div>
 
       {/* Bottom Profile Section */}
-      <div className="p-3 border-t border-[#222222] space-y-2 bg-[#000000]">
-        <div className="p-2.5 rounded-xl bg-[#09090b] border border-[#222222] flex items-center space-x-3">
+      <div className="p-3 border-t border-[#27272a] space-y-2 bg-[#000000]">
+        <div className="p-2.5 rounded-xl bg-[#09090b] border border-[#27272a] flex items-center space-x-3">
           <div className="w-8 h-8 rounded-full bg-[#18181b] border border-[#2e2e33] flex items-center justify-center text-xs font-bold text-white shrink-0">
             {currentUser.name.charAt(0).toUpperCase()}
           </div>
@@ -391,7 +330,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </p>
             <div className="flex items-center space-x-1.5 mt-0.5">
               <span
-                className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-semibold ${
+                className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-semibold ${
                   isSuperAdmin
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
@@ -408,7 +347,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={onOpenAccountModal}
-            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs border border-zinc-800 transition-colors"
+            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#09090b] hover:bg-[#121214] text-zinc-300 hover:text-white text-xs border border-[#27272a] transition-colors"
           >
             <div className="flex items-center space-x-2">
               <Crown className="w-3.5 h-3.5 text-amber-400" />
@@ -421,8 +360,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         <button
+          type="button"
           onClick={onSignOut}
-          className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg hover:text-white hover:bg-[#18181b] text-zinc-400 text-xs transition-colors"
+          className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg hover:text-white hover:bg-[#121214] text-zinc-400 text-xs transition-colors"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Sign out</span>

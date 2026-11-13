@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { exportReconciliationToCSV, exportPortalSlotsToCSV } from '../lib/storage';
 import { CustomDropdown, DropdownOption } from './CustomDropdown';
+import { SegmentedToggle } from './SegmentedToggle';
 import { SCHOOL_CODE_MAP } from '../lib/mockData';
 import { FileDropzone } from './FileDropzone';
 
@@ -608,8 +609,8 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               <span className="text-[11px] font-mono text-zinc-500">
                 System Status
               </span>
-              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-zinc-900 border border-[#27272a] text-xs font-mono text-zinc-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
                 <span>Ready &amp; Operational</span>
               </span>
             </div>
@@ -706,7 +707,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           {/* Basic Admin Information Banner */}
           {currentUser?.role !== 'super_admin' && (
             <div className="p-4 rounded-xl bg-[#09090b] border border-[#27272a] flex items-center space-x-3 text-xs text-zinc-400">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
               <span>
                 Signed in as <strong className="text-white">{currentUser?.name}</strong> (Basic Admin). You have full access to Scanning Ops, Eval Ops, and Result Ops. Contact Super Admin (Shaik Ghouse M) for elevated permissions.
               </span>
@@ -1201,7 +1202,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           {/* Clean Dynamic Filters Bar with Custom Dropdowns */}
           <div className="bg-[#09090b]/90 backdrop-blur-xl rounded-2xl border border-[#27272a] p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xl">
             <div className="flex items-center space-x-2.5">
-              <div className="w-7 h-7 rounded-lg bg-[#141A28] border border-[#222C42] flex items-center justify-center text-zinc-300">
+              <div className="w-7 h-7 rounded-lg bg-[#121214] border border-[#27272a] flex items-center justify-center text-zinc-300">
                 <Filter className="w-3.5 h-3.5 text-cyan-400" />
               </div>
               <div>
@@ -1244,13 +1245,14 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
               {(selectedDate !== 'all' || selectedSchool !== 'all' || statusFilter !== 'all' || searchQuery.trim()) && (
                 <button
+                  type="button"
                   onClick={() => {
                     setSelectedDate('all');
                     setSelectedSchool('all');
                     setStatusFilter('all');
                     setSearchQuery('');
                   }}
-                  className="px-3 py-1.5 bg-[#141B2B] hover:bg-[#1E283C] text-zinc-300 hover:text-white rounded-xl border border-[#253248] text-xs font-medium transition-colors"
+                  className="px-3 py-1.5 bg-[#121214] hover:bg-[#18181b] text-zinc-300 hover:text-white rounded-xl border border-[#27272a] text-xs font-medium transition-colors"
                 >
                   Reset Filters
                 </button>
@@ -1382,7 +1384,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                                 item.teammates.map((t) => (
                                   <span
                                     key={t}
-                                    className="px-1.5 py-0.2 rounded bg-[#18181b] text-zinc-300 text-[10px] font-mono border border-[#27272a]"
+                                    className="px-1.5 py-0.5 rounded bg-[#18181b] text-zinc-300 text-[10px] font-mono border border-[#27272a]"
                                   >
                                     {t}
                                   </span>
@@ -1534,39 +1536,18 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           </div>
 
           {/* Teammates Search & Filter Bar */}
-          <div className="bg-[#09090b] rounded-xl border border-[#27272a] p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setTeammateFilter('all')}
-                className={`px-3 py-1.5 rounded-lg transition-all font-medium ${
-                  teammateFilter === 'all'
-                    ? 'bg-[#181E2B] text-white border border-[#273142]'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                All Teammates ({teammates.length})
-              </button>
-              <button
-                onClick={() => setTeammateFilter('active')}
-                className={`px-3 py-1.5 rounded-lg transition-all font-medium ${
-                  teammateFilter === 'active'
-                    ? 'bg-[#181E2B] text-white border border-[#273142]'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                Active with Logs ({activeTeammatesCount})
-              </button>
-              <button
-                onClick={() => setTeammateFilter('empty')}
-                className={`px-3 py-1.5 rounded-lg transition-all font-medium ${
-                  teammateFilter === 'empty'
-                    ? 'bg-[#181E2B] text-white border border-[#273142]'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                Awaiting Data ({emptyTeammatesCount})
-              </button>
-            </div>
+          <div className="bg-[#09090b] rounded-2xl border border-[#27272a] p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <SegmentedToggle
+              size="sm"
+              wrap
+              value={teammateFilter}
+              onChange={(val) => setTeammateFilter(val)}
+              options={[
+                { value: 'all', label: 'All Teammates', count: teammates.length },
+                { value: 'active', label: 'Active with Logs', count: activeTeammatesCount, tone: 'emerald' },
+                { value: 'empty', label: 'Awaiting Data', count: emptyTeammatesCount, tone: 'amber' },
+              ]}
+            />
 
             <div className="relative w-64">
               <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -1575,7 +1556,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 value={teammateSearch}
                 onChange={(e) => setTeammateSearch(e.target.value)}
                 placeholder="Search teammate name, school..."
-                className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#121214] border border-[#27272a] rounded-lg text-zinc-200 focus:outline-none"
+                className="w-full text-xs pl-8 pr-3 py-1.5 bg-black border border-[#27272a] focus:border-zinc-500 rounded-lg text-zinc-200 focus:outline-none"
               />
             </div>
           </div>
@@ -1957,74 +1938,32 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           {/* Controls Toolbar: Sector Filter, Day/School-wise Grouping, Custom Sorting, Search */}
           <div className="bg-[#09090b] rounded-2xl border border-[#27272a] p-4 flex flex-wrap items-center justify-between gap-3 shadow-xl">
             {/* Left: Sector and View Mode Toggles */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2.5">
               {/* Sector Filter Tabs */}
-              <div className="flex items-center space-x-1 bg-[#121214] p-1 rounded-xl border border-[#27272a] text-xs">
-                <button
-                  onClick={() => setPortalSectorFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                    portalSectorFilter === 'all'
-                      ? 'bg-[#18181b] text-white border border-[#3f3f46] shadow-sm'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  All ({portalSlots.length})
-                </button>
-                <button
-                  onClick={() => setPortalSectorFilter('unscanned')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 ${
-                    portalSectorFilter === 'unscanned'
-                      ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm'
-                      : 'text-zinc-400 hover:text-amber-300'
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                  <span>Not Scanned Yet ({unscannedPortalSlots.length})</span>
-                </button>
-                <button
-                  onClick={() => setPortalSectorFilter('scanned')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-1.5 ${
-                    portalSectorFilter === 'scanned' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span>Scanned ({scannedPortalSlots.length})</span>
-                </button>
-              </div>
+              <SegmentedToggle
+                size="sm"
+                wrap
+                value={portalSectorFilter}
+                onChange={(val) => setPortalSectorFilter(val)}
+                options={[
+                  { value: 'all', label: 'All', count: portalSlots.length },
+                  { value: 'unscanned', label: 'Not Scanned Yet', count: unscannedPortalSlots.length, tone: 'amber' },
+                  { value: 'scanned', label: 'Scanned', count: scannedPortalSlots.length, tone: 'emerald' },
+                ]}
+              />
 
               {/* View Mode: Table vs Day-wise Grouping vs School-wise Grouping */}
-              <div className="flex items-center space-x-1 bg-[#121214] p-1 rounded-xl border border-[#27272a] text-xs">
-                <button
-                  onClick={() => setPortalViewMode('table')}
-                  className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center space-x-1 ${
-                    portalViewMode === 'table' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
-                  title="Detailed Slot-by-Slot Table"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Table View</span>
-                </button>
-                <button
-                  onClick={() => setPortalViewMode('daywise')}
-                  className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center space-x-1 ${
-                    portalViewMode === 'daywise' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
-                  title="Group schedules by Date"
-                >
-                  <CalendarDays className="w-3.5 h-3.5" />
-                  <span>Day-wise Grouping</span>
-                </button>
-                <button
-                  onClick={() => setPortalViewMode('schoolwise')}
-                  className={`px-2.5 py-1.5 rounded-lg font-medium transition-all flex items-center space-x-1 ${
-                    portalViewMode === 'schoolwise' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
-                  title="Group schedules by School"
-                >
-                  <Building2 className="w-3.5 h-3.5" />
-                  <span>School-wise Grouping</span>
-                </button>
-              </div>
+              <SegmentedToggle
+                size="sm"
+                wrap
+                value={portalViewMode}
+                onChange={(val) => setPortalViewMode(val)}
+                options={[
+                  { value: 'table', label: 'Table View', icon: FileText, title: 'Detailed Slot-by-Slot Table' },
+                  { value: 'daywise', label: 'Day-wise', icon: CalendarDays, title: 'Group schedules by Date' },
+                  { value: 'schoolwise', label: 'School-wise', icon: Building2, title: 'Group schedules by School' },
+                ]}
+              />
             </div>
 
             {/* Right: Custom Sorting Dropdown & Search */}
@@ -2264,10 +2203,10 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                         <td className="py-3 px-4 font-sans">
                           <div className="flex flex-wrap gap-1">
                             {day.schools.map((sch) => (
-                              <span
-                                key={sch}
-                                className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#283244] text-[10px] text-zinc-300 font-mono"
-                              >
+                                <span
+                                  key={sch}
+                                  className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-[10px] text-zinc-300 font-mono"
+                                >
                                 {sch}
                               </span>
                             ))}
@@ -2310,7 +2249,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     {portalSchoolwiseAggregation.map((sch) => (
                       <tr key={sch.schoolCode} className="hover:bg-[#121214] transition-colors">
                         <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded bg-[#18181b] border border-[#283244] text-white font-bold text-[11px]">
+                          <span className="px-2 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-white font-bold text-[11px]">
                             {sch.schoolCode}
                           </span>
                         </td>
@@ -2338,10 +2277,10 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                         <td className="py-3 px-4 font-sans">
                           <div className="flex flex-wrap gap-1">
                             {sch.dates.map((d) => (
-                              <span
-                                key={d}
-                                className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#283244] text-[10px] text-zinc-300 font-mono"
-                              >
+                                <span
+                                  key={d}
+                                  className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-[10px] text-zinc-300 font-mono"
+                                >
                                 {d}
                               </span>
                             ))}
@@ -2503,7 +2442,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             <div className="flex items-start justify-between pb-3 border-b border-[#27272a]">
               <div>
                 <div className="flex items-center space-x-2">
-                  <span className="font-mono font-bold text-white px-2 py-0.5 rounded bg-[#18181b] border border-[#283244] text-xs">
+                  <span className="font-mono font-bold text-white px-2 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-xs">
                     {expandedItem.schoolCode}
                   </span>
                   <h3 className="text-sm font-bold text-white">{expandedItem.schoolName}</h3>
@@ -2512,7 +2451,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
               <button
                 onClick={() => setExpandedItem(null)}
-                className="text-zinc-400 hover:text-white text-xs font-mono px-2 py-1 rounded bg-[#181E2B]"
+                className="text-zinc-400 hover:text-white text-xs font-mono px-2.5 py-1 rounded-lg bg-[#121214] border border-[#27272a]"
               >
                 ✕ Close
               </button>
@@ -2714,7 +2653,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                 <span className="text-[10px] text-zinc-500 block mt-0.5">Scripts remaining</span>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#10141E] border border-[#1C2331]">
+              <div className="p-3 rounded-xl bg-[#09090b] border border-[#27272a]">
                 <span className="text-zinc-500 text-[10px] uppercase block">Completion Rate</span>
                 <span className="text-lg font-bold text-cyan-400">
                   {activeModalTeammate.totalReceived > 0
@@ -2724,7 +2663,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                       ).toFixed(1)}%`
                     : '0%'}
                 </span>
-                <div className="w-full bg-[#181E2B] h-1.5 rounded-full overflow-hidden mt-1.5">
+                <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden mt-1.5">
                   <div
                     className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all"
                     style={{
@@ -2742,39 +2681,19 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Controls Toolbar: Tabs, Sorting by Daywise / School, Search */}
-            <div className="p-4 border-b border-[#27272a] bg-[#0E121C] flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="p-4 border-b border-[#27272a] bg-[#050505] flex flex-wrap items-center justify-between gap-3 shrink-0">
               {/* View Tabs */}
-              <div className="flex items-center space-x-1 bg-[#121214] p-1 rounded-xl border border-[#27272a]">
-                <button
-                  onClick={() => setTeammateModalTab('entries')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
-                    teammateModalTab === 'entries' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>All Subsheet Rows ({sortedTeammateEntries.length})</span>
-                </button>
-
-                <button
-                  onClick={() => setTeammateModalTab('daywise')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
-                    teammateModalTab === 'daywise' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  <CalendarDays className="w-3.5 h-3.5" />
-                  <span>Day-wise Breakdown ({daywiseAggregation.length})</span>
-                </button>
-
-                <button
-                  onClick={() => setTeammateModalTab('schoolwise')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
-                    teammateModalTab === 'schoolwise' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  <Building2 className="w-3.5 h-3.5" />
-                  <span>School-wise Breakdown ({schoolwiseAggregation.length})</span>
-                </button>
-              </div>
+              <SegmentedToggle
+                size="sm"
+                wrap
+                value={teammateModalTab}
+                onChange={(val) => setTeammateModalTab(val)}
+                options={[
+                  { value: 'entries', label: 'All Subsheet Rows', count: sortedTeammateEntries.length, icon: FileText },
+                  { value: 'daywise', label: 'Day-wise Breakdown', count: daywiseAggregation.length, icon: CalendarDays },
+                  { value: 'schoolwise', label: 'School-wise Breakdown', count: schoolwiseAggregation.length, icon: Building2 },
+                ]}
+              />
 
               {/* Sort Selector & Search Bar */}
               <div className="flex flex-wrap items-center gap-2">
@@ -2878,7 +2797,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                             <td className="p-3 text-zinc-500 text-[10px]">{idx + 1}</td>
                             <td className="p-3 text-zinc-200 font-semibold">{entry.date}</td>
                             <td className="p-3">
-                              <span className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#283244] text-white font-bold text-[10px] mr-1.5">
+                              <span className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-white font-bold text-[10px] mr-1.5">
                                 {entry.schoolCode || entry.school}
                               </span>
                               {entry.school && entry.school !== entry.schoolCode && (
@@ -2892,7 +2811,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                             </td>
                             <td className="p-3 text-zinc-400 text-[10px] font-sans">
                               {entry.shift && (
-                                <span className="text-[9px] font-mono px-1.5 py-0.2 bg-[#27272a] text-cyan-300 rounded mr-1">
+                                <span className="text-[9px] font-mono px-1.5 py-0.5 bg-[#27272a] text-cyan-300 rounded mr-1">
                                   {entry.shift}
                                 </span>
                               )}
@@ -2958,7 +2877,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                                 {day.schools.map((sch) => (
                                   <span
                                     key={sch}
-                                    className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#283244] text-[10px] text-zinc-300"
+                                    className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-[10px] text-zinc-300"
                                   >
                                     {sch}
                                   </span>
@@ -2993,7 +2912,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                         {schoolwiseAggregation.map((sch) => (
                           <tr key={sch.schoolCode} className="hover:bg-[#121214]/60 transition-colors">
                             <td className="p-3">
-                              <span className="px-2 py-0.5 rounded bg-[#18181b] border border-[#283244] text-white font-bold text-[11px]">
+                              <span className="px-2 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-white font-bold text-[11px]">
                                 {sch.schoolCode}
                               </span>
                             </td>
@@ -3029,7 +2948,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                                 {sch.dates.map((d) => (
                                   <span
                                     key={d}
-                                    className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#283244] text-[10px] text-zinc-300"
+                                    className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-[10px] text-zinc-300"
                                   >
                                     {d}
                                   </span>
@@ -3047,14 +2966,15 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-[#27272a] bg-[#0E121C] flex items-center justify-between text-xs font-mono text-zinc-400 shrink-0">
+            <div className="p-4 border-t border-[#27272a] bg-[#050505] flex items-center justify-between text-xs font-mono text-zinc-400 shrink-0">
               <div className="flex items-center space-x-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
                 <span>Live Google Sheet Subsheet Synchronizer</span>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedTeammateModal(null)}
-                className="px-4 py-1.5 rounded-lg bg-[#181E2B] hover:bg-[#27272a] text-white border border-[#2A3447] text-xs font-semibold transition-colors"
+                className="px-4 py-1.5 rounded-lg bg-[#121214] hover:bg-[#18181b] text-white border border-[#27272a] text-xs font-semibold transition-colors"
               >
                 Close Inspector
               </button>

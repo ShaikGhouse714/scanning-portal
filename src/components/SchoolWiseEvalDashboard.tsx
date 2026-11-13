@@ -16,7 +16,6 @@ import {
   Check,
   RefreshCw,
   Link2,
-  ChevronDown,
   Layers,
   BookOpen,
   ArrowRight,
@@ -25,6 +24,8 @@ import { normalizeSchool } from '@/lib/mockData';
 import { MasterEvalRow, isMissingOrPlaceholder } from '@/lib/evalOpsParser';
 import { aggregateChiefBySchool } from '@/lib/chiefEvaluatorStats';
 import { ChiefEvaluatorSchoolSpace } from './ChiefEvaluatorSchoolSpace';
+import { CustomDropdown } from './CustomDropdown';
+import { SegmentedToggle } from './SegmentedToggle';
 
 export const SchoolWiseEvalDashboard: React.FC = () => {
   // Active Entity Space inside the Dashboard
@@ -465,30 +466,37 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
             onClick={() => setActiveEntity('OVERVIEW')}
             className={`text-left p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
               activeEntity === 'OVERVIEW'
-                ? 'bg-[#111218] border-indigo-500/70 shadow-lg shadow-indigo-950/20'
-                : 'bg-[#09090b] border-[#222222] hover:border-[#34343c]'
+                ? 'bg-indigo-500/[0.08] border-indigo-500/60 shadow-lg shadow-indigo-950/20'
+                : 'bg-[#09090b] border-[#27272a] hover:border-zinc-700'
             }`}
           >
             <div className="flex items-center space-x-3 min-w-0">
               <div
                 className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
                   activeEntity === 'OVERVIEW'
-                    ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'
-                    : 'bg-[#141418] border-[#27272a] text-zinc-400'
+                    ? 'bg-indigo-500/15 border-indigo-500/35 text-indigo-300'
+                    : 'bg-[#121214] border-[#27272a] text-zinc-400'
                 }`}
               >
                 <Building2 className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-xs font-bold text-white tracking-wide uppercase">
-                  School-Wise Overview & Student Explorer
-                </h2>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-xs font-bold text-white tracking-wide uppercase truncate">
+                    School-Wise Overview & Student Explorer
+                  </h2>
+                  {activeEntity === 'OVERVIEW' && (
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold shrink-0">
+                      Active
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-zinc-400 truncate mt-0.5">
                   Select a single school to view Evaluator & Chief stats and student rows
                 </p>
               </div>
             </div>
-            <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg bg-[#16161c] text-zinc-200 border border-[#27272e] shrink-0">
+            <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg bg-[#121214] text-zinc-200 border border-[#27272a] shrink-0">
               {availableSchoolsList.length} Schools
             </span>
           </button>
@@ -498,8 +506,8 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
             onClick={() => setActiveEntity('CHIEF_SPACE')}
             className={`text-left p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
               activeEntity === 'CHIEF_SPACE'
-                ? 'bg-[#14101c] border-purple-500/70 shadow-lg shadow-purple-950/25'
-                : 'bg-[#09090b] border-[#222222] hover:border-purple-800/60'
+                ? 'bg-purple-500/[0.08] border-purple-500/60 shadow-lg shadow-purple-950/20'
+                : 'bg-[#09090b] border-[#27272a] hover:border-purple-500/40'
             }`}
           >
             <div className="flex items-center space-x-3 min-w-0">
@@ -507,25 +515,32 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                 className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
                   activeEntity === 'CHIEF_SPACE'
                     ? 'bg-purple-500/15 border-purple-500/35 text-purple-300'
-                    : 'bg-[#141418] border-[#27272a] text-purple-400'
+                    : 'bg-[#121214] border-[#27272a] text-purple-400'
                 }`}
               >
                 <ShieldCheck className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-xs font-bold text-white tracking-wide uppercase">
-                  Chief Evaluator Elaborated Space
-                </h2>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-xs font-bold text-white tracking-wide uppercase truncate">
+                    Chief Evaluator Elaborated Space
+                  </h2>
+                  {activeEntity === 'CHIEF_SPACE' && (
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold shrink-0">
+                      Active
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-zinc-400 truncate mt-0.5">
                   School-wise categorization (All Available vs Missing), sorting & rosters
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-1.5 shrink-0 font-mono text-[10px] font-bold">
-              <span className="px-2 py-1 rounded-md bg-emerald-950/60 text-emerald-300 border border-emerald-800/60">
+              <span className="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/25">
                 {chiefSummaryBadges.allAvailableSchools} Full
               </span>
-              <span className="px-2 py-1 rounded-md bg-amber-950/60 text-amber-300 border border-amber-800/60">
+              <span className="px-2 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/25">
                 {chiefSummaryBadges.missingSchools} Missing
               </span>
             </div>
@@ -553,7 +568,7 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
       {/* ENTITY 1: 1. SCHOOL SELECTOR (PROMINENT & CLEAN) */}
       {/* ========================================================================= */}
       {masterRows.length > 0 && activeEntity === 'OVERVIEW' && (
-        <div className="p-5 rounded-2xl bg-[#09090b] border border-[#222222] space-y-3.5">
+        <div className="p-5 rounded-2xl bg-[#09090b] border border-[#27272a] space-y-3.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center space-x-2">
               <Building2 className="w-4 h-4 text-indigo-400" />
@@ -567,49 +582,54 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
 
             {selectedSchool && (
               <span className="text-xs text-zinc-400 font-mono">
-                Currently Viewing: <strong className="text-white">{selectedSchoolInfo.name}</strong>
+                Viewing: <strong className="text-white">{selectedSchoolInfo.name}</strong>
               </span>
             )}
           </div>
 
-          {/* School Dropdown */}
-          <div className="relative">
-            <select
-              id="school-select"
-              value={selectedSchool}
-              onChange={(e) => {
-                setSelectedSchool(e.target.value);
-                setStatusFilter('ALL');
-              }}
-              className="w-full px-4 py-3 rounded-xl bg-black border border-[#27272a] focus:border-indigo-500 focus:outline-none text-sm font-semibold text-white appearance-none cursor-pointer pr-10 transition-colors"
-            >
-              <option value="" disabled>
-                -- Please select a school --
-              </option>
-              <option value="ALL">
-                ALL SCHOOLS ― Complete Total Data ({masterRows.length.toLocaleString()} Students)
-              </option>
-              {availableSchoolsList.map((s) => (
-                <option key={s.code} value={s.code}>
-                  {s.code} ― {s.name} ({s.studentCount.toLocaleString()} Students)
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
+          {/* Searchable Dark School Dropdown */}
+          <CustomDropdown
+            id="school-select"
+            size="lg"
+            searchable
+            className="w-full"
+            minMenuWidth="w-full"
+            icon={Building2}
+            value={selectedSchool}
+            placeholder="-- Please select a school --"
+            onChange={(val) => {
+              setSelectedSchool(val);
+              setStatusFilter('ALL');
+            }}
+            options={[
+              {
+                value: 'ALL',
+                label: 'ALL SCHOOLS — Complete Total Data',
+                sublabel: `${masterRows.length.toLocaleString()} Students across ${availableSchoolsList.length} Schools`,
+                badge: 'ALL',
+              },
+              ...availableSchoolsList.map((s) => ({
+                value: s.code,
+                label: `${s.code} — ${s.name}`,
+                sublabel: `${s.studentCount.toLocaleString()} Students`,
+                badge: s.code,
+              })),
+            ]}
+          />
 
           {/* Quick Select School Pills */}
-          <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin pt-1">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase shrink-0">Quick Pick:</span>
+          <div className="flex items-center flex-wrap gap-1.5 pt-0.5">
+            <span className="text-[10px] font-mono text-zinc-500 uppercase mr-1">Quick Pick:</span>
             <button
+              type="button"
               onClick={() => {
                 setSelectedSchool('ALL');
                 setStatusFilter('ALL');
               }}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border ${
                 selectedSchool === 'ALL'
-                  ? 'bg-white text-black font-bold shadow'
-                  : 'bg-[#141416] text-zinc-400 hover:text-white border border-[#27272a]'
+                  ? 'bg-white text-black border-white font-bold shadow-sm'
+                  : 'bg-[#121214] text-zinc-400 hover:text-white border-[#27272a]'
               }`}
             >
               All Schools
@@ -619,20 +639,26 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
               return (
                 <button
                   key={s.code}
+                  type="button"
                   onClick={() => {
                     setSelectedSchool(s.code);
                     setStatusFilter('ALL');
                   }}
-                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold shrink-0 transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all border ${
                     isSelected
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 border border-indigo-400'
-                      : 'bg-[#141416] text-zinc-300 hover:text-white hover:bg-[#1a1a1e] border border-[#27272a]'
+                      ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/60 shadow-sm'
+                      : 'bg-[#121214] text-zinc-300 hover:text-white hover:bg-[#18181b] border-[#27272a]'
                   }`}
                 >
-                  {s.code} ({s.studentCount})
+                  {s.code} <span className="text-[10px] opacity-70">({s.studentCount})</span>
                 </button>
               );
             })}
+            {availableSchoolsList.length > 10 && (
+              <span className="text-[10px] font-mono text-zinc-500 ml-1">
+                +{availableSchoolsList.length - 10} more in search above
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -653,10 +679,18 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
       {/* ========================================================================= */}
       {activeEntity === 'OVERVIEW' && selectedSchool && selectedSchoolRows.length > 0 && (
         <>
-          {/* Main Requested Metrics (Clean 5 Cards) */}
+          {/* Main Requested Metrics (Clean 5 Clickable Cards) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
             {/* 1. Total students available */}
-            <div className="p-5 rounded-2xl bg-[#09090b] border border-[#222222] flex flex-col justify-between">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('ALL')}
+              className={`text-left p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+                statusFilter === 'ALL'
+                  ? 'bg-[#121214] border-zinc-500 shadow-lg'
+                  : 'bg-[#09090b] border-[#27272a] hover:border-zinc-700'
+              }`}
+            >
               <div>
                 <div className="flex items-center justify-between text-zinc-400 mb-2">
                   <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">Total Students</span>
@@ -664,13 +698,21 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                 </div>
                 <p className="text-3xl font-black text-white font-mono">{schoolMetrics.totalStudents.toLocaleString()}</p>
               </div>
-              <p className="text-[11px] text-zinc-400 mt-3 pt-2.5 border-t border-[#1a1a1a]">
+              <p className="text-[11px] text-zinc-400 mt-3 pt-2.5 border-t border-[#1f1f23]">
                 Available student allocations in {selectedSchool === 'ALL' ? 'all schools' : selectedSchool}
               </p>
-            </div>
+            </button>
 
             {/* 2. Evaluator detail available for students */}
-            <div className="p-5 rounded-2xl bg-[#09090b] border border-[#222222] flex flex-col justify-between">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('EVAL_AVAILABLE')}
+              className={`text-left p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+                statusFilter === 'EVAL_AVAILABLE'
+                  ? 'bg-emerald-500/[0.08] border-emerald-500/60 shadow-lg'
+                  : 'bg-[#09090b] border-[#27272a] hover:border-emerald-500/35'
+              }`}
+            >
               <div>
                 <div className="flex items-center justify-between text-zinc-400 mb-2">
                   <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-emerald-400">
@@ -687,16 +729,24 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <div className="mt-3 pt-2.5 border-t border-[#1a1a1a]">
+              <div className="mt-3 pt-2.5 border-t border-[#1f1f23] w-full">
                 <div className="w-full bg-[#18181b] h-1.5 rounded-full overflow-hidden">
                   <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${schoolMetrics.evalAvailablePct}%` }} />
                 </div>
                 <span className="text-[10px] text-zinc-400 font-mono mt-1 block">Students assigned to an evaluator</span>
               </div>
-            </div>
+            </button>
 
             {/* 3. Evaluator detail not available for students */}
-            <div className="p-5 rounded-2xl bg-[#09090b] border border-[#222222] flex flex-col justify-between">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('EVAL_MISSING')}
+              className={`text-left p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+                statusFilter === 'EVAL_MISSING'
+                  ? 'bg-rose-500/[0.08] border-rose-500/60 shadow-lg'
+                  : 'bg-[#09090b] border-[#27272a] hover:border-rose-500/35'
+              }`}
+            >
               <div>
                 <div className="flex items-center justify-between text-zinc-400 mb-2">
                   <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-rose-400">
@@ -713,7 +763,7 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <div className="mt-3 pt-2.5 border-t border-[#1a1a1a]">
+              <div className="mt-3 pt-2.5 border-t border-[#1f1f23]">
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                   schoolMetrics.evalNotAvailable === 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
                 }`}>
@@ -721,10 +771,18 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                 </span>
                 <span className="text-[10px] text-zinc-400 font-mono mt-1 block">Students with missing evaluator email</span>
               </div>
-            </div>
+            </button>
 
             {/* 4. Chief evaluator detail available for students */}
-            <div className="p-5 rounded-2xl bg-[#09090b] border border-[#222222] flex flex-col justify-between">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('CHIEF_AVAILABLE')}
+              className={`text-left p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+                statusFilter === 'CHIEF_AVAILABLE'
+                  ? 'bg-purple-500/[0.08] border-purple-500/60 shadow-lg'
+                  : 'bg-[#09090b] border-[#27272a] hover:border-purple-500/35'
+              }`}
+            >
               <div>
                 <div className="flex items-center justify-between text-zinc-400 mb-2">
                   <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-purple-400">
@@ -741,16 +799,24 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <div className="mt-3 pt-2.5 border-t border-[#1a1a1a]">
+              <div className="mt-3 pt-2.5 border-t border-[#1f1f23] w-full">
                 <div className="w-full bg-[#18181b] h-1.5 rounded-full overflow-hidden">
                   <div className="bg-purple-500 h-full rounded-full transition-all" style={{ width: `${schoolMetrics.chiefAvailablePct}%` }} />
                 </div>
                 <span className="text-[10px] text-zinc-400 font-mono mt-1 block">Students assigned to a chief evaluator</span>
               </div>
-            </div>
+            </button>
 
             {/* 5. Chief evaluator detail not available for students */}
-            <div className="p-5 rounded-2xl bg-[#09090b] border border-[#222222] flex flex-col justify-between">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('CHIEF_MISSING')}
+              className={`text-left p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+                statusFilter === 'CHIEF_MISSING'
+                  ? 'bg-amber-500/[0.08] border-amber-500/60 shadow-lg'
+                  : 'bg-[#09090b] border-[#27272a] hover:border-amber-500/35'
+              }`}
+            >
               <div>
                 <div className="flex items-center justify-between text-zinc-400 mb-2">
                   <span className="text-[11px] font-mono uppercase tracking-wider font-semibold text-amber-400">
@@ -767,7 +833,7 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <div className="mt-3 pt-2.5 border-t border-[#1a1a1a]">
+              <div className="mt-3 pt-2.5 border-t border-[#1f1f23]">
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                   schoolMetrics.chiefNotAvailable === 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
                 }`}>
@@ -775,11 +841,11 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                 </span>
                 <span className="text-[10px] text-zinc-400 font-mono mt-1 block">Students missing chief evaluator</span>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* Clean Secondary Summary Strip */}
-          <div className="p-3.5 rounded-xl bg-[#09090b] border border-[#222222] grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
+          <div className="p-3.5 rounded-xl bg-[#09090b] border border-[#27272a] grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
             <div className="flex items-center space-x-2.5">
               <Layers className="w-4 h-4 text-zinc-400" />
               <div>
@@ -831,69 +897,46 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
           {/* ========================================================================= */}
           {/* 3. CLEAN STUDENT DETAILS TABLE & QUICK FILTERS */}
           {/* ========================================================================= */}
-          <div className="p-5 rounded-2xl bg-[#09090b] border border-[#222222] space-y-4">
+          <div className="p-5 rounded-2xl bg-[#09090b] border border-[#27272a] space-y-4">
             {/* Table Control Bar */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              {/* Category Filter Pills */}
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <button
-                  onClick={() => setStatusFilter('ALL')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                    statusFilter === 'ALL'
-                      ? 'bg-white text-black font-bold'
-                      : 'bg-[#141416] text-zinc-400 hover:text-white border border-[#27272a]'
-                  }`}
-                >
-                  All ({selectedSchoolRows.length.toLocaleString()})
-                </button>
-
-                <button
-                  onClick={() => setStatusFilter('EVAL_MISSING')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                    statusFilter === 'EVAL_MISSING'
-                      ? 'bg-rose-500 text-white font-bold'
-                      : 'bg-[#141416] text-rose-300 hover:text-white border border-[#27272a]'
-                  }`}
-                >
-                  Details Missing: Evaluator ({schoolMetrics.evalNotAvailable.toLocaleString()})
-                </button>
-
-                <button
-                  onClick={() => setStatusFilter('CHIEF_MISSING')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                    statusFilter === 'CHIEF_MISSING'
-                      ? 'bg-amber-500 text-black font-bold'
-                      : 'bg-[#141416] text-amber-300 hover:text-white border border-[#27272a]'
-                  }`}
-                >
-                  Details Missing: Chief ({schoolMetrics.chiefNotAvailable.toLocaleString()})
-                </button>
-
-                <button
-                  onClick={() => setStatusFilter('EVAL_AVAILABLE')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                    statusFilter === 'EVAL_AVAILABLE'
-                      ? 'bg-emerald-600 text-white font-bold'
-                      : 'bg-[#141416] text-emerald-300 hover:text-white border border-[#27272a]'
-                  }`}
-                >
-                  Evaluator Available ({schoolMetrics.evalAvailable.toLocaleString()})
-                </button>
-
-                <button
-                  onClick={() => setStatusFilter('CHIEF_AVAILABLE')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                    statusFilter === 'CHIEF_AVAILABLE'
-                      ? 'bg-purple-600 text-white font-bold'
-                      : 'bg-[#141416] text-purple-300 hover:text-white border border-[#27272a]'
-                  }`}
-                >
-                  Chief Available ({schoolMetrics.chiefAvailable.toLocaleString()})
-                </button>
-              </div>
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+              {/* Segmented Filter Control */}
+              <SegmentedToggle
+                size="sm"
+                wrap
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { value: 'ALL', label: 'All', count: selectedSchoolRows.length.toLocaleString() },
+                  {
+                    value: 'EVAL_MISSING',
+                    label: 'Eval Missing',
+                    count: schoolMetrics.evalNotAvailable.toLocaleString(),
+                    tone: 'rose',
+                  },
+                  {
+                    value: 'CHIEF_MISSING',
+                    label: 'Chief Missing',
+                    count: schoolMetrics.chiefNotAvailable.toLocaleString(),
+                    tone: 'amber',
+                  },
+                  {
+                    value: 'EVAL_AVAILABLE',
+                    label: 'Eval Assigned',
+                    count: schoolMetrics.evalAvailable.toLocaleString(),
+                    tone: 'emerald',
+                  },
+                  {
+                    value: 'CHIEF_AVAILABLE',
+                    label: 'Chief Assigned',
+                    count: schoolMetrics.chiefAvailable.toLocaleString(),
+                    tone: 'purple',
+                  },
+                ]}
+              />
 
               {/* Search & Export Actions */}
-              <div className="flex items-center space-x-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <div className="relative min-w-[200px]">
                   <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
@@ -901,13 +944,14 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search student, schedule, course..."
-                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-black border border-[#27272a] text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-black border border-[#27272a] text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
                   />
                 </div>
 
                 <button
+                  type="button"
                   onClick={handleCopyScheduleIds}
-                  className="px-3 py-1.5 rounded-lg bg-[#141416] hover:bg-[#1a1a1e] border border-[#27272a] text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center space-x-1.5"
+                  className="px-3 py-1.5 rounded-lg bg-[#121214] hover:bg-[#18181b] border border-[#27272a] text-xs font-semibold text-zinc-300 hover:text-white transition-all flex items-center space-x-1.5"
                   title="Copy filtered unique schedule IDs as comma-separated values"
                 >
                   {copiedScheduleIds ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-zinc-400" />}
@@ -915,8 +959,9 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleExportCsv}
-                  className="px-3 py-1.5 rounded-lg bg-[#141416] hover:bg-[#1a1a1e] border border-[#27272a] text-xs font-semibold text-zinc-300 hover:text-white transition-all"
+                  className="px-3 py-1.5 rounded-lg bg-[#121214] hover:bg-[#18181b] border border-[#27272a] text-xs font-semibold text-zinc-300 hover:text-white transition-all"
                 >
                   CSV
                 </button>

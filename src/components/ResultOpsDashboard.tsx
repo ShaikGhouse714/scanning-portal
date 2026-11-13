@@ -27,6 +27,8 @@ import {
   Edit2,
   Eye,
 } from 'lucide-react';
+import { CustomDropdown } from './CustomDropdown';
+import { SegmentedToggle } from './SegmentedToggle';
 
 export interface SavedResultSheet {
   id: string;
@@ -609,22 +611,26 @@ export const ResultOpsDashboard: React.FC = () => {
               Select Saved Google Sheet ({savedSheets.length} Available)
             </label>
             <div className="flex items-center space-x-2">
-              <select
+              <CustomDropdown
+                size="md"
+                className="flex-1 min-w-0"
+                minMenuWidth="min-w-[260px] w-full"
+                icon={FileSpreadsheet}
                 value={selectedSheetId}
-                onChange={(e) => handleSelectSheet(e.target.value)}
-                className="flex-1 bg-[#000000] border border-[#27272a] focus:border-white focus:outline-none rounded-xl px-3.5 py-2.5 text-xs text-white font-semibold transition-colors"
-              >
-                {savedSheets.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} {s.totalRecords ? `(${s.totalRecords} records)` : ''}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => handleSelectSheet(val)}
+                placeholder="Select saved sheet"
+                options={savedSheets.map((s) => ({
+                  value: s.id,
+                  label: s.name,
+                  sublabel: s.subsheetName ? `Subsheet: ${s.subsheetName}` : undefined,
+                  badge: s.totalRecords ? `${s.totalRecords} rows` : undefined,
+                }))}
+              />
 
               <button
                 type="button"
                 onClick={handleOpenEditModal}
-                className="p-2.5 rounded-xl border border-[#27272a] hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                className="p-2 rounded-xl bg-[#09090b] border border-[#27272a] hover:bg-[#121214] text-zinc-400 hover:text-white transition-colors shrink-0"
                 title="Edit name, URL, or target subsheet of this saved sheet"
               >
                 <Edit2 className="w-4 h-4" />
@@ -638,27 +644,29 @@ export const ResultOpsDashboard: React.FC = () => {
               Target Subsheet
             </label>
             {availableSubsheets.length > 1 ? (
-              <select
+              <CustomDropdown
+                size="md"
+                className="w-full"
+                minMenuWidth="min-w-[200px] w-full"
+                icon={Layers}
                 value={targetSubsheet}
-                onChange={(e) => {
-                  setTargetSubsheet(e.target.value);
-                  handleSyncSheet(sheetUrl, e.target.value);
+                placeholder="Select subsheet"
+                onChange={(sn) => {
+                  setTargetSubsheet(sn);
+                  handleSyncSheet(sheetUrl, sn);
                 }}
-                className="w-full bg-[#000000] border border-[#27272a] focus:border-white focus:outline-none rounded-xl px-3 py-2.5 text-xs text-white font-mono transition-colors"
-              >
-                {availableSubsheets.map((sn) => (
-                  <option key={sn} value={sn}>
-                    {sn}
-                  </option>
-                ))}
-              </select>
+                options={availableSubsheets.map((sn) => ({
+                  value: sn,
+                  label: sn,
+                }))}
+              />
             ) : (
               <input
                 type="text"
                 value={targetSubsheet}
                 onChange={(e) => setTargetSubsheet(e.target.value)}
                 placeholder="e.g. Result view"
-                className="w-full bg-[#000000] border border-[#27272a] focus:border-white focus:outline-none rounded-xl px-3 py-2.5 text-xs text-white font-mono transition-colors placeholder-zinc-500"
+                className="w-full bg-[#000000] border border-[#27272a] focus:border-white focus:outline-none rounded-xl px-3 py-2 text-xs text-white font-mono transition-colors placeholder-zinc-500"
               />
             )}
           </div>
@@ -710,7 +718,7 @@ export const ResultOpsDashboard: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-rose-500/20">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0 shadow-lg">
-                <AlertOctagon className="w-5 h-5 animate-pulse" />
+                <AlertOctagon className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-white tracking-tight flex items-center space-x-2">
@@ -758,15 +766,16 @@ export const ResultOpsDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* KPI METRIC CARDS */}
+      {/* KPI METRIC CARDS (Click to Filter Table) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
         {/* KPI 1: Action Required */}
-        <div
+        <button
+          type="button"
           onClick={() => setActiveTabFilter('ACTION_REQUIRED')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all ${
+          className={`text-left p-4 rounded-2xl cursor-pointer transition-all border ${
             activeTabFilter === 'ACTION_REQUIRED'
-              ? 'bg-rose-500/15 border-2 border-rose-500 shadow-lg'
-              : 'bg-[#09090b] border border-[#27272a] hover:border-rose-500/40'
+              ? 'bg-rose-500/[0.12] border-rose-500/70 shadow-lg'
+              : 'bg-[#09090b] border-[#27272a] hover:border-rose-500/40'
           }`}
         >
           <div className="flex items-center justify-between">
@@ -774,7 +783,7 @@ export const ResultOpsDashboard: React.FC = () => {
               Action Required
             </span>
             {actionRequiredRows.length > 0 && (
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
             )}
           </div>
           <span className="text-2xl font-bold font-mono text-white block mt-1">
@@ -783,15 +792,16 @@ export const ResultOpsDashboard: React.FC = () => {
           <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
             Time expired &amp; unassigned
           </span>
-        </div>
+        </button>
 
         {/* KPI 2: Active / Ongoing */}
-        <div
+        <button
+          type="button"
           onClick={() => setActiveTabFilter('ACTIVE')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all ${
+          className={`text-left p-4 rounded-2xl cursor-pointer transition-all border ${
             activeTabFilter === 'ACTIVE'
-              ? 'bg-sky-500/15 border-2 border-sky-400 text-white shadow-lg'
-              : 'bg-[#09090b] border border-[#27272a] hover:border-zinc-500'
+              ? 'bg-sky-500/[0.12] border-sky-400/70 text-white shadow-lg'
+              : 'bg-[#09090b] border-[#27272a] hover:border-sky-500/40'
           }`}
         >
           <span className="text-[10px] font-mono uppercase tracking-wider text-sky-400 block font-semibold">
@@ -803,15 +813,16 @@ export const ResultOpsDashboard: React.FC = () => {
           <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
             Closes in future
           </span>
-        </div>
+        </button>
 
         {/* KPI 3: Assigned & Closed */}
-        <div
+        <button
+          type="button"
           onClick={() => setActiveTabFilter('ASSIGNED')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all ${
+          className={`text-left p-4 rounded-2xl cursor-pointer transition-all border ${
             activeTabFilter === 'ASSIGNED'
-              ? 'bg-emerald-500/15 border-2 border-emerald-500 text-white shadow-lg'
-              : 'bg-[#09090b] border border-[#27272a] hover:border-emerald-500/40'
+              ? 'bg-emerald-500/[0.12] border-emerald-500/70 text-white shadow-lg'
+              : 'bg-[#09090b] border-[#27272a] hover:border-emerald-500/40'
           }`}
         >
           <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 block font-semibold">
@@ -823,15 +834,16 @@ export const ResultOpsDashboard: React.FC = () => {
           <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
             Next round assigned: Yes
           </span>
-        </div>
+        </button>
 
         {/* KPI 4: Not Required */}
-        <div
+        <button
+          type="button"
           onClick={() => setActiveTabFilter('NOT_REQUIRED')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all ${
+          className={`text-left p-4 rounded-2xl cursor-pointer transition-all border ${
             activeTabFilter === 'NOT_REQUIRED'
-              ? 'bg-zinc-800 border-2 border-zinc-400 text-white shadow-lg'
-              : 'bg-[#09090b] border border-[#27272a] hover:border-zinc-500'
+              ? 'bg-zinc-800/80 border-zinc-400 text-white shadow-lg'
+              : 'bg-[#09090b] border-[#27272a] hover:border-zinc-500'
           }`}
         >
           <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block font-semibold">
@@ -843,15 +855,16 @@ export const ResultOpsDashboard: React.FC = () => {
           <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
             Re-evaluation not needed
           </span>
-        </div>
+        </button>
 
         {/* KPI 5: Total Tracked */}
-        <div
+        <button
+          type="button"
           onClick={() => setActiveTabFilter('ALL')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all ${
+          className={`text-left p-4 rounded-2xl cursor-pointer transition-all border ${
             activeTabFilter === 'ALL'
-              ? 'bg-zinc-800 border-2 border-white text-white shadow-lg'
-              : 'bg-[#09090b] border border-[#27272a] hover:border-zinc-500'
+              ? 'bg-[#121214] border-white/70 text-white shadow-lg'
+              : 'bg-[#09090b] border-[#27272a] hover:border-zinc-500'
           }`}
         >
           <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block font-semibold">
@@ -863,75 +876,46 @@ export const ResultOpsDashboard: React.FC = () => {
           <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
             Subsheet: {activeSheetName}
           </span>
-        </div>
+        </button>
       </div>
 
       {/* DATA TABLE SECTION */}
       <div className="bg-[#09090b] rounded-2xl border border-[#27272a] overflow-hidden shadow-2xl space-y-3">
         {/* Table Controls */}
-        <div className="p-4 border-b border-[#27272a] flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setActiveTabFilter('ALL')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors ${
-                activeTabFilter === 'ALL'
-                  ? 'bg-white text-black'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-white border border-[#27272a]'
-              }`}
-            >
-              All Records ({rows.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTabFilter('ACTION_REQUIRED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors flex items-center space-x-1.5 ${
-                activeTabFilter === 'ACTION_REQUIRED'
-                  ? 'bg-rose-500 text-white'
-                  : 'bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 border border-rose-500/30'
-              }`}
-            >
-              <span>Action Required ({actionRequiredRows.length})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTabFilter('ACTIVE')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors ${
-                activeTabFilter === 'ACTIVE'
-                  ? 'bg-sky-500 text-white'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-white border border-[#27272a]'
-              }`}
-            >
-              Active / Open ({activeRows.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTabFilter('ASSIGNED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors ${
-                activeTabFilter === 'ASSIGNED'
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/30'
-              }`}
-            >
-              Assigned ({assignedRows.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTabFilter('NOT_REQUIRED')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-colors ${
-                activeTabFilter === 'NOT_REQUIRED'
-                  ? 'bg-zinc-300 text-black font-bold'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-white border border-[#27272a]'
-              }`}
-            >
-              Not Required ({notRequiredRows.length})
-            </button>
-          </div>
+        <div className="p-4 border-b border-[#27272a] flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          {/* Unified Segmented Status Toggle */}
+          <SegmentedToggle
+            size="sm"
+            wrap
+            value={activeTabFilter}
+            onChange={(val) => setActiveTabFilter(val)}
+            options={[
+              { value: 'ALL', label: 'All', count: rows.length },
+              {
+                value: 'ACTION_REQUIRED',
+                label: 'Action Required',
+                count: actionRequiredRows.length,
+                tone: 'rose',
+              },
+              {
+                value: 'ACTIVE',
+                label: 'Active / Open',
+                count: activeRows.length,
+                tone: 'sky',
+              },
+              {
+                value: 'ASSIGNED',
+                label: 'Assigned',
+                count: assignedRows.length,
+                tone: 'emerald',
+              },
+              {
+                value: 'NOT_REQUIRED',
+                label: 'Not Required',
+                count: notRequiredRows.length,
+              },
+            ]}
+          />
 
           {/* Search, School Filter & Export */}
           <div className="flex flex-wrap items-center gap-2">
@@ -943,7 +927,7 @@ export const ResultOpsDashboard: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search schedules..."
-                className="bg-[#000000] border border-[#27272a] focus:border-zinc-400 focus:outline-none rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 font-mono w-44"
+                className="bg-[#000000] border border-[#27272a] focus:border-zinc-400 focus:outline-none rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-zinc-500 font-mono w-44"
               />
               {searchQuery && (
                 <button
@@ -956,20 +940,22 @@ export const ResultOpsDashboard: React.FC = () => {
               )}
             </div>
 
-            {/* School Filter Dropdown */}
+            {/* Searchable School Filter Dropdown */}
             {schoolsList.length > 1 && (
-              <select
+              <CustomDropdown
+                size="sm"
+                menuAlign="right"
                 value={selectedSchool}
-                onChange={(e) => setSelectedSchool(e.target.value)}
-                className="bg-[#000000] border border-[#27272a] rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 focus:outline-none font-mono max-w-[160px] truncate"
-              >
-                <option value="ALL">All Schools ({schoolsList.length})</option>
-                {schoolsList.map((sc) => (
-                  <option key={sc} value={sc}>
-                    {sc}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedSchool}
+                icon={Building2}
+                placeholder="All Schools"
+                className="max-w-[180px]"
+                minMenuWidth="min-w-[230px]"
+                options={[
+                  { value: 'ALL', label: `All Schools (${schoolsList.length})` },
+                  ...schoolsList.map((sc) => ({ value: sc, label: sc })),
+                ]}
+              />
             )}
 
             {/* ONLY FOR ACTION REQUIRED TAB: Copy separated CSV values of Test IDs right there */}

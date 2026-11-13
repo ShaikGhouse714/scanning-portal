@@ -217,40 +217,42 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
 
         {/* Auth Container Card */}
         <div className="bg-[#09090b] border border-[#27272a] rounded-2xl shadow-2xl overflow-hidden font-sans">
-          {/* Mode Switcher Tabs */}
-          <div className="grid grid-cols-2 border-b border-[#222222] bg-[#000000]">
-            <button
-              type="button"
-              onClick={() => {
-                setMode('signin');
-                setError(null);
-                setNotice(null);
-              }}
-              className={`py-3 text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
-                mode === 'signin'
-                  ? 'bg-[#09090b] text-white border-b-2 border-white'
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Sign In</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode('register');
-                setError(null);
-                setNotice(null);
-              }}
-              className={`py-3 text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
-                mode === 'register'
-                  ? 'bg-[#09090b] text-white border-b-2 border-white'
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Register Account</span>
-            </button>
+          {/* Clean Segmented Mode Switcher */}
+          <div className="p-3 pb-0">
+            <div className="grid grid-cols-2 p-1 rounded-xl bg-[#000000] border border-[#27272a]">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signin');
+                  setError(null);
+                  setNotice(null);
+                }}
+                className={`py-2 rounded-lg text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
+                  mode === 'signin'
+                    ? 'bg-white text-black shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('register');
+                  setError(null);
+                  setNotice(null);
+                }}
+                className={`py-2 rounded-lg text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
+                  mode === 'register'
+                    ? 'bg-white text-black shadow-sm'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Register Account</span>
+              </button>
+            </div>
           </div>
 
           <div className="p-6 sm:p-8 space-y-5">

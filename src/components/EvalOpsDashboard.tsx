@@ -58,6 +58,7 @@ export const EvalOpsDashboard: React.FC = () => {
   const [studentDetection, setStudentDetection] = useState<{
     studentName: boolean;
     studentEmail: boolean;
+    groupName?: boolean;
     courseCode: boolean;
     courseName: boolean;
     schoolCode: boolean;
@@ -72,6 +73,7 @@ export const EvalOpsDashboard: React.FC = () => {
     courseCode: boolean;
     courseName: boolean;
     scheduleId: boolean;
+    groups?: boolean;
   } | null>(null);
 
   // Preview Drawer Toggles
@@ -487,6 +489,12 @@ export const EvalOpsDashboard: React.FC = () => {
                     <span>Student Email ID</span>
                   </div>
                   <div className="flex items-center space-x-1.5">
+                    <span className={studentDetection.groupName ? 'text-emerald-400' : 'text-zinc-500'}>
+                      {studentDetection.groupName ? '✓' : '–'}
+                    </span>
+                    <span>Participant Group</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
                     <span className={studentDetection.courseCode ? 'text-emerald-400' : 'text-rose-400'}>
                       {studentDetection.courseCode ? '✓' : '✗'}
                     </span>
@@ -682,7 +690,7 @@ export const EvalOpsDashboard: React.FC = () => {
                 <span className="text-zinc-500 text-[10px] block uppercase mb-1.5 font-semibold">
                   Detected Column Headers:
                 </span>
-                <div className="grid grid-cols-3 gap-2 text-zinc-300">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-zinc-300">
                   <div className="flex items-center space-x-1.5">
                     <span className={scheduleDetection.courseCode ? 'text-emerald-400' : 'text-rose-400'}>
                       {scheduleDetection.courseCode ? '✓' : '✗'}
@@ -700,6 +708,12 @@ export const EvalOpsDashboard: React.FC = () => {
                       {scheduleDetection.scheduleId ? '✓' : '✗'}
                     </span>
                     <span>Schedule ID</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <span className={scheduleDetection.groups ? 'text-emerald-400' : 'text-zinc-500'}>
+                      {scheduleDetection.groups ? '✓' : '–'}
+                    </span>
+                    <span>Schedule Groups</span>
                   </div>
                 </div>
               </div>
@@ -729,6 +743,7 @@ export const EvalOpsDashboard: React.FC = () => {
                     <th className="py-2 px-2.5">Course Code</th>
                     <th className="py-2 px-2.5">Course Name</th>
                     <th className="py-2 px-2.5">Schedule ID</th>
+                    <th className="py-2 px-2.5">Participant Group / Faculty Email</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#222222] text-zinc-300">
@@ -737,6 +752,16 @@ export const EvalOpsDashboard: React.FC = () => {
                       <td className="py-1.5 px-2.5 text-white">{r.courseCode}</td>
                       <td className="py-1.5 px-2.5 text-zinc-300">{r.courseName || '–'}</td>
                       <td className="py-1.5 px-2.5 text-zinc-300 font-bold">{r.scheduleId || '–'}</td>
+                      <td className="py-1.5 px-2.5 text-zinc-300">
+                        {r.evaluatorEmail ? (
+                          <div>
+                            <span className="text-emerald-400 font-semibold block">{r.evaluatorEmail}</span>
+                            <span className="text-zinc-500 text-[10px] truncate max-w-[200px] block font-mono">{r.groups}</span>
+                          </div>
+                        ) : (
+                          <span className="text-zinc-400 text-[10px] truncate max-w-[200px] block font-mono">{r.groups || '–'}</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -845,8 +870,9 @@ export const EvalOpsDashboard: React.FC = () => {
             summary.coursesMissingFromStudentFile.length > 0 ||
             summary.missingEvaluatorEmailCount > 0 ||
             summary.missingChiefEvaluatorCount > 0 ||
-            summary.duplicateScheduleCourses.length > 0) && (
-            <div className="p-4 rounded-2xl bg-[#0e0e11] border border-amber-500/30 space-y-3">
+            summary.duplicateScheduleCourses.length > 0 ||
+            (summary.subScheduleDifferentiatedCourses && summary.subScheduleDifferentiatedCourses.length > 0)) && (
+            <div className="p-4 rounded-2xl bg-[#0e0e11] border border-[#27272a] space-y-3">
               <div className="flex items-center space-x-2">
                 <AlertOctagon className="w-4 h-4 text-amber-400" />
                 <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">
@@ -855,6 +881,51 @@ export const EvalOpsDashboard: React.FC = () => {
               </div>
 
               <div className="space-y-2 text-xs">
+                {/* Differentiated Multi-Schedule Sub-Tests */}
+                {summary.subScheduleDifferentiatedCourses && summary.subScheduleDifferentiatedCourses.length > 0 && (
+                  <div className="p-3 rounded-xl bg-[#050505] border border-emerald-500/20 text-zinc-300 space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                      <strong className="text-emerald-400 text-xs font-mono">
+                        Sub-Test Schedule IDs Differentiated by Evaluator &amp; Group ({summary.subScheduleDifferentiatedCourses.length} course{summary.subScheduleDifferentiatedCourses.length > 1 ? 's' : ''}):
+                      </strong>
+                    </div>
+                    <span className="text-[11px] text-zinc-400 block font-mono">
+                      Multiple sub-schedules were matched and accurately partitioned across evaluators and participant groups:
+                    </span>
+                    <div className="space-y-1.5 mt-1 max-h-52 overflow-y-auto pr-1">
+                      {summary.subScheduleDifferentiatedCourses.map((d) => (
+                        <div
+                          key={d.courseCode}
+                          className="p-2 rounded-lg bg-zinc-900/60 border border-zinc-800 text-[11px] font-mono flex flex-col space-y-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-white font-bold">{d.courseCode}</span>
+                            <span className="text-emerald-400 font-semibold text-[10px]">
+                              {d.scheduleIds.length} Sub-Schedules → {d.evaluatorCount} Evaluator{d.evaluatorCount > 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {d.details.map((dt, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[10px] border border-zinc-700/60"
+                              >
+                                <span className="text-emerald-400 font-bold">{dt.scheduleId}</span>
+                                <span className="text-zinc-500">:</span>
+                                <span className="text-zinc-300 truncate max-w-[140px]">{dt.evaluator}</span>
+                                {dt.groupName && (
+                                  <span className="text-zinc-400 font-mono text-[9px]">({dt.groupName})</span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {summary.coursesMissingFromScheduleFile.length > 0 && (
                   <div className="p-2.5 rounded-xl bg-[#050505] border border-zinc-800 text-zinc-300">
                     <strong className="text-amber-300 block mb-1">
@@ -908,9 +979,9 @@ export const EvalOpsDashboard: React.FC = () => {
                 )}
 
                 {summary.duplicateScheduleCourses.length > 0 && (
-                  <div className="p-2.5 rounded-xl bg-[#050505] border border-zinc-800 text-zinc-300">
-                    <strong className="text-amber-300 block mb-1">
-                      ⚠️ Multiple conflicting Schedule IDs detected for the same course:
+                  <div className="p-2.5 rounded-xl bg-[#050505] border border-rose-500/20 text-zinc-300">
+                    <strong className="text-rose-400 block mb-1">
+                      ⚠️ Unresolved conflicting Schedule IDs detected:
                     </strong>
                     {summary.duplicateScheduleCourses.map((d) => (
                       <span key={d.courseCode} className="text-[11px] font-mono text-zinc-400 block">
@@ -926,18 +997,24 @@ export const EvalOpsDashboard: React.FC = () => {
           {/* Dynamic Filters Bar with Custom Dropdowns (Matching Scanning Ops Style) */}
           <div className="bg-[#09090b] rounded-2xl border border-[#27272a] shadow-xl overflow-hidden">
             <div
-              onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
-              className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-[#121214] transition-colors border-b border-[#222222]"
+              className={`p-3.5 flex items-center justify-between hover:bg-[#121214]/60 transition-colors ${
+                isFiltersExpanded ? 'border-b border-[#27272a]' : ''
+              }`}
             >
-              <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300">
+              <button
+                type="button"
+                onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+                aria-expanded={isFiltersExpanded}
+                className="flex-1 flex items-center space-x-2.5 text-left"
+              >
+                <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-[#27272a] flex items-center justify-center text-zinc-300">
                   <Filter className="w-3.5 h-3.5 text-white" />
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
                     <span className="text-xs font-bold text-white block leading-tight">Dynamic Filters</span>
                     {(filterMode !== 'all' || courseFilter !== 'all' || evaluatorFilter !== 'all' || searchQuery) && (
-                      <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white text-black font-bold">
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white text-black font-bold">
                         Active Filter
                       </span>
                     )}
@@ -948,27 +1025,33 @@ export const EvalOpsDashboard: React.FC = () => {
                       : 'All records visible • Click to expand filter dropdowns'}
                   </span>
                 </div>
-              </div>
+              </button>
 
-              <div className="flex items-center space-x-2.5">
+              <div className="flex items-center space-x-2">
                 {(filterMode !== 'all' || courseFilter !== 'all' || evaluatorFilter !== 'all' || searchQuery) && (
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={() => {
                       setFilterMode('all');
                       setCourseFilter('all');
                       setEvaluatorFilter('all');
                       setSearchQuery('');
                     }}
-                    className="text-[10px] font-mono px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors"
+                    className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-[#121214] hover:bg-zinc-800 text-zinc-300 hover:text-white border border-[#27272a] transition-colors"
                   >
                     Reset Filters
                   </button>
                 )}
-                <div className={`p-1 rounded text-zinc-400 transition-transform duration-200 ${isFiltersExpanded ? 'rotate-180' : ''}`}>
-                  <ChevronDown className="w-4 h-4 text-zinc-300" />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+                  aria-label={isFiltersExpanded ? 'Collapse filters' : 'Expand filters'}
+                  className={`p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-all duration-200 ${
+                    isFiltersExpanded ? 'rotate-180' : ''
+                  }`}
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
@@ -1142,7 +1225,14 @@ export const EvalOpsDashboard: React.FC = () => {
 
                         {/* Column E: Course Code */}
                         <td className="py-3 px-4 text-zinc-300 font-semibold whitespace-nowrap">
-                          {item.courseCode}
+                          <div>
+                            <span>{item.courseCode}</span>
+                            {item.groupName && (
+                              <span className="text-[10px] text-zinc-400 font-mono block font-normal">
+                                {item.groupName}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Column F: Course Name */}

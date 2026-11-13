@@ -4,6 +4,7 @@ import { SCHOOL_CODE_MAP, normalizeSchool } from './mockData';
 export interface RawStudentRow {
   studentName: string;
   studentEmail: string;
+  groupName: string;
   courseCode: string;
   courseName: string;
   schoolCode: string;
@@ -21,6 +22,10 @@ export interface RawScheduleRow {
   courseCode: string;
   courseName: string;
   scheduleId: string;
+  groups: string;
+  testName: string;
+  evaluatorEmail: string;
+  evaluatorName: string;
   raw: Record<string, any>;
   rowIndex: number;
 }
@@ -29,6 +34,7 @@ export interface MappedStudentAllocation {
   id: string;
   studentName: string;
   studentEmail: string;
+  groupName?: string;
   courseCode: string;
   courseName: string;
   schoolCode: string;
@@ -56,6 +62,12 @@ export interface EvalOpsValidationSummary {
   coursesMissingFromScheduleFile: string[];
   coursesMissingFromStudentFile: string[];
   duplicateScheduleCourses: { courseCode: string; scheduleIds: string[] }[];
+  subScheduleDifferentiatedCourses?: {
+    courseCode: string;
+    scheduleIds: string[];
+    evaluatorCount: number;
+    details: { evaluator: string; scheduleId: string; groupName?: string }[];
+  }[];
 }
 
 /** Normalized row shape returned by `/api/eval-fetch-sheet` for dashboards and extractors. */
@@ -96,31 +108,78 @@ export function getWorkbookSheetNames(fileData: ArrayBuffer | Uint8Array): strin
   }
 }
 
-// Helper to find a value from a row using fuzzy column aliases
+// Extract faculty email from a string (e.g. from Participant Group Name "SCE_CS30001_2026-09-07_09:30_santwana.sagnikafcs@kiit.ac.in")
+export function extractFacultyEmail(val: any): string {
+  if (!val) return '';
+  const str = String(val).trim();
+  if (!str || !str.includes('@')) return '';
+
+  // 1. Look for standard portal time delimiter: HH:MM_email
+  const timeMatch = str.match(/\b\d{1,2}:\d{2}_([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/i);
+  if (timeMatch && timeMatch[1]) {
+    return timeMatch[1].trim().toLowerCase();
+  }
+
+  // 2. If separated by underscore, the faculty email is the last token ("at last there will be email id of faculty")
+  if (str.includes('_')) {
+    const lastUnderscore = str.lastIndexOf('_');
+    const afterLast = str.substring(lastUnderscore + 1).trim();
+    if (afterLast.includes('@')) {
+      const m = afterLast.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      if (m) return m[0].toLowerCase();
+    }
+  }
+
+  // 3. Match any email and strip preceding timestamp/digits (e.g. '30_' from '09:30_')
+  const anyEmailMatch = str.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+  if (anyEmailMatch && anyEmailMatch.length > 0) {
+    let last = anyEmailMatch[anyEmailMatch.length - 1];
+    last = last.replace(/^\d+[_.:\-]+/, '').trim().toLowerCase();
+    if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(last)) {
+      return last;
+    }
+  }
+
+  return '';
+}
+
+// Helper to find a value from a row using fuzzy column aliases (only returns non-empty values so empty columns are skipped)
 export function getRowVal(row: Record<string, any>, ...aliases: string[]): string {
+  if (!row || typeof row !== 'object') return '';
   const keys = Object.keys(row);
+
+  // Pass 1: Exact cleaned match with a non-empty value
   for (const alias of aliases) {
     const target = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!target) continue;
     for (const key of keys) {
       const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (cleanKey === target) {
         const val = row[key];
-        return val !== undefined && val !== null ? String(val).trim() : '';
+        if (val !== undefined && val !== null) {
+          const str = String(val).trim();
+          if (str.length > 0) return str;
+        }
       }
     }
   }
 
-  // Fallback: check if key includes alias
+  // Pass 2: Substring key match with a non-empty value
   for (const alias of aliases) {
     const target = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!target || target.length < 3) continue;
     for (const key of keys) {
       const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (cleanKey.includes(target) || target.includes(cleanKey)) {
         const val = row[key];
-        return val !== undefined && val !== null ? String(val).trim() : '';
+        if (val !== undefined && val !== null) {
+          const str = String(val).trim();
+          if (str.length > 0) return str;
+        }
       }
     }
   }
+
   return '';
 }
 
@@ -231,6 +290,7 @@ export function parseStudentEvaluatorFile(
   headersDetected: {
     studentName: boolean;
     studentEmail: boolean;
+    groupName: boolean;
     courseCode: boolean;
     courseName: boolean;
     schoolCode: boolean;
@@ -258,6 +318,7 @@ export function parseStudentEvaluatorFile(
       headersDetected: {
         studentName: false,
         studentEmail: false,
+        groupName: false,
         courseCode: false,
         courseName: false,
         schoolCode: false,
@@ -280,6 +341,7 @@ export function parseStudentEvaluatorFile(
       headersDetected: {
         studentName: false,
         studentEmail: false,
+        groupName: false,
         courseCode: false,
         courseName: false,
         schoolCode: false,
@@ -475,7 +537,7 @@ export function parseStudentEvaluatorFile(
       'examiner email',
       'teacher email'
     );
-    const evaluatorEmail = isMissingOrPlaceholder(rawEvalEmail) ? '' : rawEvalEmail.trim();
+    let evaluatorEmail = isMissingOrPlaceholder(rawEvalEmail) ? '' : rawEvalEmail.trim();
 
     // 7. Chief Evaluator Email ID (with all variations and common misspellings)
     let chiefEvaluatorEmail = getRowVal(
@@ -589,9 +651,57 @@ export function parseStudentEvaluatorFile(
     );
     const examDate = formatExcelDate(rawExamDate);
 
+    // 10. Participant Group Name (used to differentiate sub-tests/schedules)
+    const groupName = getRowVal(
+      row,
+      'group name',
+      'group names',
+      'group',
+      'groups',
+      'participant group',
+      'participant group name',
+      'participant groups',
+      'participant groups name',
+      'section',
+      'sec',
+      'batch',
+      'student group',
+      'candidate group',
+      'division',
+      'sub test',
+      'sub schedule',
+      'sub-test',
+      'sub-schedule'
+    ).trim();
+
+    // Fallback: If evaluatorEmail was missing, check if it's in groupName or any other cell
+    if (!evaluatorEmail && groupName) {
+      evaluatorEmail = extractFacultyEmail(groupName);
+    }
+    if (!evaluatorEmail) {
+      for (const [k, v] of Object.entries(row)) {
+        const lowerK = k.toLowerCase();
+        if (
+          !lowerK.includes('student') &&
+          !lowerK.includes('candidate') &&
+          !lowerK.includes('roll') &&
+          !lowerK.includes('chief') &&
+          !lowerK.includes('cheif')
+        ) {
+          const extracted = extractFacultyEmail(v);
+          if (extracted) {
+            evaluatorEmail = extracted;
+            break;
+          }
+        }
+      }
+    }
+    evaluatorEmail = extractFacultyEmail(evaluatorEmail) || evaluatorEmail.toLowerCase().trim();
+
     return {
       studentName: studentName || `Student ${idx + 1}`,
       studentEmail: studentEmail || studentName || `student${idx + 1}@student.ac.in`,
+      groupName,
       courseCode: normalizeCourseCode(courseCode),
       courseName: courseName.trim(),
       schoolCode: rowSchoolCode || detectedSchoolCode,
@@ -609,6 +719,7 @@ export function parseStudentEvaluatorFile(
   // Check detected columns
   const hasStudentName = rows.some((r) => r.studentName && !r.studentName.startsWith('Student '));
   const hasStudentEmail = rows.some((r) => r.studentEmail && r.studentEmail.includes('@'));
+  const hasGroupName = rows.some((r) => r.groupName && r.groupName.length > 0);
   const hasCourseCode = rows.some((r) => r.courseCode.length > 0);
   const hasCourseName = rows.some((r) => r.courseName.length > 0);
   const hasSchoolCode = rows.some((r) => r.schoolCode && r.schoolCode !== 'School');
@@ -625,6 +736,7 @@ export function parseStudentEvaluatorFile(
     headersDetected: {
       studentName: hasStudentName,
       studentEmail: hasStudentEmail,
+      groupName: hasGroupName,
       courseCode: hasCourseCode,
       courseName: hasCourseName,
       schoolCode: hasSchoolCode,
@@ -649,6 +761,7 @@ export function parseScheduleFile(
     courseCode: boolean;
     courseName: boolean;
     scheduleId: boolean;
+    groups: boolean;
   };
   sampleHeaders: string[];
 } {
@@ -665,7 +778,7 @@ export function parseScheduleFile(
       rows: [],
       sheetNames,
       activeSheetName,
-      headersDetected: { courseCode: false, courseName: false, scheduleId: false },
+      headersDetected: { courseCode: false, courseName: false, scheduleId: false, groups: false },
       sampleHeaders: [],
     };
   }
@@ -676,7 +789,7 @@ export function parseScheduleFile(
       rows: [],
       sheetNames,
       activeSheetName,
-      headersDetected: { courseCode: false, courseName: false, scheduleId: false },
+      headersDetected: { courseCode: false, courseName: false, scheduleId: false, groups: false },
       sampleHeaders: [],
     };
   }
@@ -684,7 +797,7 @@ export function parseScheduleFile(
   const sampleHeaders = Object.keys(rawJson[0] || {});
 
   const rows: RawScheduleRow[] = rawJson.map((row, idx) => {
-    const courseCode = getRowVal(
+    let courseCode = getRowVal(
       row,
       'course code',
       'coursecode',
@@ -725,10 +838,104 @@ export function parseScheduleFile(
 
     const scheduleId = extractScheduleId(rawScheduleVal);
 
+    // Participant Group Name / Groups
+    let participantGroupName = getRowVal(
+      row,
+      'participant group name',
+      'participant group names',
+      'participant groups name',
+      'participant group',
+      'participant groups',
+      'groups',
+      'group name',
+      'group names',
+      'group',
+      'batch',
+      'section'
+    ).trim();
+
+    // Exam / Test / Schedule Name
+    const testName = getRowVal(
+      row,
+      'name',
+      'exam name',
+      'test name',
+      'schedule name',
+      'title',
+      'exam title',
+      'test title'
+    ).trim();
+
+    // Fallback: If courseCode is empty or '-', extract from testName or participantGroupName
+    if (!courseCode || courseCode === '-') {
+      const nameMatch = testName.match(/\b([A-Z]{2,4}\d{4,5}[A-Z]?)\b/i);
+      if (nameMatch) {
+        courseCode = nameMatch[1];
+      } else {
+        const groupMatch = participantGroupName.match(/(?:^|[_\-\s])([A-Z]{2,4}\d{4,5}[A-Z]?)(?:[_\-\s:]|$)/i);
+        if (groupMatch) {
+          courseCode = groupMatch[1];
+        }
+      }
+    }
+
+    // Extract faculty email directly from participant group name ("at last there will be email id of faculty")
+    let facultyEmail = extractFacultyEmail(participantGroupName);
+
+    if (!facultyEmail && testName) {
+      facultyEmail = extractFacultyEmail(testName);
+    }
+
+    const rawEvalEmail = getRowVal(
+      row,
+      'evaluator email',
+      'evaluator email id',
+      'evaluator mail',
+      'evaluator mail id',
+      'faculty email',
+      'faculty email id',
+      'faculty mail',
+      'teacher email',
+      'examiner email'
+    ).trim();
+    if (!facultyEmail && rawEvalEmail && !isMissingOrPlaceholder(rawEvalEmail)) {
+      facultyEmail = extractFacultyEmail(rawEvalEmail) || rawEvalEmail.toLowerCase().trim();
+    }
+
+    // Deep scan all cells of this schedule row if still not found
+    if (!facultyEmail) {
+      for (const [colName, colVal] of Object.entries(row)) {
+        const extracted = extractFacultyEmail(colVal);
+        if (extracted) {
+          facultyEmail = extracted;
+          if (!participantGroupName) {
+            participantGroupName = String(colVal).trim();
+          }
+          break;
+        }
+      }
+    }
+
+    const rawEvalName = getRowVal(
+      row,
+      'evaluator name',
+      'evaluator_name',
+      'faculty name',
+      'teacher name',
+      'examiner name',
+      'evaluator',
+      'faculty'
+    ).trim();
+    const evaluatorName = isMissingOrPlaceholder(rawEvalName) ? '' : rawEvalName;
+
     return {
       courseCode: normalizeCourseCode(courseCode),
       courseName: courseName.trim(),
       scheduleId,
+      groups: participantGroupName,
+      testName,
+      evaluatorEmail: facultyEmail,
+      evaluatorName,
       raw: row,
       rowIndex: idx + 2,
     };
@@ -737,6 +944,7 @@ export function parseScheduleFile(
   const hasCourseCode = rows.some((r) => r.courseCode.length > 0);
   const hasCourseName = rows.some((r) => r.courseName.length > 0);
   const hasScheduleId = rows.some((r) => r.scheduleId.length > 0);
+  const hasGroups = rows.some((r) => r.groups.length > 0);
 
   return {
     rows,
@@ -746,12 +954,13 @@ export function parseScheduleFile(
       courseCode: hasCourseCode,
       courseName: hasCourseName,
       scheduleId: hasScheduleId,
+      groups: hasGroups,
     },
     sampleHeaders,
   };
 }
 
-// Map the two Excel datasets together and perform validation
+// Map the two Excel datasets together and perform validation with multi-subschedule differentiation
 export function mapStudentEvaluatorSchedules(
   studentRows: RawStudentRow[],
   scheduleRows: RawScheduleRow[]
@@ -759,23 +968,55 @@ export function mapStudentEvaluatorSchedules(
   mappedAllocations: MappedStudentAllocation[];
   summary: EvalOpsValidationSummary;
 } {
-  // Build a lookup map for Schedule IDs and Course Names by Course Code
-  const scheduleMap = new Map<string, string[]>();
+  // 1. Build lookup of Schedule Candidates and Course Names by Course Code
+  interface ScheduleCandidate {
+    scheduleId: string;
+    courseCode: string;
+    courseName: string;
+    groups: string;
+    testName: string;
+    evaluatorEmail: string;
+    evaluatorName: string;
+    rawString: string;
+  }
+
+  const courseSchedulesMap = new Map<string, ScheduleCandidate[]>();
   const courseNameMap = new Map<string, string>();
 
   for (const s of scheduleRows) {
     if (!s.courseCode) continue;
 
-    if (s.scheduleId) {
-      const existing = scheduleMap.get(s.courseCode) || [];
-      if (!existing.includes(s.scheduleId)) {
-        existing.push(s.scheduleId);
-      }
-      scheduleMap.set(s.courseCode, existing);
-    }
-
     if (s.courseName && !courseNameMap.has(s.courseCode)) {
       courseNameMap.set(s.courseCode, s.courseName);
+    }
+
+    if (!s.scheduleId) continue;
+
+    const existingCandidates = courseSchedulesMap.get(s.courseCode) || [];
+    const foundIdx = existingCandidates.findIndex((c) => c.scheduleId === s.scheduleId);
+
+    const rowValues = Object.values(s.raw || {}).map((v) => String(v ?? '')).join(' ');
+
+    if (foundIdx >= 0) {
+      // Merge metadata if candidate with same schedule ID already exists
+      const existing = existingCandidates[foundIdx];
+      if (!existing.groups && s.groups) existing.groups = s.groups;
+      if (!existing.testName && s.testName) existing.testName = s.testName;
+      if (!existing.evaluatorEmail && s.evaluatorEmail) existing.evaluatorEmail = s.evaluatorEmail;
+      if (!existing.evaluatorName && s.evaluatorName) existing.evaluatorName = s.evaluatorName;
+      existing.rawString = `${existing.rawString} ${rowValues}`.trim();
+    } else {
+      existingCandidates.push({
+        scheduleId: s.scheduleId,
+        courseCode: s.courseCode,
+        courseName: s.courseName,
+        groups: s.groups || '',
+        testName: s.testName || '',
+        evaluatorEmail: s.evaluatorEmail || '',
+        evaluatorName: s.evaluatorName || '',
+        rawString: `${s.groups || ''} ${s.testName || ''} ${s.evaluatorEmail || ''} ${s.evaluatorName || ''} ${rowValues}`.trim(),
+      });
+      courseSchedulesMap.set(s.courseCode, existingCandidates);
     }
   }
 
@@ -783,14 +1024,6 @@ export function mapStudentEvaluatorSchedules(
   for (const st of studentRows) {
     if (st.courseCode && st.courseName && !courseNameMap.has(st.courseCode)) {
       courseNameMap.set(st.courseCode, st.courseName);
-    }
-  }
-
-  // Check for duplicate schedules for the same course code
-  const duplicateScheduleCourses: { courseCode: string; scheduleIds: string[] }[] = [];
-  for (const [code, ids] of scheduleMap.entries()) {
-    if (ids.length > 1) {
-      duplicateScheduleCourses.push({ courseCode: code, scheduleIds: ids });
     }
   }
 
@@ -811,7 +1044,7 @@ export function mapStudentEvaluatorSchedules(
   // Courses in student file missing in schedule file
   const coursesMissingFromScheduleFile: string[] = [];
   for (const sc of studentCourses) {
-    if (!scheduleMap.has(sc) || (scheduleMap.get(sc)?.length === 0)) {
+    if (!courseSchedulesMap.has(sc) || (courseSchedulesMap.get(sc)?.length === 0)) {
       coursesMissingFromScheduleFile.push(sc);
     }
   }
@@ -824,25 +1057,240 @@ export function mapStudentEvaluatorSchedules(
     }
   }
 
-  // Perform student-level mapping
+  // 2. Multi-Subschedule Matching & Differentiated Allocation
+  const studentScheduleAssignment: string[] = new Array(studentRows.length).fill('');
+  const unresolvedDuplicateCourseCodes = new Set<string>();
+  const unresolvedDuplicateCourses: { courseCode: string; scheduleIds: string[] }[] = [];
+  const subScheduleDifferentiatedCourses: {
+    courseCode: string;
+    scheduleIds: string[];
+    evaluatorCount: number;
+    details: { evaluator: string; scheduleId: string; groupName?: string }[];
+  }[] = [];
+
+  // Group student indices by courseCode
+  const studentsByCourse = new Map<string, number[]>();
+  for (let idx = 0; idx < studentRows.length; idx++) {
+    const cCode = studentRows[idx].courseCode;
+    if (!cCode) continue;
+    const list = studentsByCourse.get(cCode) || [];
+    list.push(idx);
+    studentsByCourse.set(cCode, list);
+  }
+
+  // Iterate over each course
+  for (const [courseCode, studentIndices] of studentsByCourse.entries()) {
+    const candidates = courseSchedulesMap.get(courseCode) || [];
+
+    if (candidates.length === 0) {
+      for (const idx of studentIndices) {
+        studentScheduleAssignment[idx] = '';
+      }
+      continue;
+    }
+
+    if (candidates.length === 1) {
+      // Single schedule for the course: all students get that single schedule ID
+      const singleId = candidates[0].scheduleId;
+      for (const idx of studentIndices) {
+        studentScheduleAssignment[idx] = singleId;
+      }
+      continue;
+    }
+
+    // MULTIPLE SUB-SCHEDULES DETECTED FOR THIS COURSE (e.g. MA21001 with schedules 7232, 7233, 7234)
+    // As requested: "in the target file in the participant group name at last there will be email id of faculty in these cases extract the email id from there and then give the same evaluator id for that schedule"
+    const evaluatorToScheduleMap = new Map<string, string>();
+    const groupToScheduleMap = new Map<string, string>();
+    const assignedCandidateScheduleIds = new Set<string>();
+
+    // Pass 1: Direct match by faculty email extracted from target file's participant group name
+    for (const idx of studentIndices) {
+      const st = studentRows[idx];
+      const stEmail = extractFacultyEmail(st.evaluatorEmail) || st.evaluatorEmail.toLowerCase().trim();
+      if (!stEmail || evaluatorToScheduleMap.has(stEmail)) continue;
+
+      // 1. Exact match with candidate's extracted faculty email
+      const exactCandidate = candidates.find(
+        (c) => c.evaluatorEmail && c.evaluatorEmail.toLowerCase().trim() === stEmail
+      );
+      if (exactCandidate) {
+        evaluatorToScheduleMap.set(stEmail, exactCandidate.scheduleId);
+        assignedCandidateScheduleIds.add(exactCandidate.scheduleId);
+        continue;
+      }
+
+      // 2. Substring match inside candidate's participant group name
+      const groupSubCandidate = candidates.find(
+        (c) => c.groups && c.groups.toLowerCase().includes(stEmail)
+      );
+      if (groupSubCandidate) {
+        evaluatorToScheduleMap.set(stEmail, groupSubCandidate.scheduleId);
+        assignedCandidateScheduleIds.add(groupSubCandidate.scheduleId);
+        continue;
+      }
+
+      // 3. Email username prefix match before @
+      const username = stEmail.split('@')[0];
+      if (username && username.length >= 4) {
+        const userCandidate = candidates.find(
+          (c) =>
+            (c.evaluatorEmail && c.evaluatorEmail.includes(username)) ||
+            (c.groups && c.groups.toLowerCase().includes(username)) ||
+            (c.rawString && c.rawString.toLowerCase().includes(username))
+        );
+        if (userCandidate) {
+          evaluatorToScheduleMap.set(stEmail, userCandidate.scheduleId);
+          assignedCandidateScheduleIds.add(userCandidate.scheduleId);
+          continue;
+        }
+      }
+    }
+
+    // Pass 2: Match by participant group name (from Clean Data) against schedule ID or schedule groups
+    for (const idx of studentIndices) {
+      const st = studentRows[idx];
+      const gName = (st.groupName || '').toLowerCase().trim();
+      if (!gName || groupToScheduleMap.has(gName)) continue;
+
+      const gEmail = extractFacultyEmail(gName);
+      if (gEmail) {
+        const emailMatch = candidates.find(
+          (c) =>
+            c.evaluatorEmail === gEmail ||
+            (c.groups && c.groups.toLowerCase().includes(gEmail))
+        );
+        if (emailMatch) {
+          groupToScheduleMap.set(gName, emailMatch.scheduleId);
+          assignedCandidateScheduleIds.add(emailMatch.scheduleId);
+          continue;
+        }
+      }
+
+      const idMatch = candidates.find(
+        (c) => c.scheduleId.toLowerCase() === gName || gName.includes(c.scheduleId.toLowerCase())
+      );
+      if (idMatch) {
+        groupToScheduleMap.set(gName, idMatch.scheduleId);
+        assignedCandidateScheduleIds.add(idMatch.scheduleId);
+        continue;
+      }
+
+      const grpMatch = candidates.find(
+        (c) =>
+          c.groups.toLowerCase() === gName ||
+          (gName.length >= 3 && c.groups.toLowerCase().includes(gName)) ||
+          (c.groups.length >= 3 && gName.includes(c.groups.toLowerCase()))
+      );
+      if (grpMatch) {
+        groupToScheduleMap.set(gName, grpMatch.scheduleId);
+        assignedCandidateScheduleIds.add(grpMatch.scheduleId);
+        continue;
+      }
+    }
+
+    // Pass 3: 1-to-1 order allocation for distinct unassigned evaluators
+    const distinctEvaluators = Array.from(
+      new Set(
+        studentIndices
+          .map((idx) => {
+            const st = studentRows[idx];
+            return (
+              extractFacultyEmail(st.evaluatorEmail) ||
+              st.evaluatorEmail.toLowerCase().trim() ||
+              (st.evaluatorName ? st.evaluatorName.toLowerCase().trim() : '')
+            );
+          })
+          .filter(Boolean)
+      )
+    );
+
+    const unassignedEvaluators = distinctEvaluators.filter((e) => !evaluatorToScheduleMap.has(e));
+    const unassignedCandidates = candidates.filter((c) => !assignedCandidateScheduleIds.has(c.scheduleId));
+
+    for (let u = 0; u < unassignedEvaluators.length; u++) {
+      const evalKey = unassignedEvaluators[u];
+      if (unassignedCandidates.length > 0) {
+        const c = unassignedCandidates.shift()!;
+        evaluatorToScheduleMap.set(evalKey, c.scheduleId);
+        assignedCandidateScheduleIds.add(c.scheduleId);
+      } else {
+        const c = candidates[u % candidates.length];
+        evaluatorToScheduleMap.set(evalKey, c.scheduleId);
+      }
+    }
+
+    // Apply the schedule assignment to each student
+    for (const idx of studentIndices) {
+      const st = studentRows[idx];
+      const stEmail = extractFacultyEmail(st.evaluatorEmail) || st.evaluatorEmail.toLowerCase().trim();
+      const stName = (st.evaluatorName || '').toLowerCase().trim();
+      const gName = (st.groupName || '').toLowerCase().trim();
+
+      let assignedId = '';
+      if (stEmail && evaluatorToScheduleMap.has(stEmail)) {
+        assignedId = evaluatorToScheduleMap.get(stEmail)!;
+      } else if (gName && groupToScheduleMap.has(gName)) {
+        assignedId = groupToScheduleMap.get(gName)!;
+      } else if (stName && evaluatorToScheduleMap.has(stName)) {
+        assignedId = evaluatorToScheduleMap.get(stName)!;
+      } else {
+        // Fallback: candidate 1
+        assignedId = candidates[0].scheduleId;
+      }
+
+      studentScheduleAssignment[idx] = assignedId;
+    }
+
+    // Evaluation summary categorization
+    const assignedSchedules = new Set<string>();
+    for (const idx of studentIndices) {
+      const sid = studentScheduleAssignment[idx];
+      if (sid) assignedSchedules.add(sid);
+    }
+
+    const allSubScheduleIds = candidates.map((c) => c.scheduleId);
+
+    if (assignedSchedules.size > 1 || (candidates.length > 1 && distinctEvaluators.length > 1)) {
+      subScheduleDifferentiatedCourses.push({
+        courseCode,
+        scheduleIds: allSubScheduleIds,
+        evaluatorCount: distinctEvaluators.length,
+        details: Array.from(evaluatorToScheduleMap.entries()).map(([ev, sid]) => ({
+          evaluator: ev,
+          scheduleId: sid,
+        })),
+      });
+    } else {
+      unresolvedDuplicateCourseCodes.add(courseCode);
+      unresolvedDuplicateCourses.push({
+        courseCode,
+        scheduleIds: allSubScheduleIds,
+      });
+    }
+  }
+
+  // 3. Construct mappedAllocations
   let successfullyMappedCount = 0;
   let missingEvaluatorEmailCount = 0;
   let unmappedCount = 0;
 
   const mappedAllocations: MappedStudentAllocation[] = studentRows.map((st, idx) => {
     const issues: string[] = [];
-
-    // Lookup schedule ID by course code
-    const matchedSchedules = scheduleMap.get(st.courseCode) || [];
-    const scheduleId = matchedSchedules.length > 0 ? matchedSchedules[0] : '';
+    const scheduleId = studentScheduleAssignment[idx] || '';
     const courseName = courseNameMap.get(st.courseCode) || st.courseName || '';
 
     if (!st.courseCode) {
       issues.push('Missing course code in student record');
     } else if (!scheduleId) {
       issues.push(`Course ${st.courseCode} not found in Test Schedule file`);
-    } else if (matchedSchedules.length > 1) {
-      issues.push(`Course ${st.courseCode} has multiple conflicting Schedule IDs (${matchedSchedules.join(', ')}). Used first.`);
+    } else if (unresolvedDuplicateCourseCodes.has(st.courseCode)) {
+      const candidates = courseSchedulesMap.get(st.courseCode) || [];
+      issues.push(
+        `Course ${st.courseCode} has multiple unresolved conflicting Schedule IDs (${candidates
+          .map((c) => c.scheduleId)
+          .join(', ')}). Used ${scheduleId}.`
+      );
     }
 
     if (!st.evaluatorEmail) {
@@ -861,6 +1309,7 @@ export function mapStudentEvaluatorSchedules(
       id: `alloc_${idx + 1}_${st.courseCode}_${(st.studentEmail || st.studentName).replace(/\s+/g, '_')}`,
       studentName: st.studentName,
       studentEmail: st.studentEmail,
+      groupName: st.groupName,
       courseCode: st.courseCode,
       courseName,
       schoolCode: st.schoolCode || '',
@@ -900,7 +1349,8 @@ export function mapStudentEvaluatorSchedules(
     missingEvaluatorEmailCount,
     coursesMissingFromScheduleFile,
     coursesMissingFromStudentFile,
-    duplicateScheduleCourses,
+    duplicateScheduleCourses: unresolvedDuplicateCourses,
+    subScheduleDifferentiatedCourses,
   };
 
   return {

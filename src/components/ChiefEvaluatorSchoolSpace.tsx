@@ -34,6 +34,8 @@ import {
   aggregateChiefBySchool,
   sortSchoolChiefAggregations,
 } from '@/lib/chiefEvaluatorStats';
+import { CustomDropdown } from './CustomDropdown';
+import { SegmentedToggle } from './SegmentedToggle';
 
 export type SortField = ChiefSortField;
 
@@ -901,6 +903,17 @@ export const ChiefEvaluatorSchoolSpace: React.FC<ChiefEvaluatorSchoolSpaceProps>
     );
   };
 
+  const sortOptions = [
+    { value: 'schoolCode', label: 'School Code (A-Z)' },
+    { value: 'schoolName', label: 'School Name (A-Z)' },
+    { value: 'coveragePct', label: 'Chief Coverage %' },
+    { value: 'chiefAvailableStudents', label: 'Chief Available (Students)' },
+    { value: 'chiefMissingStudents', label: 'Chief Missing (Students)' },
+    { value: 'totalStudents', label: 'Total Students' },
+    { value: 'uniqueChiefCount', label: 'Unique Chief Count' },
+    { value: 'schedulesWithMissingChief', label: 'Missing Schedules Count' },
+  ];
+
   return (
     <div className="space-y-5">
       {/* Top KPI Cards (Clickable Quick Categorization) */}
@@ -911,8 +924,8 @@ export const ChiefEvaluatorSchoolSpace: React.FC<ChiefEvaluatorSchoolSpaceProps>
           onClick={() => setCategoryFilter('ALL')}
           className={`text-left p-5 rounded-2xl border transition-all flex flex-col justify-between ${
             categoryFilter === 'ALL'
-              ? 'bg-[#121218] border-purple-500/60 shadow-lg shadow-purple-950/20'
-              : 'bg-[#09090b] border-[#222222] hover:border-[#34343d]'
+              ? 'bg-purple-500/[0.08] border-purple-500/60 shadow-lg shadow-purple-950/20'
+              : 'bg-[#09090b] border-[#27272a] hover:border-zinc-700'
           }`}
         >
           <div>
@@ -931,7 +944,7 @@ export const ChiefEvaluatorSchoolSpace: React.FC<ChiefEvaluatorSchoolSpaceProps>
               </span>
             </div>
           </div>
-          <p className="text-[11px] text-zinc-400 mt-3 pt-2.5 border-t border-[#1a1a1a] font-mono">
+          <p className="text-[11px] text-zinc-400 mt-3 pt-2.5 border-t border-[#1f1f23] font-mono">
             Overall Coverage: <strong className="text-white">{globalStats.globalCoveragePct}%</strong>{' '}
             ({globalStats.totalChiefAvailableStudents.toLocaleString()} /{' '}
             {globalStats.totalStudentsAll.toLocaleString()} students)
@@ -944,8 +957,8 @@ export const ChiefEvaluatorSchoolSpace: React.FC<ChiefEvaluatorSchoolSpaceProps>
           onClick={() => setCategoryFilter('ALL_AVAILABLE')}
           className={`text-left p-5 rounded-2xl border transition-all flex flex-col justify-between ${
             categoryFilter === 'ALL_AVAILABLE'
-              ? 'bg-[#0b1812] border-emerald-500/70 shadow-lg shadow-emerald-950/20'
-              : 'bg-[#09090b] border-[#222222] hover:border-emerald-800/60'
+              ? 'bg-emerald-500/[0.08] border-emerald-500/60 shadow-lg shadow-emerald-950/20'
+              : 'bg-[#09090b] border-[#27272a] hover:border-emerald-500/35'
           }`}
         >
           <div>
@@ -962,7 +975,7 @@ export const ChiefEvaluatorSchoolSpace: React.FC<ChiefEvaluatorSchoolSpaceProps>
               <span className="text-xs font-bold text-emerald-300 font-mono">Schools (100%)</span>
             </div>
           </div>
-          <p className="text-[11px] text-zinc-400 mt-3 pt-2.5 border-t border-[#1a1a1a]">
+          <p className="text-[11px] text-zinc-400 mt-3 pt-2.5 border-t border-[#1f1f23]">
             Schools where every single student has Chief Evaluator details
           </p>
         </button>
@@ -973,8 +986,8 @@ export const ChiefEvaluatorSchoolSpace: React.FC<ChiefEvaluatorSchoolSpaceProps>
           onClick={() => setCategoryFilter('ANY_MISSING')}
           className={`text-left p-5 rounded-2xl border transition-all flex flex-col justify-between ${
             categoryFilter === 'ANY_MISSING'
-              ? 'bg-[#191309] border-amber-500/70 shadow-lg shadow-amber-950/20'
-              : 'bg-[#09090b] border-[#222222] hover:border-amber-800/60'
+              ? 'bg-amber-500/[0.08] border-amber-500/60 shadow-lg shadow-amber-950/20'
+              : 'bg-[#09090b] border-[#27272a] hover:border-amber-500/35'
           }`}
         >
           <div>
@@ -993,7 +1006,7 @@ export const ChiefEvaluatorSchoolSpace: React.FC<ChiefEvaluatorSchoolSpaceProps>
               </span>
             </div>
           </div>
-          <p className="text-[11px] text-zinc-400 mt-3 pt-2.5 border-t border-[#1a1a1a] font-mono">
+          <p className="text-[11px] text-zinc-400 mt-3 pt-2.5 border-t border-[#1f1f23] font-mono">
             {globalStats.schoolsPartialMissing} partial missing • {globalStats.schoolsNoneAvailable}{' '}
             completely missing
           </p>
@@ -1005,8 +1018,8 @@ export const ChiefEvaluatorSchoolSpace: React.FC<ChiefEvaluatorSchoolSpaceProps>
           onClick={() => setCategoryFilter('NONE_AVAILABLE')}
           className={`text-left p-5 rounded-2xl border transition-all flex flex-col justify-between ${
             categoryFilter === 'NONE_AVAILABLE'
-              ? 'bg-[#1b0c10] border-rose-500/70 shadow-lg shadow-rose-950/20'
-              : 'bg-[#09090b] border-[#222222] hover:border-rose-800/60'
+              ? 'bg-rose-500/[0.08] border-rose-500/60 shadow-lg shadow-rose-950/20'
+              : 'bg-[#09090b] border-[#27272a] hover:border-rose-500/35'
           }`}
         >
           <div>
@@ -1023,95 +1036,67 @@ export const ChiefEvaluatorSchoolSpace: React.FC<ChiefEvaluatorSchoolSpaceProps>
               <span className="text-xs font-bold text-rose-300 font-mono">Schools</span>
             </div>
           </div>
-          <p className="text-[11px] text-zinc-400 mt-3 pt-2.5 border-t border-[#1a1a1a]">
+          <p className="text-[11px] text-zinc-400 mt-3 pt-2.5 border-t border-[#1f1f23]">
             Schools where 0 students have a Chief Evaluator assigned
           </p>
         </button>
       </div>
 
       {/* Control Toolbar: Categorization Filters, Layout Mode, Sorting & Exports */}
-      <div className="p-4 rounded-2xl bg-[#09090b] border border-[#222222] space-y-3">
+      <div className="p-4 rounded-2xl bg-[#09090b] border border-[#27272a] space-y-3">
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-          {/* Category Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <button
-              type="button"
-              onClick={() => setCategoryFilter('ALL')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                categoryFilter === 'ALL'
-                  ? 'bg-white text-black font-bold'
-                  : 'bg-[#141416] text-zinc-400 hover:text-white border border-[#27272a]'
-              }`}
-            >
-              All Schools ({globalStats.totalSchools})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCategoryFilter('ALL_AVAILABLE')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                categoryFilter === 'ALL_AVAILABLE'
-                  ? 'bg-emerald-600 text-white font-bold'
-                  : 'bg-[#141416] text-emerald-300 hover:text-white border border-[#27272a]'
-              }`}
-            >
-              All Chief Available ({globalStats.schoolsAllAvailable})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCategoryFilter('ANY_MISSING')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                categoryFilter === 'ANY_MISSING'
-                  ? 'bg-amber-500 text-black font-bold'
-                  : 'bg-[#141416] text-amber-300 hover:text-white border border-[#27272a]'
-              }`}
-            >
-              Not Available / Missing ({globalStats.schoolsAnyMissing})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCategoryFilter('PARTIAL_MISSING')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                categoryFilter === 'PARTIAL_MISSING'
-                  ? 'bg-purple-600 text-white font-bold'
-                  : 'bg-[#141416] text-purple-300 hover:text-white border border-[#27272a]'
-              }`}
-            >
-              Partial Only ({globalStats.schoolsPartialMissing})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCategoryFilter('NONE_AVAILABLE')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                categoryFilter === 'NONE_AVAILABLE'
-                  ? 'bg-rose-600 text-white font-bold'
-                  : 'bg-[#141416] text-rose-300 hover:text-white border border-[#27272a]'
-              }`}
-            >
-              0% Assigned ({globalStats.schoolsNoneAvailable})
-            </button>
-          </div>
+          {/* Unified Category Segmented Toggle */}
+          <SegmentedToggle
+            size="sm"
+            wrap
+            value={categoryFilter}
+            onChange={(val) => setCategoryFilter(val)}
+            options={[
+              { value: 'ALL', label: 'All Schools', count: globalStats.totalSchools },
+              {
+                value: 'ALL_AVAILABLE',
+                label: 'All Chief Available',
+                count: globalStats.schoolsAllAvailable,
+                tone: 'emerald',
+              },
+              {
+                value: 'ANY_MISSING',
+                label: 'Not Available / Missing',
+                count: globalStats.schoolsAnyMissing,
+                tone: 'amber',
+              },
+              {
+                value: 'PARTIAL_MISSING',
+                label: 'Partial Only',
+                count: globalStats.schoolsPartialMissing,
+                tone: 'purple',
+              },
+              {
+                value: 'NONE_AVAILABLE',
+                label: '0% Assigned',
+                count: globalStats.schoolsNoneAvailable,
+                tone: 'rose',
+              },
+            ]}
+          />
 
           {/* Search & Export Controls */}
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <div className="relative min-w-[220px] flex-1 sm:flex-initial">
+            <div className="relative min-w-[210px] flex-1 sm:flex-initial">
               <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search school, chief email, course..."
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-black border border-[#27272a] text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-purple-500"
+                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-black border border-[#27272a] text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
               />
             </div>
 
             <button
               type="button"
               onClick={handleExportCsv}
-              className="px-3 py-1.5 rounded-lg bg-[#141416] hover:bg-[#1a1a1e] border border-[#27272a] text-xs font-semibold text-zinc-300 hover:text-white transition-all"
+              className="px-3 py-1.5 rounded-lg bg-[#121214] hover:bg-[#18181b] border border-[#27272a] text-xs font-semibold text-zinc-300 hover:text-white transition-all"
             >
               CSV
             </button>
@@ -1129,76 +1114,54 @@ export const ChiefEvaluatorSchoolSpace: React.FC<ChiefEvaluatorSchoolSpaceProps>
         </div>
 
         {/* School-Wise Sorting & View Layout Strip */}
-        <div className="pt-2.5 border-t border-[#1a1a1e] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-          {/* View Layout Toggle (only matters when viewing ALL) */}
-          <div className="flex items-center space-x-2">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase">Display Mode:</span>
-            <div className="inline-flex rounded-lg bg-black p-0.5 border border-[#27272a]">
-              <button
-                type="button"
-                onClick={() => setViewLayout('SPLIT')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center space-x-1.5 transition-all ${
-                  viewLayout === 'SPLIT'
-                    ? 'bg-purple-600 text-white shadow'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-                title="Separate into (1) All Chief Available Schools and (2) Missing Chief Schools"
-              >
-                <SplitSquareVertical className="w-3 h-3" />
-                <span>Categorized (Available vs Missing)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewLayout('UNIFIED')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center space-x-1.5 transition-all ${
-                  viewLayout === 'UNIFIED'
-                    ? 'bg-white text-black shadow'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-                title="Combined sortable table of all schools"
-              >
-                <LayoutList className="w-3 h-3" />
-                <span>Unified Table</span>
-              </button>
-            </div>
+        <div className="pt-2.5 border-t border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+          {/* View Layout Toggle */}
+          <div className="flex items-center space-x-2.5">
+            <span className="text-[10px] font-mono text-zinc-500 uppercase">Display Mode</span>
+            <SegmentedToggle
+              size="sm"
+              value={viewLayout}
+              onChange={(val) => setViewLayout(val)}
+              options={[
+                {
+                  value: 'SPLIT',
+                  label: 'Categorized (Available vs Missing)',
+                  icon: SplitSquareVertical,
+                  tone: 'purple',
+                  title: 'Separate into (1) All Chief Available Schools and (2) Missing Chief Schools',
+                },
+                {
+                  value: 'UNIFIED',
+                  label: 'Unified Table',
+                  icon: LayoutList,
+                  title: 'Combined sortable table of all schools',
+                },
+              ]}
+            />
           </div>
 
-          {/* Dedicated School-Wise Sort Selector */}
-          <div className="flex items-center space-x-2">
-            <span className="text-[10px] font-mono text-zinc-500 uppercase">Sort Schools By:</span>
-            <select
+          {/* Dedicated School-Wise Sort Controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono text-zinc-500 uppercase">Sort By</span>
+            <CustomDropdown
+              size="sm"
+              menuAlign="right"
               value={sortField}
-              onChange={(e) => setSortField(e.target.value as SortField)}
-              className="px-2.5 py-1 rounded-lg bg-black border border-[#27272a] text-xs font-mono text-zinc-200 focus:outline-none focus:border-purple-500 cursor-pointer"
-            >
-              <option value="schoolCode">School Code (A-Z)</option>
-              <option value="schoolName">School Name (A-Z)</option>
-              <option value="coveragePct">Chief Coverage %</option>
-              <option value="chiefAvailableStudents">Chief Available (Students)</option>
-              <option value="chiefMissingStudents">Chief Details Missing (Students)</option>
-              <option value="totalStudents">Total Students</option>
-              <option value="uniqueChiefCount">Unique Chief Evaluators Count</option>
-              <option value="schedulesWithMissingChief">Missing Schedules Count</option>
-            </select>
+              onChange={(val) => setSortField(val as SortField)}
+              options={sortOptions}
+              icon={ArrowUpDown}
+              minMenuWidth="min-w-[235px]"
+            />
 
-            <button
-              type="button"
-              onClick={() => setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-              className="px-2.5 py-1 rounded-lg bg-[#141418] hover:bg-[#1d1d24] border border-[#27272a] text-xs font-mono text-purple-300 inline-flex items-center space-x-1"
-              title="Toggle ascending / descending sort direction"
-            >
-              {sortDir === 'asc' ? (
-                <>
-                  <ArrowUp className="w-3 h-3" />
-                  <span>Asc</span>
-                </>
-              ) : (
-                <>
-                  <ArrowDown className="w-3 h-3" />
-                  <span>Desc</span>
-                </>
-              )}
-            </button>
+            <SegmentedToggle
+              size="sm"
+              value={sortDir}
+              onChange={(val) => setSortDir(val as SortDirection)}
+              options={[
+                { value: 'asc', label: 'Asc', icon: ArrowUp, tone: 'purple' },
+                { value: 'desc', label: 'Desc', icon: ArrowDown, tone: 'purple' },
+              ]}
+            />
           </div>
         </div>
       </div>
