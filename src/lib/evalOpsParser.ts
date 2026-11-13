@@ -46,6 +46,7 @@ export interface MappedStudentAllocation {
   hasChiefDetails: boolean;
   scheduleId: string;
   isMapped: boolean;
+  allocationMode?: 'single' | 'sub_schedule_evaluator' | 'sub_schedule_group' | 'duplicate_first';
   issues: string[];
 }
 
@@ -120,13 +121,21 @@ export function extractFacultyEmail(val: any): string {
     return timeMatch[1].trim().toLowerCase();
   }
 
-  // 2. If separated by underscore, the faculty email is the last token ("at last there will be email id of faculty")
-  if (str.includes('_')) {
-    const lastUnderscore = str.lastIndexOf('_');
-    const afterLast = str.substring(lastUnderscore + 1).trim();
-    if (afterLast.includes('@')) {
-      const m = afterLast.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-      if (m) return m[0].toLowerCase();
+  // 2. The user specified: "at last there will be email id of faculty"
+  // If the string contains delimiters, extract the trailing email token cleanly
+  if (str.includes('_') || str.includes(' ') || str.includes(':')) {
+    const atIndex = str.lastIndexOf('@');
+    const beforeAt = str.substring(0, atIndex);
+    const delimIndex = Math.max(
+      beforeAt.lastIndexOf('_'),
+      beforeAt.lastIndexOf(' '),
+      beforeAt.lastIndexOf(':'),
+      beforeAt.lastIndexOf('/')
+    );
+    const rawCandidate = delimIndex >= 0 ? str.substring(delimIndex + 1) : str;
+    const cleanMatch = rawCandidate.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    if (cleanMatch) {
+      return cleanMatch[0].trim().toLowerCase();
     }
   }
 
@@ -141,6 +150,24 @@ export function extractFacultyEmail(val: any): string {
   }
 
   return '';
+}
+
+// Helper to vigilantly match two evaluator emails or identities
+export function emailsMatch(email1: string, email2: string): boolean {
+  if (!email1 || !email2) return false;
+  const e1 = email1.trim().toLowerCase();
+  const e2 = email2.trim().toLowerCase();
+  if (e1 === e2) return true;
+
+  // Extract alphanumeric usernames before @
+  const u1 = (e1.includes('@') ? e1.split('@')[0] : e1).replace(/[^a-z0-9]/g, '');
+  const u2 = (e2.includes('@') ? e2.split('@')[0] : e2).replace(/[^a-z0-9]/g, '');
+
+  if (u1 && u2 && u1.length >= 3 && u2.length >= 3) {
+    if (u1 === u2) return true;
+    if (u1.length >= 4 && u2.length >= 4 && (u1.includes(u2) || u2.includes(u1))) return true;
+  }
+  return false;
 }
 
 // Helper to find a value from a row using fuzzy column aliases (only returns non-empty values so empty columns are skipped)
@@ -1059,6 +1086,8 @@ export function mapStudentEvaluatorSchedules(
 
   // 2. Multi-Subschedule Matching & Differentiated Allocation
   const studentScheduleAssignment: string[] = new Array(studentRows.length).fill('');
+  const studentAllocationMode: ('single' | 'sub_schedule_evaluator' | 'sub_schedule_group' | 'duplicate_first')[] =
+    new Array(studentRows.length).fill('single');
   const unresolvedDuplicateCourseCodes = new Set<string>();
   const unresolvedDuplicateCourses: { courseCode: string; scheduleIds: string[] }[] = [];
   const subScheduleDifferentiatedCourses: {
@@ -1090,35 +1119,47 @@ export function mapStudentEvaluatorSchedules(
     }
 
     if (candidates.length === 1) {
-      // Single schedule for the course: all students get that single schedule ID
+      // Single schedule for the course: normal 1-to-1 mapping
       const singleId = candidates[0].scheduleId;
       for (const idx of studentIndices) {
         studentScheduleAssignment[idx] = singleId;
+        studentAllocationMode[idx] = 'single';
       }
       continue;
     }
 
-    // MULTIPLE SUB-SCHEDULES DETECTED FOR THIS COURSE (e.g. MA21001 with schedules 7232, 7233, 7234)
-    // As requested: "in the target file in the participant group name at last there will be email id of faculty in these cases extract the email id from there and then give the same evaluator id for that schedule"
+    // MULTIPLE SCHEDULE CANDIDATES DETECTED (candidates.length > 1)
+    // Vigilant dual-mode handling:
+    // Mode A: Specialized Sub-Schedule Differentiated Mode (when candidates have embedded faculty emails in participant group name matching student evaluators)
+    // Mode B: Normal Mode (when candidates are duplicate/parallel schedules without faculty emails: assign primary schedule ID to all students and report conflicts)
+
+    // Inspect candidate schedules for embedded faculty emails or group info
+    const candidateEmailsWithCandidate = candidates.map((c) => ({
+      candidate: c,
+      email: c.evaluatorEmail || extractFacultyEmail(c.groups) || extractFacultyEmail(c.testName),
+    }));
+
+    const hasAnyCandidateEmail = candidateEmailsWithCandidate.some((ce) => Boolean(ce.email && ce.email.includes('@')));
+
     const evaluatorToScheduleMap = new Map<string, string>();
     const groupToScheduleMap = new Map<string, string>();
     const assignedCandidateScheduleIds = new Set<string>();
 
-    // Pass 1: Direct match by faculty email extracted from target file's participant group name
+    // Pass 1: Match by faculty email (from participant group name or candidate email) against student evaluator email
     for (const idx of studentIndices) {
       const st = studentRows[idx];
       const stEmail = extractFacultyEmail(st.evaluatorEmail) || st.evaluatorEmail.toLowerCase().trim();
       if (!stEmail || evaluatorToScheduleMap.has(stEmail)) continue;
 
-      // 1. Exact match with candidate's extracted faculty email
-      const exactCandidate = candidates.find(
-        (c) => c.evaluatorEmail && c.evaluatorEmail.toLowerCase().trim() === stEmail
-      );
-      if (exactCandidate) {
-        evaluatorToScheduleMap.set(stEmail, exactCandidate.scheduleId);
-        assignedCandidateScheduleIds.add(exactCandidate.scheduleId);
-        continue;
+      // 1. Direct match with candidate's extracted faculty email
+      for (const ce of candidateEmailsWithCandidate) {
+        if (ce.email && emailsMatch(ce.email, stEmail)) {
+          evaluatorToScheduleMap.set(stEmail, ce.candidate.scheduleId);
+          assignedCandidateScheduleIds.add(ce.candidate.scheduleId);
+          break;
+        }
       }
+      if (evaluatorToScheduleMap.has(stEmail)) continue;
 
       // 2. Substring match inside candidate's participant group name
       const groupSubCandidate = candidates.find(
@@ -1130,15 +1171,17 @@ export function mapStudentEvaluatorSchedules(
         continue;
       }
 
-      // 3. Email username prefix match before @
-      const username = stEmail.split('@')[0];
+      // 3. Username match
+      const username = (stEmail.includes('@') ? stEmail.split('@')[0] : stEmail).replace(/[^a-z0-9]/g, '');
       if (username && username.length >= 4) {
-        const userCandidate = candidates.find(
-          (c) =>
-            (c.evaluatorEmail && c.evaluatorEmail.includes(username)) ||
-            (c.groups && c.groups.toLowerCase().includes(username)) ||
-            (c.rawString && c.rawString.toLowerCase().includes(username))
-        );
+        const userCandidate = candidates.find((c) => {
+          const cEmail = c.evaluatorEmail || extractFacultyEmail(c.groups);
+          const cUser = cEmail ? (cEmail.includes('@') ? cEmail.split('@')[0] : cEmail).replace(/[^a-z0-9]/g, '') : '';
+          if (cUser && (cUser === username || cUser.includes(username) || username.includes(cUser))) return true;
+          const cleanGrp = (c.groups || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (cleanGrp && cleanGrp.includes(username)) return true;
+          return false;
+        });
         if (userCandidate) {
           evaluatorToScheduleMap.set(stEmail, userCandidate.scheduleId);
           assignedCandidateScheduleIds.add(userCandidate.scheduleId);
@@ -1155,16 +1198,14 @@ export function mapStudentEvaluatorSchedules(
 
       const gEmail = extractFacultyEmail(gName);
       if (gEmail) {
-        const emailMatch = candidates.find(
-          (c) =>
-            c.evaluatorEmail === gEmail ||
-            (c.groups && c.groups.toLowerCase().includes(gEmail))
-        );
-        if (emailMatch) {
-          groupToScheduleMap.set(gName, emailMatch.scheduleId);
-          assignedCandidateScheduleIds.add(emailMatch.scheduleId);
-          continue;
+        for (const ce of candidateEmailsWithCandidate) {
+          if (ce.email && emailsMatch(ce.email, gEmail)) {
+            groupToScheduleMap.set(gName, ce.candidate.scheduleId);
+            assignedCandidateScheduleIds.add(ce.candidate.scheduleId);
+            break;
+          }
         }
+        if (groupToScheduleMap.has(gName)) continue;
       }
 
       const idMatch = candidates.find(
@@ -1189,7 +1230,91 @@ export function mapStudentEvaluatorSchedules(
       }
     }
 
-    // Pass 3: 1-to-1 order allocation for distinct unassigned evaluators
+    // Pass 3: Try matching by evaluator name if candidate has evaluatorName or groups mentions the name
+    for (const idx of studentIndices) {
+      const st = studentRows[idx];
+      const stName = (st.evaluatorName || '').toLowerCase().trim();
+      if (!stName || stName === 'unknown evaluator' || evaluatorToScheduleMap.has(stName)) continue;
+
+      for (const c of candidates) {
+        const cName = (c.evaluatorName || '').toLowerCase().trim();
+        if (cName && (cName === stName || (cName.length >= 4 && (cName.includes(stName) || stName.includes(cName))))) {
+          evaluatorToScheduleMap.set(stName, c.scheduleId);
+          assignedCandidateScheduleIds.add(c.scheduleId);
+          break;
+        }
+        if (c.groups && c.groups.toLowerCase().includes(stName)) {
+          evaluatorToScheduleMap.set(stName, c.scheduleId);
+          assignedCandidateScheduleIds.add(c.scheduleId);
+          break;
+        }
+      }
+    }
+
+    // VIGILANCE CHECK:
+    // Determine whether this course qualifies as Sub-Schedule Differentiated Mode,
+    // OR if it is a Normal Course with multiple conflicting Schedule IDs.
+    const isSubScheduleDifferentiated =
+      assignedCandidateScheduleIds.size > 1 ||
+      (assignedCandidateScheduleIds.size >= 1 && hasAnyCandidateEmail);
+
+    if (!isSubScheduleDifferentiated) {
+      // MODE B: NORMAL PREVIOUS BEHAVIOUR FOR ALL REMAINING IDS
+      // When multiple schedules exist but lack faculty-email sub-test designations:
+      // Assign the primary schedule ID (candidates[0].scheduleId) to all students in this course
+      const primaryScheduleId = candidates[0].scheduleId;
+      for (const idx of studentIndices) {
+        studentScheduleAssignment[idx] = primaryScheduleId;
+        studentAllocationMode[idx] = 'duplicate_first';
+      }
+
+      // Record in duplicateScheduleCourses for diagnostics display
+      unresolvedDuplicateCourseCodes.add(courseCode);
+      unresolvedDuplicateCourses.push({
+        courseCode,
+        scheduleIds: candidates.map((c) => c.scheduleId),
+      });
+
+      continue;
+    }
+
+    // MODE A: SPECIALIZED SUB-SCHEDULE DIFFERENTIATED ALLOCATION
+    // For courses with embedded faculty emails in participant groups:
+    const primaryCandidateId = candidates[0].scheduleId;
+    for (const idx of studentIndices) {
+      const st = studentRows[idx];
+      const stEmail = extractFacultyEmail(st.evaluatorEmail) || st.evaluatorEmail.toLowerCase().trim();
+      const stName = (st.evaluatorName || '').toLowerCase().trim();
+      const gName = (st.groupName || '').toLowerCase().trim();
+
+      if (stEmail && evaluatorToScheduleMap.has(stEmail)) {
+        studentScheduleAssignment[idx] = evaluatorToScheduleMap.get(stEmail)!;
+        studentAllocationMode[idx] = 'sub_schedule_evaluator';
+      } else if (gName && groupToScheduleMap.has(gName)) {
+        studentScheduleAssignment[idx] = groupToScheduleMap.get(gName)!;
+        studentAllocationMode[idx] = 'sub_schedule_group';
+      } else if (stName && evaluatorToScheduleMap.has(stName)) {
+        studentScheduleAssignment[idx] = evaluatorToScheduleMap.get(stName)!;
+        studentAllocationMode[idx] = 'sub_schedule_evaluator';
+      } else {
+        // Fallback for any unmatched student in this differentiated course: primary candidate
+        studentScheduleAssignment[idx] = primaryCandidateId;
+        studentAllocationMode[idx] = 'single';
+      }
+    }
+
+    // Build details for the diagnostics banner
+    const matchedDetails: { evaluator: string; scheduleId: string; groupName?: string }[] = [];
+    for (const [ev, sid] of evaluatorToScheduleMap.entries()) {
+      matchedDetails.push({ evaluator: ev, scheduleId: sid });
+    }
+    for (const [grp, sid] of groupToScheduleMap.entries()) {
+      if (!matchedDetails.some((m) => m.scheduleId === sid)) {
+        matchedDetails.push({ evaluator: grp, scheduleId: sid, groupName: grp });
+      }
+    }
+
+    // Count distinct evaluators in this course
     const distinctEvaluators = Array.from(
       new Set(
         studentIndices
@@ -1198,76 +1323,19 @@ export function mapStudentEvaluatorSchedules(
             return (
               extractFacultyEmail(st.evaluatorEmail) ||
               st.evaluatorEmail.toLowerCase().trim() ||
-              (st.evaluatorName ? st.evaluatorName.toLowerCase().trim() : '')
+              (st.evaluatorName && st.evaluatorName !== 'Unknown Evaluator' ? st.evaluatorName : '')
             );
           })
           .filter(Boolean)
       )
     );
 
-    const unassignedEvaluators = distinctEvaluators.filter((e) => !evaluatorToScheduleMap.has(e));
-    const unassignedCandidates = candidates.filter((c) => !assignedCandidateScheduleIds.has(c.scheduleId));
-
-    for (let u = 0; u < unassignedEvaluators.length; u++) {
-      const evalKey = unassignedEvaluators[u];
-      if (unassignedCandidates.length > 0) {
-        const c = unassignedCandidates.shift()!;
-        evaluatorToScheduleMap.set(evalKey, c.scheduleId);
-        assignedCandidateScheduleIds.add(c.scheduleId);
-      } else {
-        const c = candidates[u % candidates.length];
-        evaluatorToScheduleMap.set(evalKey, c.scheduleId);
-      }
-    }
-
-    // Apply the schedule assignment to each student
-    for (const idx of studentIndices) {
-      const st = studentRows[idx];
-      const stEmail = extractFacultyEmail(st.evaluatorEmail) || st.evaluatorEmail.toLowerCase().trim();
-      const stName = (st.evaluatorName || '').toLowerCase().trim();
-      const gName = (st.groupName || '').toLowerCase().trim();
-
-      let assignedId = '';
-      if (stEmail && evaluatorToScheduleMap.has(stEmail)) {
-        assignedId = evaluatorToScheduleMap.get(stEmail)!;
-      } else if (gName && groupToScheduleMap.has(gName)) {
-        assignedId = groupToScheduleMap.get(gName)!;
-      } else if (stName && evaluatorToScheduleMap.has(stName)) {
-        assignedId = evaluatorToScheduleMap.get(stName)!;
-      } else {
-        // Fallback: candidate 1
-        assignedId = candidates[0].scheduleId;
-      }
-
-      studentScheduleAssignment[idx] = assignedId;
-    }
-
-    // Evaluation summary categorization
-    const assignedSchedules = new Set<string>();
-    for (const idx of studentIndices) {
-      const sid = studentScheduleAssignment[idx];
-      if (sid) assignedSchedules.add(sid);
-    }
-
-    const allSubScheduleIds = candidates.map((c) => c.scheduleId);
-
-    if (assignedSchedules.size > 1 || (candidates.length > 1 && distinctEvaluators.length > 1)) {
-      subScheduleDifferentiatedCourses.push({
-        courseCode,
-        scheduleIds: allSubScheduleIds,
-        evaluatorCount: distinctEvaluators.length,
-        details: Array.from(evaluatorToScheduleMap.entries()).map(([ev, sid]) => ({
-          evaluator: ev,
-          scheduleId: sid,
-        })),
-      });
-    } else {
-      unresolvedDuplicateCourseCodes.add(courseCode);
-      unresolvedDuplicateCourses.push({
-        courseCode,
-        scheduleIds: allSubScheduleIds,
-      });
-    }
+    subScheduleDifferentiatedCourses.push({
+      courseCode,
+      scheduleIds: candidates.map((c) => c.scheduleId),
+      evaluatorCount: distinctEvaluators.length || candidates.length,
+      details: matchedDetails,
+    });
   }
 
   // 3. Construct mappedAllocations
@@ -1287,9 +1355,9 @@ export function mapStudentEvaluatorSchedules(
     } else if (unresolvedDuplicateCourseCodes.has(st.courseCode)) {
       const candidates = courseSchedulesMap.get(st.courseCode) || [];
       issues.push(
-        `Course ${st.courseCode} has multiple unresolved conflicting Schedule IDs (${candidates
+        `Course ${st.courseCode} has multiple conflicting Schedule IDs (${candidates
           .map((c) => c.scheduleId)
-          .join(', ')}). Used ${scheduleId}.`
+          .join(', ')}). Used first.`
       );
     }
 
@@ -1321,6 +1389,7 @@ export function mapStudentEvaluatorSchedules(
       hasChiefDetails: st.hasChiefDetails,
       scheduleId: scheduleId || 'UNMAPPED',
       isMapped,
+      allocationMode: studentAllocationMode[idx],
       issues,
     };
   });

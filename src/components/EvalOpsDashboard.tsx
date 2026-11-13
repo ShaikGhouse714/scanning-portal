@@ -979,15 +979,17 @@ export const EvalOpsDashboard: React.FC = () => {
                 )}
 
                 {summary.duplicateScheduleCourses.length > 0 && (
-                  <div className="p-2.5 rounded-xl bg-[#050505] border border-rose-500/20 text-zinc-300">
-                    <strong className="text-rose-400 block mb-1">
-                      ⚠️ Unresolved conflicting Schedule IDs detected:
+                  <div className="p-2.5 rounded-xl bg-[#050505] border border-amber-500/20 text-zinc-300">
+                    <strong className="text-amber-400 block mb-1">
+                      ⚠️ Multiple conflicting Schedule IDs detected for the same course ({summary.duplicateScheduleCourses.length}):
                     </strong>
-                    {summary.duplicateScheduleCourses.map((d) => (
-                      <span key={d.courseCode} className="text-[11px] font-mono text-zinc-400 block">
-                        Course {d.courseCode}: Schedules ({d.scheduleIds.join(', ')})
-                      </span>
-                    ))}
+                    <div className="space-y-0.5 mt-1 max-h-48 overflow-y-auto pr-1">
+                      {summary.duplicateScheduleCourses.map((d) => (
+                        <span key={d.courseCode} className="text-[11px] font-mono text-zinc-400 block">
+                          Course {d.courseCode}: Schedules ({d.scheduleIds.join(', ')})
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1179,9 +1181,27 @@ export const EvalOpsDashboard: React.FC = () => {
                               UNMAPPED
                             </span>
                           ) : (
-                            <span className="text-white bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
-                              {item.scheduleId}
-                            </span>
+                            <div className="inline-flex items-center space-x-1.5">
+                              <span className="text-white bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
+                                {item.scheduleId}
+                              </span>
+                              {item.allocationMode === 'sub_schedule_evaluator' && (
+                                <span
+                                  title="Sub-test differentiated by faculty email"
+                                  className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                                >
+                                  Sub-Test
+                                </span>
+                              )}
+                              {item.allocationMode === 'sub_schedule_group' && (
+                                <span
+                                  title="Sub-test matched by participant group"
+                                  className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30"
+                                >
+                                  Group
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
 
