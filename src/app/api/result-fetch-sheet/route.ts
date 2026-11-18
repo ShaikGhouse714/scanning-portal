@@ -1,37 +1,147 @@
 import { NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
+import {
+  computeResultStatus,
+  isBlankValue,
+  isNotRequiredValue,
+  isAssignedOrRequiredValue,
+} from '../../../lib/resultOpsParser';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Convert Google Sheet URL to direct XLSX/CSV download link
-function convertToFetchUrl(inputUrl: string): string {
-  if (!inputUrl) return '';
-  const trimmed = inputUrl.trim();
+// Fetch with timeout, user-agent, redirect handling, and Google Drive virus-warning bypass
+async function fetchGoogleEndpoint(
+  url: string,
+  timeoutMs: number = 25000
+): Promise<{ ok: boolean; status: number; buffer: ArrayBuffer | null; isHtml: boolean; htmlText?: string; error?: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  // If already output=xlsx or output=csv
-  if (trimmed.includes('output=xlsx')) {
-    return trimmed;
+  try {
+    const headers = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      Accept: 'text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/html,*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Cache-Control': 'no-cache, no-store, max-age=0, must-revalidate',
+      Pragma: 'no-cache',
+    };
+
+    const res = await fetch(url, {
+      headers,
+      signal: controller.signal,
+      cache: 'no-store',
+      redirect: 'follow',
+    });
+
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      return { ok: false, status: res.status, buffer: null, isHtml: false, error: `HTTP ${res.status}: ${res.statusText}` };
+    }
+
+    const buffer = await res.arrayBuffer();
+
+    // Check if body is HTML (Google error / warning / login page)
+    if (buffer.byteLength > 0 && buffer.byteLength < 600000) {
+      const preview = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(buffer.slice(0, 3000)));
+      if (
+        preview.trim().startsWith('<!DOCTYPE html') ||
+        preview.includes('<html') ||
+        preview.includes('Google Drive - Virus scan warning')
+      ) {
+        if (preview.includes('confirm=')) {
+          const match = preview.match(/confirm=([a-zA-Z0-9_-]+)/);
+          if (match) {
+            const confirmUrl = url + (url.includes('?') ? '&' : '?') + `confirm=${match[1]}`;
+            const confirmRes = await fetch(confirmUrl, { headers, cache: 'no-store', redirect: 'follow' });
+            if (confirmRes.ok) {
+              const confirmBuf = await confirmRes.arrayBuffer();
+              return { ok: true, status: 200, buffer: confirmBuf, isHtml: false };
+            }
+          }
+        }
+
+        if (preview.includes('ServiceLogin') || preview.includes('accounts.google.com') || preview.includes('Sign in')) {
+          return {
+            ok: false,
+            status: 403,
+            buffer: null,
+            isHtml: true,
+            htmlText: preview,
+            error: "Google Sheet requires sign-in. Please ensure link sharing is set to 'Anyone with the link can view' or use 'File > Share > Publish to web'.",
+          };
+        }
+
+        if (preview.includes('<table') || preview.includes('waffle')) {
+          return { ok: true, status: 200, buffer, isHtml: true, htmlText: preview };
+        }
+
+        return { ok: false, status: 200, buffer, isHtml: true, htmlText: preview };
+      }
+    }
+
+    return { ok: true, status: 200, buffer, isHtml: false };
+  } catch (err: any) {
+    clearTimeout(timer);
+    const isTimeout = err.name === 'AbortError';
+    return {
+      ok: false,
+      status: isTimeout ? 504 : 500,
+      buffer: null,
+      isHtml: false,
+      error: isTimeout ? `Connection timed out after ${timeoutMs / 1000}s.` : err.message,
+    };
   }
+}
 
-  // If published to web (/spreadsheets/d/e/ or /pub or /pubhtml)
-  if (trimmed.includes('/spreadsheets/d/e/') || trimmed.includes('/pubhtml') || trimmed.includes('/pub')) {
-    let base = trimmed.split('?')[0].split('#')[0];
-    if (base.endsWith('/pubhtml')) base = base.replace(/\/pubhtml$/, '/pub');
-    else if (!base.endsWith('/pub')) base = base.replace(/\/$/, '') + '/pub';
-    const urlObj = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
-    const gid = urlObj.searchParams.get('gid');
-    return gid ? `${base}?gid=${gid}&single=true&output=xlsx` : `${base}?output=xlsx`;
+// Extract all subsheet names and their GIDs from pubhtml HTML view
+async function extractSubsheetsAndGidsFromHtml(pubHtmlUrl: string): Promise<{ name: string; gid: string }[]> {
+  try {
+    const res = await fetchGoogleEndpoint(pubHtmlUrl, 6000);
+    if (!res.buffer) return [];
+
+    const text = new TextDecoder('utf-8').decode(new Uint8Array(res.buffer));
+    const map = new Map<string, string>();
+
+    // Pattern 1: <li id="sheet-button-([0-9]+)"[^>]*>.*?<a[^>]*>(.*?)<\/a>
+    const p1 = /<li[^>]*id=["']sheet-button-([0-9]+)["'][^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/gi;
+    let m;
+    while ((m = p1.exec(text)) !== null) {
+      const gid = m[1].trim();
+      const name = m[2].trim();
+      if (name) map.set(name, gid);
+    }
+
+    // Pattern 2: ?gid=([0-9]+) ... >(.*?)<
+    const p2 = /[?&#]gid=([0-9]+)[^"'>]*["'][^>]*>([^<]+)<\/a>/gi;
+    while ((m = p2.exec(text)) !== null) {
+      const gid = m[1].trim();
+      const name = m[2].trim();
+      if (name && !map.has(name)) map.set(name, gid);
+    }
+
+    // Pattern 3: JSON "name": "...", "gid": "..."
+    const p3 = /"name"\s*:\s*"([^"\\]+)"\s*,\s*"[^"]*"\s*:\s*"[^"]*"\s*,\s*"gid"\s*:\s*"?([0-9]+)"?/gi;
+    while ((m = p3.exec(text)) !== null) {
+      const name = m[1].trim();
+      const gid = m[2].trim();
+      if (name && !map.has(name)) map.set(name, gid);
+    }
+
+    // Pattern 4: JSON "gid": "...", "name": "..."
+    const p4 = /"gid"\s*:\s*"?([0-9]+)"?\s*,\s*"name"\s*:\s*"([^"\\]+)"/gi;
+    while ((m = p4.exec(text)) !== null) {
+      const gid = m[1].trim();
+      const name = m[2].trim();
+      if (name && !map.has(name)) map.set(name, gid);
+    }
+
+    return Array.from(map.entries()).map(([name, gid]) => ({ name, gid }));
+  } catch {
+    return [];
   }
-
-  // If standard edit / view Google Sheet URL (e.g. /spreadsheets/d/<SHEET_ID>/edit#gid=<GID>)
-  const match = trimmed.match(/\/spreadsheets\/d\/(?!e\/)([a-zA-Z0-9-_]+)/);
-  if (match) {
-    const sheetId = match[1];
-    return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
-  }
-
-  return trimmed;
 }
 
 // Clean and extract Schedule ID
@@ -41,24 +151,6 @@ function cleanScheduleId(val: any): string {
   const match = str.match(/\b(\d{4,8})\b/);
   if (match) return match[1];
   return str;
-}
-
-// Helper to look up key by aliases (case-insensitive & stripped)
-function getRowField(row: Record<string, any>, ...aliases: string[]): string {
-  const keys = Object.keys(row);
-  for (const alias of aliases) {
-    const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
-    for (const key of keys) {
-      const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (cleanKey === cleanAlias || cleanKey.includes(cleanAlias)) {
-        const val = row[key];
-        if (val !== undefined && val !== null && String(val).trim().length > 0) {
-          return String(val).trim();
-        }
-      }
-    }
-  }
-  return '';
 }
 
 // Cleanly format Excel dates into standard MM/DD/YYYY or YYYY-MM-DD
@@ -220,7 +312,6 @@ function parseCloseDateTime(dateStr: string, timeStr: string, tzOffsetStr = '+05
     } else {
       if (y < 100) y += 2000;
       year = y;
-      // In the user's sheet (e.g. 10/12/2026, 11/6/2026), format is MM/DD/YYYY
       month = p1 <= 12 ? p1 : p2;
       day = p1 <= 12 ? p2 : p1;
     }
@@ -262,76 +353,192 @@ export async function POST(request: Request) {
       );
     }
 
-    const downloadUrl = convertToFetchUrl(url);
+    const trimmedUrl = url.trim();
+    const requestedSheet = (targetSubsheet || 'Result view').trim();
+    const isPublished =
+      trimmedUrl.includes('/spreadsheets/d/e/') ||
+      trimmedUrl.includes('/pubhtml') ||
+      trimmedUrl.includes('/pub');
 
-    // Fetch live XLSX data from Google
-    const res = await fetch(downloadUrl, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      },
-      cache: 'no-store',
-    });
+    const gidMatch = trimmedUrl.match(/[?&#]gid=([0-9]+)/);
+    const urlGid = gidMatch ? gidMatch[1] : null;
 
-    if (!res.ok) {
+    const standardMatch = trimmedUrl.match(/\/spreadsheets\/d\/(?!e\/)([a-zA-Z0-9-_]+)/);
+    const sheetId = standardMatch ? standardMatch[1] : null;
+
+    let workbook: XLSX.WorkBook | null = null;
+    let sheetNames: string[] = [];
+    let selectedSheetName = requestedSheet;
+    const ts = Date.now();
+
+    // =========================================================================
+    // BRANCH A: PUBLISHED GOOGLE SHEET (/spreadsheets/d/e/... or /pubhtml)
+    // =========================================================================
+    if (isPublished) {
+      let pubBase = trimmedUrl.split('?')[0].split('#')[0];
+      if (pubBase.endsWith('/pubhtml')) pubBase = pubBase.replace(/\/pubhtml$/, '/pub');
+      else if (!pubBase.endsWith('/pub')) pubBase = pubBase.replace(/\/$/, '') + '/pub';
+      const pubHtmlUrl = pubBase.replace(/\/pub$/, '/pubhtml');
+
+      // 1. Discover all tabs and their exact GIDs from pubhtml view
+      let discoveredTabs: { name: string; gid: string }[] = [];
+      try {
+        discoveredTabs = await extractSubsheetsAndGidsFromHtml(pubHtmlUrl);
+      } catch {
+        discoveredTabs = [];
+      }
+
+      if (discoveredTabs.length > 0) {
+        sheetNames = discoveredTabs.map((t) => t.name);
+      }
+
+      // 2. Identify target tab GID (e.g. for "Result view")
+      const reqClean = requestedSheet.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const matchedTab =
+        discoveredTabs.find((t) => t.name.toLowerCase().replace(/[^a-z0-9]/g, '') === reqClean) ||
+        discoveredTabs.find((t) => t.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes('resultview')) ||
+        discoveredTabs.find((t) => t.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes('result'));
+
+      if (matchedTab) {
+        selectedSheetName = matchedTab.name;
+      }
+
+      const effectiveGid = matchedTab ? matchedTab.gid : urlGid;
+
+      // 3. Build fetch candidates with cachebuster to guarantee live updates
+      const candidates: { url: string; isCsv: boolean }[] = [];
+
+      // Candidate 1: Targeted live CSV for the exact GID of "Result view" (Instant live sync, bypasses Google CDN cache!)
+      if (effectiveGid) {
+        candidates.push({
+          url: `${pubBase}?gid=${effectiveGid}&single=true&output=csv&_t=${ts}`,
+          isCsv: true,
+        });
+      }
+
+      // Candidate 2: Full XLSX workbook export with cachebuster
+      candidates.push({
+        url: `${pubBase}?output=xlsx&_t=${ts}`,
+        isCsv: false,
+      });
+
+      // Try candidates in order
+      for (const cand of candidates) {
+        try {
+          const res = await fetchGoogleEndpoint(cand.url, 20000);
+          if (res.ok && res.buffer && res.buffer.byteLength > 50) {
+            const wb = XLSX.read(new Uint8Array(res.buffer), { type: 'array' });
+            if (wb && wb.SheetNames && wb.SheetNames.length > 0) {
+              workbook = wb;
+              if (cand.isCsv) {
+                // In CSV export, the single sheet is the target sheet
+                selectedSheetName = matchedTab ? matchedTab.name : requestedSheet;
+                if (!sheetNames.includes(selectedSheetName)) {
+                  sheetNames.push(selectedSheetName);
+                }
+              } else {
+                sheetNames = Array.from(new Set([...sheetNames, ...wb.SheetNames]));
+              }
+              break;
+            }
+          }
+        } catch {
+          // try next
+        }
+      }
+    }
+
+    // =========================================================================
+    // BRANCH B: STANDARD GOOGLE SHEET (/spreadsheets/d/<ID>/...)
+    // =========================================================================
+    else if (sheetId) {
+      const candidates: { url: string; isCsv: boolean }[] = [
+        {
+          url: `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(requestedSheet)}&_t=${ts}`,
+          isCsv: true,
+        },
+        {
+          url: `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx&_t=${ts}`,
+          isCsv: false,
+        },
+      ];
+
+      for (const cand of candidates) {
+        try {
+          const res = await fetchGoogleEndpoint(cand.url, 20000);
+          if (res.ok && res.buffer && res.buffer.byteLength > 50) {
+            const wb = XLSX.read(new Uint8Array(res.buffer), { type: 'array' });
+            if (wb && wb.SheetNames && wb.SheetNames.length > 0) {
+              workbook = wb;
+              if (cand.isCsv) {
+                selectedSheetName = requestedSheet;
+                if (!sheetNames.includes(selectedSheetName)) sheetNames.push(selectedSheetName);
+              } else {
+                sheetNames = Array.from(new Set([...sheetNames, ...wb.SheetNames]));
+              }
+              break;
+            }
+          }
+        } catch {
+          // try next
+        }
+      }
+    }
+
+    // Fallback: direct fetch from input URL if neither branch parsed
+    if (!workbook) {
+      const fallbackUrl = `${trimmedUrl}${trimmedUrl.includes('?') ? '&' : '?'}_t=${ts}`;
+      const res = await fetchGoogleEndpoint(fallbackUrl, 20000);
+      if (res.ok && res.buffer && res.buffer.byteLength > 50) {
+        workbook = XLSX.read(new Uint8Array(res.buffer), { type: 'array' });
+        if (workbook && workbook.SheetNames) {
+          sheetNames = Array.from(new Set([...sheetNames, ...workbook.SheetNames]));
+        }
+      }
+    }
+
+    if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          message: `Unable to access Google Sheet (HTTP ${res.status}: ${res.statusText}). Please verify link sharing is set to "Anyone with the link can view" or the sheet is "Published to web".`,
+          message:
+            'Unable to access or parse Google Sheet content. Please verify link sharing is set to "Anyone with the link can view" or the sheet is published to web.',
         },
         { status: 400 }
       );
     }
 
-    const arrayBuffer = await res.arrayBuffer();
-    if (arrayBuffer.byteLength < 50) {
+    // Resolve target sheet
+    let targetSheetObj = workbook.Sheets[selectedSheetName];
+    if (!targetSheetObj) {
+      const cleanReq = requestedSheet.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const foundName =
+        workbook.SheetNames.find((s) => s.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanReq) ||
+        workbook.SheetNames.find((s) => s.toLowerCase().replace(/[^a-z0-9]/g, '').includes('resultview')) ||
+        workbook.SheetNames.find((s) => s.toLowerCase().replace(/[^a-z0-9]/g, '').includes('result'));
+
+      if (foundName) {
+        selectedSheetName = foundName;
+        targetSheetObj = workbook.Sheets[foundName];
+      } else {
+        selectedSheetName = workbook.SheetNames[0];
+        targetSheetObj = workbook.Sheets[workbook.SheetNames[0]];
+      }
+    }
+
+    if (!targetSheetObj) {
       return NextResponse.json(
-        { success: false, message: 'Downloaded Google Sheet content is empty or invalid.' },
+        { success: false, message: `Could not access subsheet "${selectedSheetName}".` },
         { status: 400 }
       );
     }
 
-    const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
-    const sheetNames = workbook.SheetNames || [];
-    if (sheetNames.length === 0) {
-      return NextResponse.json(
-        { success: false, message: 'No sheets found in the Google Sheet document.' },
-        { status: 400 }
-      );
-    }
-
-    // Target Subsheet Selection:
-    // Look for targetSubsheet (e.g. "Result view") or case-insensitive match
-    const reqSheet = (targetSubsheet || 'Result view').trim().toLowerCase();
-    let selectedSheetName = sheetNames.find((s) => s.toLowerCase() === reqSheet);
-
-    // Fallbacks if "Result view" is slightly varied: "resultview", "results", "result"
-    if (!selectedSheetName) {
-      selectedSheetName = sheetNames.find((s) => {
-        const clean = s.toLowerCase().replace(/[^a-z0-9]/g, '');
-        return clean === 'resultview' || clean.includes('result');
-      });
-    }
-
-    // If still not found, default to first sheet
-    if (!selectedSheetName) {
-      selectedSheetName = sheetNames[0];
-    }
-
-    const sheet = workbook.Sheets[selectedSheetName];
-    if (!sheet) {
-      return NextResponse.json(
-        { success: false, message: `Could not access sheet "${selectedSheetName}".` },
-        { status: 400 }
-      );
-    }
-
-    const rawJson: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    const rawJson: Record<string, any>[] = XLSX.utils.sheet_to_json(targetSheetObj, { defval: '' });
     if (rawJson.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          sheetNames,
+          sheetNames: sheetNames.length > 0 ? sheetNames : [selectedSheetName],
           activeSheetName: selectedSheetName,
           message: `Subsheet "${selectedSheetName}" contains no rows.`,
         },
@@ -339,6 +546,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // Map column aliases with priority on exact clean matches
     const cleanKeyMap = new Map<string, string>();
     const scanLimit = Math.min(rawJson.length, 5);
     for (let i = 0; i < scanLimit; i++) {
@@ -351,24 +559,45 @@ export async function POST(request: Request) {
     }
 
     function findCol(...aliases: string[]): string | null {
+      // Pass 1: exact clean match
       for (const alias of aliases) {
         const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
         if (cleanKeyMap.has(cleanAlias)) return cleanKeyMap.get(cleanAlias)!;
+      }
+      // Pass 2: substring match (minimum length 4 to prevent collision)
+      for (const alias of aliases) {
+        const cleanAlias = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanAlias.length < 4) continue;
         for (const [cleanKey, origKey] of cleanKeyMap) {
-          if (cleanKey.includes(cleanAlias)) return origKey;
+          if (cleanKey === cleanAlias || cleanKey.includes(cleanAlias) || cleanAlias.includes(cleanKey)) {
+            return origKey;
+          }
         }
       }
       return null;
     }
 
-    const colSchedule = findCol('schedule id', 'schedule_id', 'scheduleid', 'schedule', 'slot id');
+    const colSchedule = findCol('schedule id', 'schedule_id', 'scheduleid', 'schedule', 'slot id', 'test id');
     const colCycle = findCol('evaluation cycle', 'eval cycle', 'cycle', 'round');
     const colOpenDate = findCol('result open date', 'open date', 'result open', 'opendate');
     const colCloseDate = findCol('result close date', 'close date', 'result close', 'closedate');
     const colCloseTime = findCol('result close time', 'close time', 'closetime', 'time');
     const colSchool = findCol('school name', 'schoolname', 'school_name', 'school', 'department', 'faculty');
-    const colNextRequired = findCol('next round of evaluation required', 'next round evaluation required', 'next round required', 'next evaluation required', 're-evaluation required', 're-eval required');
-    const colNextAssigned = findCol('next round evaluation assigned', 'next round assigned', 'next evaluation assigned', 'assigned');
+    const colNextRequired = findCol(
+      'next round of evaluation required',
+      'next round evaluation required',
+      'next round required',
+      'next evaluation required',
+      're-evaluation required',
+      're-eval required'
+    );
+    const colNextAssigned = findCol(
+      'next round evaluation assigned',
+      'next round assigned',
+      'next evaluation assigned',
+      're-evaluation assigned',
+      'assigned'
+    );
 
     const schoolsSet = new Set<string>();
 
@@ -403,65 +632,47 @@ export async function POST(request: Request) {
       const schoolName = colSchool ? String(row[colSchool] ?? '').trim() : '';
       if (schoolName) schoolsSet.add(schoolName);
 
-      // 7. Next Round of Evaluation Required (Col G)
+      // 7. Next Round of Evaluation Required (Col G) & Next Round Evaluation Assigned (Col H)
       const rawNextRequired = colNextRequired ? String(row[colNextRequired] ?? '').trim() : '';
-      const isNotRequired =
-        rawNextRequired.toLowerCase().includes('not') ||
-        rawNextRequired.toLowerCase() === 'no';
-      const isExplicitlyRequired =
-        rawNextRequired.toLowerCase() === 'required' ||
-        rawNextRequired.toLowerCase() === 'yes' ||
-        rawNextRequired.toLowerCase() === 'y';
-
-      // Keep blank/empty if not filled! The user fills this only after result close
-      const nextRoundRequired = isNotRequired
-        ? 'Not Required'
-        : isExplicitlyRequired
-        ? 'Required'
-        : rawNextRequired
-        ? rawNextRequired
-        : '';
-
-      // 8. Next Round Evaluation Assigned (Col H)
       const rawNextAssigned = colNextAssigned ? String(row[colNextAssigned] ?? '').trim() : '';
-      const isAssigned =
-        rawNextAssigned.toLowerCase() === 'yes' ||
-        rawNextAssigned.toLowerCase() === 'y' ||
-        rawNextAssigned.toLowerCase().includes('assigned');
-      const nextRoundAssigned = isAssigned ? 'Yes' : rawNextAssigned ? rawNextAssigned : '';
 
-      // Determine Date & Time Expiration against current local time with explicit timezone
+      // Determine Date & Time Expiration against client's local time with explicit timezone
       const closeDateTime = parseCloseDateTime(resultCloseDate, resultCloseTime, effectiveTzOffset);
       const isExpired = closeDateTime ? closeDateTime.getTime() <= now.getTime() : false;
 
-      // Status classification
-      let status: 'EXPIRED_ACTION_REQUIRED' | 'ACTIVE' | 'ASSIGNED' | 'NOT_REQUIRED' = 'ACTIVE';
+      // Status classification based on user requirement:
+      // - Both cells blank & deadline in future => ACTIVE
+      // - Both cells blank & deadline passed => EXPIRED_ACTION_REQUIRED
+      // - Filled with "Not Required" / "No" / "None" / "N/A" => NOT_REQUIRED
+      // - Filled with "Required" / "Yes" / "Assigned" / any entry => ASSIGNED (action taken!)
+      const status = computeResultStatus(rawNextRequired, rawNextAssigned, isExpired);
 
-      if (isAssigned) {
-        // Evaluation assignment completed
-        status = 'ASSIGNED';
-        assignedCount++;
-      } else {
+      if (status === 'EXPIRED_ACTION_REQUIRED') {
+        actionRequiredCount++;
+        expiredCount++;
         notAssignedCount++;
-        if (!isExpired) {
-          // Result is currently open (closes in future)
-          status = 'ACTIVE';
-          activeCount++;
-        } else {
-          // Result close date & time has expired!
-          if (isNotRequired) {
-            // Closed and verified that re-evaluation is not required
-            status = 'NOT_REQUIRED';
-            notRequiredCount++;
-          } else {
-            // Time completed, but Next Round Required is EMPTY (needs review) or 'Required' and not yet assigned!
-            // Triggers critical alert: "Time is completed. Please check re-evaluations and assign."
-            status = 'EXPIRED_ACTION_REQUIRED';
-            actionRequiredCount++;
-            expiredCount++;
-          }
-        }
+      } else if (status === 'ACTIVE') {
+        activeCount++;
+        notAssignedCount++;
+      } else if (status === 'ASSIGNED') {
+        assignedCount++;
+      } else if (status === 'NOT_REQUIRED') {
+        notRequiredCount++;
       }
+
+      const nextRoundRequired = isBlankValue(rawNextRequired)
+        ? ''
+        : isNotRequiredValue(rawNextRequired)
+        ? 'Not Required'
+        : rawNextRequired;
+
+      const nextRoundAssigned = isBlankValue(rawNextAssigned)
+        ? ''
+        : isNotRequiredValue(rawNextAssigned)
+        ? 'Not Required'
+        : rawNextAssigned.toLowerCase() === 'yes' || rawNextAssigned.toLowerCase() === 'y'
+        ? 'Yes'
+        : rawNextAssigned;
 
       return {
         id: `res_${idx + 1}_${scheduleId || idx}`,
@@ -482,7 +693,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      sheetNames,
+      sheetNames: sheetNames.length > 0 ? sheetNames : [selectedSheetName],
       activeSheetName: selectedSheetName,
       totalRows: rows.length,
       actionRequiredCount,
@@ -505,4 +716,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

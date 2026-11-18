@@ -29,6 +29,12 @@ import {
 } from 'lucide-react';
 import { CustomDropdown } from './CustomDropdown';
 import { SegmentedToggle } from './SegmentedToggle';
+import {
+  computeResultStatus,
+  isBlankValue,
+  isNotRequiredValue,
+  isAssignedOrRequiredValue,
+} from '../lib/resultOpsParser';
 
 export interface SavedResultSheet {
   id: string;
@@ -393,17 +399,11 @@ export const ResultOpsDashboard: React.FC = () => {
 
   // Helper to dynamically calculate precise status based on client's local time & timestamps
   const getRowStatus = useCallback((r: ResultRow) => {
-    const isAssigned = r.nextRoundAssigned === 'Yes';
-    const isNotRequired = r.nextRoundRequired === 'Not Required';
     const expired = r.closeTimestamp ? r.closeTimestamp <= Date.now() : r.isExpired;
-
-    if (isAssigned) return 'ASSIGNED';
-    if (!expired) return 'ACTIVE';
-    if (isNotRequired) return 'NOT_REQUIRED';
-    return 'EXPIRED_ACTION_REQUIRED';
+    return computeResultStatus(r.nextRoundRequired, r.nextRoundAssigned, expired);
   }, []);
 
-  // Action Required Schedules (Expired and re-evaluation not yet assigned)
+  // Action Required Schedules (Expired and blanks pending action)
   const actionRequiredRows = useMemo(() => {
     return rows.filter((r) => getRowStatus(r) === 'EXPIRED_ACTION_REQUIRED');
   }, [rows, getRowStatus]);
@@ -413,14 +413,14 @@ export const ResultOpsDashboard: React.FC = () => {
     return rows.filter((r) => getRowStatus(r) === 'ACTIVE');
   }, [rows, getRowStatus]);
 
-  // Next Round Evaluation Assigned: Yes (Completed)
+  // Next Round Evaluation Assigned (Action taken: Required / Yes / Assigned)
   const assignedRows = useMemo(() => {
-    return rows.filter((r) => r.nextRoundAssigned === 'Yes');
-  }, [rows]);
+    return rows.filter((r) => getRowStatus(r) === 'ASSIGNED');
+  }, [rows, getRowStatus]);
 
-  // Next Round of Evaluation Not Required
+  // Next Round of Evaluation Not Required (Action taken: Not Required / No / None / N/A)
   const notRequiredRows = useMemo(() => {
-    return rows.filter((r) => getRowStatus(r) === 'NOT_REQUIRED' || r.nextRoundRequired === 'Not Required');
+    return rows.filter((r) => getRowStatus(r) === 'NOT_REQUIRED');
   }, [rows, getRowStatus]);
 
   // Filtered rows for data table
@@ -1144,13 +1144,13 @@ export const ResultOpsDashboard: React.FC = () => {
 
                       {/* Next Round Required */}
                       <td className="py-3 px-3 whitespace-nowrap">
-                        {r.nextRoundRequired === 'Required' ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 border border-rose-500/30 text-rose-300">
-                            Required
-                          </span>
-                        ) : r.nextRoundRequired === 'Not Required' ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 border border-emerald-500/25 text-emerald-400">
+                        {isNotRequiredValue(r.nextRoundRequired) ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-800 border border-zinc-700 text-zinc-300">
                             Not Required
+                          </span>
+                        ) : isAssignedOrRequiredValue(r.nextRoundRequired) ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/25 text-emerald-400">
+                            {r.nextRoundRequired}
                           </span>
                         ) : (
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-500">
@@ -1161,13 +1161,17 @@ export const ResultOpsDashboard: React.FC = () => {
 
                       {/* Next Round Assigned */}
                       <td className="py-3 px-3 whitespace-nowrap">
-                        {r.nextRoundAssigned === 'Yes' ? (
+                        {isNotRequiredValue(r.nextRoundAssigned) ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-800 border border-zinc-700 text-zinc-300">
+                            Not Required
+                          </span>
+                        ) : isAssignedOrRequiredValue(r.nextRoundAssigned) ? (
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 inline-flex items-center space-x-1">
                             <CheckCircle2 className="w-3 h-3" />
-                            <span>Yes</span>
+                            <span>{r.nextRoundAssigned}</span>
                           </span>
                         ) : (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-zinc-800 border border-zinc-700 text-zinc-400">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-500">
                             Blank / Pending
                           </span>
                         )}
