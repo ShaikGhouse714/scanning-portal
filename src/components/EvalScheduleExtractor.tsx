@@ -16,9 +16,13 @@ import {
   Trash2,
   HelpCircle,
   Building2,
+  CheckCheck,
+  Minus,
+  ChevronDown,
+  ChevronRight,
+  ArrowUpDown,
 } from 'lucide-react';
 import { isMissingOrPlaceholder } from '@/lib/evalOpsParser';
-import { CustomDropdown } from './CustomDropdown';
 
 interface ExtractedRow {
   id: string;
@@ -54,9 +58,16 @@ export const EvalScheduleExtractor: React.FC = () => {
 
   // Table Filter & Search
   const [tableSearch, setTableSearch] = useState<string>('');
-  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('ALL');
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
+
+  // School-wise Checkbox Selection & Sorting State
+  const [selectedScheduleIds, setSelectedScheduleIds] = useState<Set<string>>(new Set());
+  const [expandedSchools, setExpandedSchools] = useState<Set<string>>(new Set());
+  const [schoolSortBy, setSchoolSortBy] = useState<'NAME_ASC' | 'SCHEDULES_DESC' | 'STUDENTS_DESC'>('NAME_ASC');
+  const [schoolSearchQuery, setSchoolSearchQuery] = useState<string>('');
+  const [copiedSelectedIdsSuccess, setCopiedSelectedIdsSuccess] = useState<boolean>(false);
+  const [copiedSchoolKey, setCopiedSchoolKey] = useState<string | null>(null);
 
   // Load saved Google Sheet URL from localStorage on mount
   useEffect(() => {
@@ -173,19 +184,217 @@ export const EvalScheduleExtractor: React.FC = () => {
     return Array.from(found);
   }, [matchedEntries]);
 
+  // Synchronize selectedScheduleIds whenever newly extracted IDs change
+  const foundIdsKey = useMemo(() => foundScheduleIds.slice().sort().join(','), [foundScheduleIds]);
+
+  useEffect(() => {
+    if (foundScheduleIds.length > 0) {
+      setSelectedScheduleIds(new Set(foundScheduleIds));
+    } else {
+      setSelectedScheduleIds(new Set());
+    }
+  }, [foundIdsKey]);
+
   // Which requested Schedule IDs are MISSING from the master sheet
   const missingScheduleIds = useMemo(() => {
     const foundUpper = new Set(foundScheduleIds.map((id) => id.toUpperCase()));
     return parsedTargetScheduleIds.filter((id) => !foundUpper.has(id.toUpperCase()));
   }, [parsedTargetScheduleIds, foundScheduleIds]);
 
-  // Filtered entries according to search query & school filter
+  // Group matched entries school-wise with sub-schedules
+  const schoolGroups = useMemo(() => {
+    if (matchedEntries.length === 0) return [];
+
+    const map = new Map<
+      string,
+      {
+        schoolCode: string;
+        scheduleMap: Map<
+          string,
+          {
+            scheduleId: string;
+            studentCount: number;
+            courseCodes: Set<string>;
+            evaluatorEmails: Set<string>;
+          }
+        >;
+        evaluators: Set<string>;
+        totalStudents: number;
+      }
+    >();
+
+    matchedEntries.forEach((r) => {
+      const sc = (r.schoolCode && r.schoolCode.trim()) ? r.schoolCode.trim() : 'Unassigned School';
+      let g = map.get(sc);
+      if (!g) {
+        g = {
+          schoolCode: sc,
+          scheduleMap: new Map(),
+          evaluators: new Set(),
+          totalStudents: 0,
+        };
+        map.set(sc, g);
+      }
+      const schedId = r.scheduleId;
+      if (schedId) {
+        let sInfo = g.scheduleMap.get(schedId);
+        if (!sInfo) {
+          sInfo = {
+            scheduleId: schedId,
+            studentCount: 0,
+            courseCodes: new Set(),
+            evaluatorEmails: new Set(),
+          };
+          g.scheduleMap.set(schedId, sInfo);
+        }
+        sInfo.studentCount++;
+        if (r.courseCode) sInfo.courseCodes.add(r.courseCode);
+        if (r.evaluatorEmail && !isMissingOrPlaceholder(r.evaluatorEmail)) {
+          sInfo.evaluatorEmails.add(r.evaluatorEmail);
+          g.evaluators.add(r.evaluatorEmail);
+        }
+      }
+      g.totalStudents++;
+    });
+
+    return Array.from(map.values()).map((g) => ({
+      schoolCode: g.schoolCode,
+      schedules: Array.from(g.scheduleMap.values())
+        .map((s) => ({
+          scheduleId: s.scheduleId,
+          studentCount: s.studentCount,
+          courses: Array.from(s.courseCodes),
+          evaluators: Array.from(s.evaluatorEmails),
+        }))
+        .sort((a, b) => a.scheduleId.localeCompare(b.scheduleId, undefined, { numeric: true })),
+      totalSchedules: g.scheduleMap.size,
+      totalStudents: g.totalStudents,
+      evaluatorCount: g.evaluators.size,
+    }));
+  }, [matchedEntries]);
+
+  // Filtered and sorted school groups
+  const sortedSchoolGroups = useMemo(() => {
+    let list = [...schoolGroups];
+    if (schoolSearchQuery.trim()) {
+      const q = schoolSearchQuery.toLowerCase().trim();
+      list = list.filter(
+        (g) =>
+          g.schoolCode.toLowerCase().includes(q) ||
+          g.schedules.some((s) => s.scheduleId.toLowerCase().includes(q))
+      );
+    }
+    if (schoolSortBy === 'SCHEDULES_DESC') {
+      list.sort((a, b) => b.totalSchedules - a.totalSchedules || a.schoolCode.localeCompare(b.schoolCode));
+    } else if (schoolSortBy === 'STUDENTS_DESC') {
+      list.sort((a, b) => b.totalStudents - a.totalStudents || a.schoolCode.localeCompare(b.schoolCode));
+    } else {
+      list.sort((a, b) => a.schoolCode.localeCompare(b.schoolCode));
+    }
+    return list;
+  }, [schoolGroups, schoolSortBy, schoolSearchQuery]);
+
+  // Selected schedule count across all schools
+  const selectedSchedulesCount = useMemo(() => {
+    return foundScheduleIds.filter((id) => selectedScheduleIds.has(id)).length;
+  }, [foundScheduleIds, selectedScheduleIds]);
+
+  // School Checkbox Actions
+  const handleSelectAll = () => {
+    setSelectedScheduleIds(new Set(foundScheduleIds));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedScheduleIds(new Set());
+  };
+
+  const handleInvertSelection = () => {
+    const next = new Set<string>();
+    foundScheduleIds.forEach((id) => {
+      if (!selectedScheduleIds.has(id)) next.add(id);
+    });
+    setSelectedScheduleIds(next);
+  };
+
+  const handleToggleSchool = (schoolCode: string) => {
+    const grp = schoolGroups.find((g) => g.schoolCode === schoolCode);
+    if (!grp) return;
+    const grpScheduleIds = grp.schedules.map((s) => s.scheduleId);
+    const allSelected = grpScheduleIds.every((id) => selectedScheduleIds.has(id));
+
+    setSelectedScheduleIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        grpScheduleIds.forEach((id) => next.delete(id));
+      } else {
+        grpScheduleIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const handleSelectOnlySchool = (schoolCode: string) => {
+    const grp = schoolGroups.find((g) => g.schoolCode === schoolCode);
+    if (!grp) return;
+    const grpScheduleIds = grp.schedules.map((s) => s.scheduleId);
+    setSelectedScheduleIds(new Set(grpScheduleIds));
+  };
+
+  const handleToggleSchedule = (scheduleId: string) => {
+    setSelectedScheduleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(scheduleId)) {
+        next.delete(scheduleId);
+      } else {
+        next.add(scheduleId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleExpandSchool = (schoolCode: string) => {
+    setExpandedSchools((prev) => {
+      const next = new Set(prev);
+      if (next.has(schoolCode)) {
+        next.delete(schoolCode);
+      } else {
+        next.add(schoolCode);
+      }
+      return next;
+    });
+  };
+
+  const handleExpandAllSchools = () => {
+    setExpandedSchools(new Set(schoolGroups.map((g) => g.schoolCode)));
+  };
+
+  const handleCollapseAllSchools = () => {
+    setExpandedSchools(new Set());
+  };
+
+  const handleCopySelectedIds = () => {
+    const list = foundScheduleIds.filter((id) => selectedScheduleIds.has(id));
+    if (list.length === 0) return;
+    navigator.clipboard.writeText(list.join(', '));
+    setCopiedSelectedIdsSuccess(true);
+    setTimeout(() => setCopiedSelectedIdsSuccess(false), 2000);
+  };
+
+  const handleCopySchoolScheduleIds = (schoolCode: string) => {
+    const grp = schoolGroups.find((g) => g.schoolCode === schoolCode);
+    if (!grp) return;
+    const ids = grp.schedules.map((s) => s.scheduleId);
+    navigator.clipboard.writeText(ids.join(', '));
+    setCopiedSchoolKey(schoolCode);
+    setTimeout(() => setCopiedSchoolKey(null), 2000);
+  };
+
+  // Filtered entries according to search query & selected school schedule checkboxes
   const displayedEntries = useMemo(() => {
     let list = matchedEntries;
 
-    if (selectedSchoolFilter !== 'ALL') {
-      list = list.filter((r) => (r.schoolCode || '').toUpperCase() === selectedSchoolFilter.toUpperCase());
-    }
+    // Filter by selected schedule IDs (from the school-wise selector checkboxes)
+    list = list.filter((r) => r.scheduleId && selectedScheduleIds.has(r.scheduleId));
 
     if (tableSearch.trim()) {
       const q = tableSearch.toLowerCase().trim();
@@ -203,7 +412,7 @@ export const EvalScheduleExtractor: React.FC = () => {
     }
 
     return list;
-  }, [matchedEntries, selectedSchoolFilter, tableSearch]);
+  }, [matchedEntries, selectedScheduleIds, tableSearch]);
 
   // Format comma separated neatly
   const handleCleanFormatInput = () => {
@@ -642,16 +851,352 @@ export const EvalScheduleExtractor: React.FC = () => {
             </div>
           )}
 
-          {/* Extracted Data Table Card (Strictly 3 Columns) */}
+          {/* SCHOOL-WISE SCHEDULE SELECTOR (Interactive Checkboxes for checking from user end) */}
+          {schoolGroups.length > 0 && (
+            <div className="rounded-2xl bg-[#09090b] border border-[#27272a] p-4 sm:p-5 space-y-4 shadow-xl">
+              {/* Header & Global Quick Actions */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-3.5 border-b border-[#222222] gap-3">
+                <div className="flex items-start sm:items-center space-x-3">
+                  <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/20 text-white flex items-center justify-center shrink-0">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                        School-wise Schedule Selector
+                      </h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
+                        {schoolGroups.length} {schoolGroups.length === 1 ? 'School' : 'Schools'} Detected
+                      </span>
+                      {selectedSchedulesCount < foundScheduleIds.length && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+                          {selectedSchedulesCount} of {foundScheduleIds.length} Schedules Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                      Select or deselect schools and individual schedules with checkboxes to check allocations from your end.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Quick Action Buttons */}
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSelectAll}
+                    className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-[11px] font-mono transition-colors"
+                    title="Select all schools and schedules"
+                  >
+                    <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Select All</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDeselectAll}
+                    className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-[#27272a] text-zinc-300 hover:text-white text-[11px] font-mono transition-colors"
+                    title="Deselect all schools and schedules"
+                  >
+                    <Minus className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Clear All</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleInvertSelection}
+                    className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-[#27272a] text-zinc-300 hover:text-white text-[11px] font-mono transition-colors"
+                    title="Invert current checkbox selection"
+                  >
+                    <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Invert</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopySelectedIds}
+                    disabled={selectedSchedulesCount === 0}
+                    className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-[11px] font-mono transition-colors disabled:opacity-40"
+                    title="Copy comma-separated Schedule IDs of all checked items"
+                  >
+                    {copiedSelectedIdsSuccess ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 text-zinc-300" />
+                    )}
+                    <span>{copiedSelectedIdsSuccess ? 'Copied IDs!' : `Copy Selected IDs (${selectedSchedulesCount})`}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter & Sort Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs font-mono">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* School Search */}
+                  {schoolGroups.length > 2 && (
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-500" />
+                      <input
+                        type="text"
+                        value={schoolSearchQuery}
+                        onChange={(e) => setSchoolSearchQuery(e.target.value)}
+                        placeholder="Filter schools..."
+                        className="bg-[#000000] border border-[#27272a] focus:border-zinc-500 focus:outline-none rounded-lg pl-7 pr-3 py-1 text-[11px] text-white placeholder-zinc-500 w-36"
+                      />
+                      {schoolSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSchoolSearchQuery('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Sorting */}
+                  <div className="flex items-center space-x-1 text-[11px] text-zinc-400">
+                    <span className="text-zinc-500 hidden sm:inline">Sort:</span>
+                    <button
+                      type="button"
+                      onClick={() => setSchoolSortBy('NAME_ASC')}
+                      className={`px-2 py-0.5 rounded transition-colors ${
+                        schoolSortBy === 'NAME_ASC'
+                          ? 'bg-white text-black font-bold'
+                          : 'bg-zinc-900 text-zinc-400 hover:text-white border border-[#27272a]'
+                      }`}
+                    >
+                      School A-Z
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSchoolSortBy('SCHEDULES_DESC')}
+                      className={`px-2 py-0.5 rounded transition-colors ${
+                        schoolSortBy === 'SCHEDULES_DESC'
+                          ? 'bg-white text-black font-bold'
+                          : 'bg-zinc-900 text-zinc-400 hover:text-white border border-[#27272a]'
+                      }`}
+                    >
+                      Most Schedules
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSchoolSortBy('STUDENTS_DESC')}
+                      className={`px-2 py-0.5 rounded transition-colors ${
+                        schoolSortBy === 'STUDENTS_DESC'
+                          ? 'bg-white text-black font-bold'
+                          : 'bg-zinc-900 text-zinc-400 hover:text-white border border-[#27272a]'
+                      }`}
+                    >
+                      Most Students
+                    </button>
+                  </div>
+                </div>
+
+                {/* Expand / Collapse All */}
+                <div className="flex items-center space-x-2 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={handleExpandAllSchools}
+                    className="text-zinc-400 hover:text-white transition-colors"
+                  >
+                    Expand All
+                  </button>
+                  <span className="text-zinc-600">|</span>
+                  <button
+                    type="button"
+                    onClick={handleCollapseAllSchools}
+                    className="text-zinc-400 hover:text-white transition-colors"
+                  >
+                    Collapse All
+                  </button>
+                </div>
+              </div>
+
+              {/* Schools Cards List */}
+              <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+                {sortedSchoolGroups.map((group) => {
+                  const isExpanded = expandedSchools.has(group.schoolCode);
+                  const groupScheduleIds = group.schedules.map((s) => s.scheduleId);
+                  const selectedInGroup = groupScheduleIds.filter((id) => selectedScheduleIds.has(id));
+                  const allSelected = selectedInGroup.length === groupScheduleIds.length && groupScheduleIds.length > 0;
+                  const someSelected = selectedInGroup.length > 0 && !allSelected;
+
+                  return (
+                    <div
+                      key={group.schoolCode}
+                      className={`rounded-xl border transition-all ${
+                        allSelected
+                          ? 'bg-[#121214] border-zinc-700/80'
+                          : someSelected
+                          ? 'bg-[#101012] border-amber-500/30'
+                          : 'bg-[#0b0b0c] border-[#222222] opacity-75'
+                      }`}
+                    >
+                      {/* Main School Row */}
+                      <div className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="flex items-center space-x-3">
+                          {/* Checkbox */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSchool(group.schoolCode)}
+                            className="flex items-center justify-center p-0.5 rounded hover:ring-1 hover:ring-white transition-all shrink-0"
+                            title={allSelected ? 'Deselect all schedules in school' : 'Select all schedules in school'}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded flex items-center justify-center transition-colors ${
+                                allSelected
+                                  ? 'bg-white text-black font-bold'
+                                  : someSelected
+                                  ? 'bg-amber-400 text-black font-bold'
+                                  : 'bg-zinc-900 border border-zinc-700 hover:border-zinc-500'
+                              }`}
+                            >
+                              {allSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                              {someSelected && <Minus className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                          </button>
+
+                          {/* School Name & Badges */}
+                          <div
+                            className="cursor-pointer select-none"
+                            onClick={() => handleToggleSchool(group.schoolCode)}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <span className="font-bold text-white text-xs font-mono tracking-wide">
+                                {group.schoolCode}
+                              </span>
+                              <span
+                                className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold ${
+                                  allSelected
+                                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                    : someSelected
+                                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                    : 'bg-zinc-800 text-zinc-400'
+                                }`}
+                              >
+                                {selectedInGroup.length} / {group.totalSchedules} Schedules
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Meta Info & Quick Actions */}
+                        <div className="flex items-center space-x-2 text-[11px] font-mono text-zinc-400 pl-7 sm:pl-0">
+                          <span className="bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800 text-zinc-300">
+                            {group.totalStudents} Students
+                          </span>
+                          {group.evaluatorCount > 0 && (
+                            <span className="bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800 text-zinc-400 hidden sm:inline">
+                              {group.evaluatorCount} Evaluators
+                            </span>
+                          )}
+
+                          {/* Only button */}
+                          <button
+                            type="button"
+                            onClick={() => handleSelectOnlySchool(group.schoolCode)}
+                            className="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+                            title="Select only this school"
+                          >
+                            Only
+                          </button>
+
+                          {/* Copy School IDs */}
+                          <button
+                            type="button"
+                            onClick={() => handleCopySchoolScheduleIds(group.schoolCode)}
+                            className="p-1 rounded text-zinc-500 hover:text-white transition-colors"
+                            title={`Copy Schedule IDs for ${group.schoolCode}`}
+                          >
+                            {copiedSchoolKey === group.schoolCode ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+
+                          {/* Expand/Collapse Toggle */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleExpandSchool(group.schoolCode)}
+                            className="p-1 rounded text-zinc-400 hover:text-white transition-colors"
+                            title={isExpanded ? 'Collapse schedule list' : 'Expand schedule list'}
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="w-3.5 h-3.5 text-white" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Expanded Schedules Grid */}
+                      {isExpanded && (
+                        <div className="p-3 pt-0 border-t border-[#1e1e21] mt-1 space-y-2">
+                          <div className="text-[10px] text-zinc-500 font-mono flex items-center justify-between pt-2">
+                            <span>Individual Schedules ({group.schedules.length}): Click any schedule to check/uncheck</span>
+                            <span className="text-zinc-400">
+                              {selectedInGroup.length} of {group.schedules.length} selected
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {group.schedules.map((sched) => {
+                              const isSchedSelected = selectedScheduleIds.has(sched.scheduleId);
+                              return (
+                                <button
+                                  key={sched.scheduleId}
+                                  type="button"
+                                  onClick={() => handleToggleSchedule(sched.scheduleId)}
+                                  className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border ${
+                                    isSchedSelected
+                                      ? 'bg-zinc-800 hover:bg-zinc-700 text-white border-zinc-600 shadow-sm'
+                                      : 'bg-zinc-950 text-zinc-500 border-zinc-800 hover:border-zinc-700'
+                                  }`}
+                                  title={`Schedule ${sched.scheduleId} (${sched.studentCount} students)`}
+                                >
+                                  <div
+                                    className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 ${
+                                      isSchedSelected
+                                        ? 'bg-white text-black font-bold'
+                                        : 'bg-zinc-900 border border-zinc-700'
+                                    }`}
+                                  >
+                                    {isSchedSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                  </div>
+                                  <span className="font-bold">{sched.scheduleId}</span>
+                                  <span className="text-[10px] text-zinc-400">({sched.studentCount})</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Extracted Data Table Card (Strictly 3 Columns: SCHEDULE ID, EVALUATOR EMAIL ID, STUDENT DETAILS) */}
           <div className="bg-[#09090b] rounded-2xl border border-[#27272a] overflow-hidden shadow-2xl space-y-3">
             <div className="p-4 border-b border-[#27272a] flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex items-center space-x-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
                   Extracted Records ({displayedEntries.length.toLocaleString()})
                 </h4>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
                   Cols A to C (Evaluation assignment.xlsx)
                 </span>
+                {selectedSchedulesCount < foundScheduleIds.length && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+                    {selectedSchedulesCount} of {foundScheduleIds.length} Schedules Selected
+                  </span>
+                )}
               </div>
 
               {/* Table Filters & Export Actions */}
@@ -677,28 +1222,12 @@ export const EvalScheduleExtractor: React.FC = () => {
                   )}
                 </div>
 
-                {/* School Filter Dropdown */}
-                {availableSchools.length > 1 && (
-                  <CustomDropdown
-                    size="sm"
-                    menuAlign="right"
-                    value={selectedSchoolFilter}
-                    onChange={setSelectedSchoolFilter}
-                    icon={Building2}
-                    placeholder="All Schools"
-                    minMenuWidth="min-w-[200px]"
-                    options={[
-                      { value: 'ALL', label: `All Schools (${availableSchools.length})` },
-                      ...availableSchools.map((s) => ({ value: s, label: s })),
-                    ]}
-                  />
-                )}
-
                 {/* Copy Table */}
                 <button
                   type="button"
                   onClick={handleCopyTable}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-[#27272a] hover:bg-[#121214] text-zinc-300 hover:text-white text-xs font-mono transition-colors"
+                  disabled={displayedEntries.length === 0}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-[#27272a] hover:bg-[#121214] text-zinc-300 hover:text-white text-xs font-mono transition-colors disabled:opacity-40"
                   title="Copy 3 columns to clipboard"
                 >
                   {copiedSuccess ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
@@ -710,7 +1239,7 @@ export const EvalScheduleExtractor: React.FC = () => {
                   type="button"
                   onClick={handleExportFilteredExcel}
                   disabled={displayedEntries.length === 0}
-                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-colors shadow-sm shrink-0"
+                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-colors shadow-sm shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                   title="Download 'Evaluation assignment.xlsx' (Schedule ID, Evaluator Email, Student Details)"
                 >
                   <Download className="w-3.5 h-3.5" />
@@ -732,8 +1261,10 @@ export const EvalScheduleExtractor: React.FC = () => {
                 <tbody className="divide-y divide-[#27272a] font-mono text-zinc-300">
                   {displayedEntries.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="py-12 text-center text-zinc-500 text-xs">
-                        No entries match your target Schedule IDs or search filters.
+                      <td colSpan={3} className="py-12 text-center text-zinc-500 text-xs font-mono">
+                        {selectedScheduleIds.size === 0
+                          ? 'No schedules selected. Please check at least one school or schedule checkbox above.'
+                          : 'No entries match your target Schedule IDs or search filters.'}
                       </td>
                     </tr>
                   ) : (
