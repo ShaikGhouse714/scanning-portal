@@ -35,6 +35,8 @@ import {
   AlertCircle,
   Maximize2,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   X,
   Building2,
   CalendarDays,
@@ -92,10 +94,11 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
   onOpenAccountModal,
   usersCount = 0,
 }) => {
-  // Matrix Filters
+  // Matrix Filters & Sorting
   const [selectedDate, setSelectedDate] = useState<string>('all');
   const [selectedSchool, setSelectedSchool] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'discrepancy' | 'matched'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'discrepancy' | 'unmatched' | 'matched' | 'ignored'>('all');
+  const [matrixSortBy, setMatrixSortBy] = useState<string>('arrangement_unmatched_first');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Teammates Tab Filters
@@ -130,6 +133,35 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
     if (!selectedTeammateModal) return null;
     return teammates.find((t) => t.name === selectedTeammateModal.name) || selectedTeammateModal;
   }, [selectedTeammateModal, teammates]);
+
+  // Helper: Get portal upload and variance for a specific teammate entry
+  const getEntryPortalInfo = (entry: TeamSubsheetEntry) => {
+    if (portalSlots.length === 0) return { uploaded: null, variance: null };
+    if (entry.isIgnored) return { uploaded: 0, variance: 0 };
+    const m = matrix.find(
+      (item) => item.date === entry.date && (item.schoolCode === entry.schoolCode || item.schoolName === entry.school)
+    );
+    if (!m) return { uploaded: 0, variance: entry.receivedCount };
+    return { uploaded: m.portalCompleted, variance: entry.receivedCount - m.portalCompleted };
+  };
+
+  // Portal uploaded total and variance for active modal teammate
+  const modalPortalUploaded = useMemo(() => {
+    if (!activeModalTeammate || portalSlots.length === 0) return null;
+    const entries = activeModalTeammate.entries.filter((e) => !e.isIgnored);
+    const keys = new Set(entries.map((e) => `${e.date}_${e.schoolCode}`));
+    let sum = 0;
+    for (const k of keys) {
+      const m = matrix.find((item) => item.key === k);
+      if (m) sum += m.portalCompleted;
+    }
+    return sum;
+  }, [activeModalTeammate, portalSlots, matrix]);
+
+  const modalVariance = useMemo(() => {
+    if (!activeModalTeammate || modalPortalUploaded === null) return null;
+    return activeModalTeammate.totalReceived - modalPortalUploaded;
+  }, [activeModalTeammate, modalPortalUploaded]);
 
   // Sorted & Filtered entries for selected teammate
   const sortedTeammateEntries = useMemo(() => {
@@ -186,15 +218,31 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
       existing.count += 1;
       map.set(e.date, existing);
     }
-    const list = Array.from(map.values()).map((item) => ({
-      date: item.date,
-      received: item.received,
-      scanned: item.scanned,
-      schools: Array.from(item.schools),
-      batchesCount: item.count,
-      backlog: item.received - item.scanned,
-      completion: item.received > 0 ? (item.scanned / item.received) * 100 : 0,
-    }));
+    const list = Array.from(map.values()).map((item) => {
+      let portalUploaded = 0;
+      for (const sch of item.schools) {
+        const m = matrix.find(
+          (entry) => entry.date === item.date && (entry.schoolCode === sch || entry.schoolName === sch)
+        );
+        if (m) portalUploaded += m.portalCompleted;
+      }
+      const variance = portalSlots.length > 0 ? item.received - portalUploaded : item.received - item.scanned;
+      const comp =
+        item.received > 0
+          ? ((portalSlots.length > 0 ? portalUploaded : item.scanned) / item.received) * 100
+          : 0;
+      return {
+        date: item.date,
+        received: item.received,
+        scanned: item.scanned,
+        portalUploaded: portalSlots.length > 0 ? portalUploaded : null,
+        variance: portalSlots.length > 0 ? variance : null,
+        schools: Array.from(item.schools),
+        batchesCount: item.count,
+        backlog: variance,
+        completion: comp,
+      };
+    });
 
     if (teammateSortBy === 'date_asc') {
       list.sort((a, b) => a.date.localeCompare(b.date));
@@ -202,7 +250,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
       list.sort((a, b) => b.date.localeCompare(a.date));
     }
     return list;
-  }, [activeModalTeammate, teammateSortBy]);
+  }, [activeModalTeammate, teammateSortBy, matrix, portalSlots]);
 
   // School-wise Aggregation for selected teammate
   const schoolwiseAggregation = useMemo(() => {
@@ -234,16 +282,32 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
       existing.count += 1;
       map.set(code, existing);
     }
-    const list = Array.from(map.values()).map((item) => ({
-      schoolCode: item.schoolCode,
-      schoolName: item.schoolName,
-      received: item.received,
-      scanned: item.scanned,
-      dates: Array.from(item.dates),
-      batchesCount: item.count,
-      backlog: item.received - item.scanned,
-      completion: item.received > 0 ? (item.scanned / item.received) * 100 : 0,
-    }));
+    const list = Array.from(map.values()).map((item) => {
+      let portalUploaded = 0;
+      for (const d of item.dates) {
+        const m = matrix.find(
+          (entry) => entry.date === d && (entry.schoolCode === item.schoolCode || entry.schoolName === item.schoolName)
+        );
+        if (m) portalUploaded += m.portalCompleted;
+      }
+      const variance = portalSlots.length > 0 ? item.received - portalUploaded : item.received - item.scanned;
+      const comp =
+        item.received > 0
+          ? ((portalSlots.length > 0 ? portalUploaded : item.scanned) / item.received) * 100
+          : 0;
+      return {
+        schoolCode: item.schoolCode,
+        schoolName: item.schoolName,
+        received: item.received,
+        scanned: item.scanned,
+        portalUploaded: portalSlots.length > 0 ? portalUploaded : null,
+        variance: portalSlots.length > 0 ? variance : null,
+        dates: Array.from(item.dates),
+        batchesCount: item.count,
+        backlog: variance,
+        completion: comp,
+      };
+    });
 
     if (teammateSortBy === 'school_desc') {
       list.sort((a, b) => b.schoolCode.localeCompare(a.schoolCode));
@@ -251,7 +315,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
       list.sort((a, b) => a.schoolCode.localeCompare(b.schoolCode));
     }
     return list;
-  }, [activeModalTeammate, teammateSortBy]);
+  }, [activeModalTeammate, teammateSortBy, matrix, portalSlots]);
 
   // Sheet URL input state inside settings
   const [sheetUrlInput, setSheetUrlInput] = useState<string>(googleSheetUrl);
@@ -280,21 +344,74 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
     })),
   ], [availableSchools]);
 
+  // Matrix counts for badges and segmented tabs
+  const matrixCounts = useMemo(() => {
+    let unmatched = 0;
+    let matched = 0;
+    let ignored = 0;
+    for (const m of matrix) {
+      if (m.isIgnored || m.status === 'ignored_no_live_sheet' || m.status === 'portal_only' || m.status === 'ignored_no_exam') {
+        ignored++;
+      } else if (m.status === 'matched') {
+        matched++;
+      } else {
+        unmatched++;
+      }
+    }
+    return { unmatched, matched, ignored, total: matrix.length };
+  }, [matrix]);
+
   const statusOptions: DropdownOption[] = useMemo(() => [
-    { value: 'all', label: 'All Statuses' },
+    { value: 'all', label: `All Batches (${matrixCounts.total})` },
     {
-      value: 'discrepancy',
-      label: 'Discrepancy / Backlog Only',
-      badge: 'Backlog',
+      value: 'unmatched',
+      label: `Unmatched Discrepancies (${matrixCounts.unmatched})`,
+      badge: 'Discrepancy',
       badgeColor: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
     },
     {
       value: 'matched',
-      label: '100% Synchronized Only',
+      label: `Matched / Synchronized (${matrixCounts.matched})`,
       badge: 'All Clear',
       badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
     },
+    {
+      value: 'ignored',
+      label: `Ignored Entries (${matrixCounts.ignored})`,
+      badge: 'Ignored',
+      badgeColor: 'bg-zinc-800 text-zinc-400 border border-zinc-700',
+    },
+  ], [matrixCounts]);
+
+  const matrixSortOptions: DropdownOption[] = useMemo(() => [
+    { value: 'arrangement_unmatched_first', label: 'Unmatched First → Matched → Ignored' },
+    { value: 'arrangement_matched_first', label: 'Matched First → Unmatched → Ignored' },
+    { value: 'date_desc', label: 'Date: Newest First' },
+    { value: 'date_asc', label: 'Date: Oldest First' },
+    { value: 'school_asc', label: 'School: A → Z' },
+    { value: 'school_desc', label: 'School: Z → A' },
+    { value: 'variance_desc', label: 'Variance: Highest Discrepancy' },
+    { value: 'received_desc', label: 'Physical Received: High to Low' },
+    { value: 'portal_desc', label: 'Portal Completed: High to Low' },
   ], []);
+
+  const handleMatrixSort = (field: 'date' | 'school' | 'received' | 'portal' | 'variance' | 'status') => {
+    if (field === 'date') {
+      setMatrixSortBy((prev) => (prev === 'date_desc' ? 'date_asc' : 'date_desc'));
+    } else if (field === 'school') {
+      setMatrixSortBy((prev) => (prev === 'school_asc' ? 'school_desc' : 'school_asc'));
+    } else if (field === 'received') {
+      setMatrixSortBy((prev) => (prev === 'received_desc' ? 'received_asc' : 'received_desc'));
+    } else if (field === 'portal') {
+      setMatrixSortBy((prev) => (prev === 'portal_desc' ? 'portal_asc' : 'portal_desc'));
+    } else if (field === 'variance') {
+      setMatrixSortBy((prev) => (prev === 'variance_desc' ? 'variance_asc' : 'variance_desc'));
+    } else if (field === 'status') {
+      setMatrixSortBy((prev) =>
+        prev === 'arrangement_unmatched_first' ? 'arrangement_matched_first' : 'arrangement_unmatched_first'
+      );
+    }
+  };
 
   const teammateSortOptions: DropdownOption[] = useMemo(() => [
     { value: 'date_desc', label: 'Daywise: Newest First' },
@@ -513,13 +630,27 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
     return list;
   }, [portalSlots, portalSortBy]);
 
-  // Filtered matrix for Intake vs Portal view
+  // Filtered matrix for Intake vs Portal view with sorting & arrangement
   const filteredMatrix = useMemo(() => {
-    return matrix.filter((item) => {
+    const list = matrix.filter((item) => {
       if (selectedDate !== 'all' && item.date !== selectedDate) return false;
       if (selectedSchool !== 'all' && item.schoolCode !== selectedSchool) return false;
-      if (statusFilter === 'discrepancy' && item.status === 'matched') return false;
-      if (statusFilter === 'matched' && item.status !== 'matched') return false;
+
+      const isIgnored =
+        item.isIgnored ||
+        item.status === 'ignored_no_live_sheet' ||
+        item.status === 'portal_only' ||
+        item.status === 'ignored_no_exam';
+      const isMatched = item.status === 'matched';
+      const isUnmatched = !isIgnored && !isMatched;
+
+      if (statusFilter === 'discrepancy' || statusFilter === 'unmatched') {
+        if (!isUnmatched) return false;
+      } else if (statusFilter === 'matched') {
+        if (!isMatched) return false;
+      } else if (statusFilter === 'ignored') {
+        if (!isIgnored) return false;
+      }
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -539,7 +670,87 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
       return true;
     });
-  }, [matrix, selectedDate, selectedSchool, statusFilter, searchQuery]);
+
+    list.sort((a, b) => {
+      const isIgnoredA =
+        a.isIgnored ||
+        a.status === 'ignored_no_live_sheet' ||
+        a.status === 'portal_only' ||
+        a.status === 'ignored_no_exam';
+      const isIgnoredB =
+        b.isIgnored ||
+        b.status === 'ignored_no_live_sheet' ||
+        b.status === 'portal_only' ||
+        b.status === 'ignored_no_exam';
+      const isMatchedA = a.status === 'matched';
+      const isMatchedB = b.status === 'matched';
+
+      if (matrixSortBy === 'arrangement_unmatched_first') {
+        // Group 1: Unmatched at a place (Rank 1)
+        // Group 2: Matched at a place (Rank 2)
+        // Group 3: Ignored in last (Rank 3)
+        const rankA = isIgnoredA ? 3 : isMatchedA ? 2 : 1;
+        const rankB = isIgnoredB ? 3 : isMatchedB ? 2 : 1;
+        if (rankA !== rankB) return rankA - rankB;
+        if (rankA === 1) {
+          if (Math.abs(b.discrepancy) !== Math.abs(a.discrepancy)) {
+            return Math.abs(b.discrepancy) - Math.abs(a.discrepancy);
+          }
+        }
+        const dComp = b.date.localeCompare(a.date);
+        if (dComp !== 0) return dComp;
+        return a.schoolCode.localeCompare(b.schoolCode);
+      }
+
+      if (matrixSortBy === 'arrangement_matched_first') {
+        const rankA = isIgnoredA ? 3 : isMatchedA ? 1 : 2;
+        const rankB = isIgnoredB ? 3 : isMatchedB ? 1 : 2;
+        if (rankA !== rankB) return rankA - rankB;
+        const dComp = b.date.localeCompare(a.date);
+        if (dComp !== 0) return dComp;
+        return a.schoolCode.localeCompare(b.schoolCode);
+      }
+
+      if (matrixSortBy === 'date_desc') {
+        const d = b.date.localeCompare(a.date);
+        return d !== 0 ? d : a.schoolCode.localeCompare(b.schoolCode);
+      }
+      if (matrixSortBy === 'date_asc') {
+        const d = a.date.localeCompare(b.date);
+        return d !== 0 ? d : a.schoolCode.localeCompare(b.schoolCode);
+      }
+      if (matrixSortBy === 'school_asc') {
+        const s = a.schoolCode.localeCompare(b.schoolCode);
+        return s !== 0 ? s : b.date.localeCompare(a.date);
+      }
+      if (matrixSortBy === 'school_desc') {
+        const s = b.schoolCode.localeCompare(a.schoolCode);
+        return s !== 0 ? s : b.date.localeCompare(a.date);
+      }
+      if (matrixSortBy === 'variance_desc') {
+        return Math.abs(b.discrepancy) - Math.abs(a.discrepancy);
+      }
+      if (matrixSortBy === 'variance_asc') {
+        return Math.abs(a.discrepancy) - Math.abs(b.discrepancy);
+      }
+      if (matrixSortBy === 'received_desc') {
+        return b.teamReceived - a.teamReceived;
+      }
+      if (matrixSortBy === 'received_asc') {
+        return a.teamReceived - b.teamReceived;
+      }
+      if (matrixSortBy === 'portal_desc') {
+        return b.portalCompleted - a.portalCompleted;
+      }
+      if (matrixSortBy === 'portal_asc') {
+        return a.portalCompleted - b.portalCompleted;
+      }
+
+      return 0;
+    });
+
+    return list;
+  }, [matrix, selectedDate, selectedSchool, statusFilter, searchQuery, matrixSortBy]);
 
   // Filtered teammates for Teammates view
   const filteredTeammates = useMemo(() => {
@@ -1262,38 +1473,198 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
           {/* Master Reconciliation Table */}
           <div className="bg-[#09090b] rounded-2xl border border-[#27272a] overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-[#27272a] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-semibold text-white">
-                  Date-Wise &amp; School-Wise Reconciliation Matrix
-                </span>
-                <span className="text-[11px] text-zinc-500 font-mono">
-                  ({filteredMatrix.length} batches)
-                </span>
+            {/* Table Header & Controls Toolbar */}
+            <div className="p-4 border-b border-[#27272a] flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+              {/* Left: Title + Segmented Status Pills */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-bold text-white tracking-wide">
+                    Date-Wise &amp; School-Wise Reconciliation Matrix
+                  </span>
+                  <span className="text-[11px] text-zinc-500 font-mono">
+                    ({filteredMatrix.length} shown)
+                  </span>
+                </div>
+
+                {/* Quick Segmented Status Filter Tabs */}
+                <div className="flex items-center p-0.5 rounded-lg bg-[#121214] border border-[#27272a]">
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('all')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                      statusFilter === 'all'
+                        ? 'bg-[#27272a] text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    All ({matrixCounts.total})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('unmatched')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                      statusFilter === 'unmatched' || statusFilter === 'discrepancy'
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        : 'text-zinc-400 hover:text-rose-300'
+                    }`}
+                  >
+                    Unmatched ({matrixCounts.unmatched})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('matched')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                      statusFilter === 'matched'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'text-zinc-400 hover:text-emerald-300'
+                    }`}
+                  >
+                    Matched ({matrixCounts.matched})
+                  </button>
+                  {matrixCounts.ignored > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter('ignored')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                        statusFilter === 'ignored'
+                          ? 'bg-zinc-800 text-zinc-300 border border-zinc-700'
+                          : 'text-zinc-400 hover:text-zinc-300'
+                      }`}
+                    >
+                      Ignored ({matrixCounts.ignored})
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="relative w-56">
-                <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search school, course, teammate..."
-                  className="w-full text-xs pl-8 pr-3 py-1.5 bg-[#121214] border border-[#27272a] rounded-lg text-zinc-200 focus:outline-none"
-                />
+              {/* Right: Sort Dropdown + Search Box */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Arrangement / Sort Dropdown */}
+                <div className="flex items-center space-x-1.5">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                  <CustomDropdown
+                    value={matrixSortBy}
+                    options={matrixSortOptions}
+                    onChange={setMatrixSortBy}
+                    minMenuWidth="min-w-[280px]"
+                  />
+                </div>
+
+                {/* Search Box */}
+                <div className="relative w-52 sm:w-60">
+                  <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search school, course..."
+                    className="w-full text-xs pl-8 pr-7 py-1.5 bg-[#121214] border border-[#27272a] rounded-lg text-zinc-200 focus:outline-none focus:border-zinc-500 transition-colors"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#000000] text-zinc-400 font-semibold uppercase tracking-wider text-[10px] border-b border-[#27272a]">
+                <thead className="bg-[#000000] text-zinc-400 font-semibold uppercase tracking-wider text-[10px] border-b border-[#27272a] select-none">
                   <tr>
-                    <th className="py-3 px-4">DATE</th>
-                    <th className="py-3 px-4">SCHOOL / FACULTY</th>
-                    <th className="py-3 px-4 text-right">PHYSICAL RECEIVED</th>
-                    <th className="py-3 px-4 text-right">PORTAL COMPLETED</th>
-                    <th className="py-3 px-4 text-right">VARIANCE</th>
-                    <th className="py-3 px-4 text-center">STATUS</th>
+                    <th
+                      className="py-3 px-4 cursor-pointer hover:text-white transition-colors"
+                      onClick={() => handleMatrixSort('date')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>DATE</span>
+                        {matrixSortBy === 'date_desc' ? (
+                          <ArrowDown className="w-3 h-3 text-cyan-400" />
+                        ) : matrixSortBy === 'date_asc' ? (
+                          <ArrowUp className="w-3 h-3 text-cyan-400" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-zinc-600 opacity-60" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="py-3 px-4 cursor-pointer hover:text-white transition-colors"
+                      onClick={() => handleMatrixSort('school')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>SCHOOL / FACULTY</span>
+                        {matrixSortBy === 'school_asc' ? (
+                          <ArrowUp className="w-3 h-3 text-cyan-400" />
+                        ) : matrixSortBy === 'school_desc' ? (
+                          <ArrowDown className="w-3 h-3 text-cyan-400" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-zinc-600 opacity-60" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="py-3 px-4 text-right cursor-pointer hover:text-white transition-colors"
+                      onClick={() => handleMatrixSort('received')}
+                    >
+                      <div className="flex items-center justify-end space-x-1">
+                        <span>PHYSICAL RECEIVED</span>
+                        {matrixSortBy === 'received_desc' ? (
+                          <ArrowDown className="w-3 h-3 text-cyan-400" />
+                        ) : matrixSortBy === 'received_asc' ? (
+                          <ArrowUp className="w-3 h-3 text-cyan-400" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-zinc-600 opacity-60" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="py-3 px-4 text-right cursor-pointer hover:text-white transition-colors"
+                      onClick={() => handleMatrixSort('portal')}
+                    >
+                      <div className="flex items-center justify-end space-x-1">
+                        <span>PORTAL COMPLETED</span>
+                        {matrixSortBy === 'portal_desc' ? (
+                          <ArrowDown className="w-3 h-3 text-cyan-400" />
+                        ) : matrixSortBy === 'portal_asc' ? (
+                          <ArrowUp className="w-3 h-3 text-cyan-400" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-zinc-600 opacity-60" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="py-3 px-4 text-right cursor-pointer hover:text-white transition-colors"
+                      onClick={() => handleMatrixSort('variance')}
+                    >
+                      <div className="flex items-center justify-end space-x-1">
+                        <span>VARIANCE</span>
+                        {matrixSortBy === 'variance_desc' ? (
+                          <ArrowDown className="w-3 h-3 text-cyan-400" />
+                        ) : matrixSortBy === 'variance_asc' ? (
+                          <ArrowUp className="w-3 h-3 text-cyan-400" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-zinc-600 opacity-60" />
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="py-3 px-4 text-center cursor-pointer hover:text-white transition-colors"
+                      onClick={() => handleMatrixSort('status')}
+                    >
+                      <div className="flex items-center justify-center space-x-1">
+                        <span>STATUS</span>
+                        {matrixSortBy === 'arrangement_unmatched_first' || matrixSortBy === 'arrangement_matched_first' ? (
+                          <ArrowUpDown className="w-3 h-3 text-cyan-400" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-zinc-600 opacity-60" />
+                        )}
+                      </div>
+                    </th>
                     <th className="py-3 px-4">TEAMMATES INVOLVED</th>
                     <th className="py-3 px-4 text-right">EXAM SLOTS</th>
                   </tr>
@@ -1309,13 +1680,22 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     </tr>
                   ) : (
                     filteredMatrix.map((item) => {
-                      const hasDiscrepancy = item.discrepancy !== 0;
+                      const isIgnored =
+                        item.isIgnored ||
+                        item.status === 'ignored_no_live_sheet' ||
+                        item.status === 'portal_only' ||
+                        item.status === 'ignored_no_exam';
+                      const hasDiscrepancy = !isIgnored && item.discrepancy !== 0;
                       return (
                         <tr
                           key={item.key}
                           onClick={() => setExpandedItem(item)}
                           className={`hover:bg-[#121214] cursor-pointer transition-colors ${
-                            hasDiscrepancy ? 'bg-rose-950/10' : ''
+                            hasDiscrepancy
+                              ? 'bg-rose-950/10'
+                              : isIgnored
+                              ? 'opacity-70 hover:opacity-100 bg-[#0c0c0e]/30'
+                              : ''
                           }`}
                         >
                           <td className="py-3 px-4 font-mono text-zinc-300 whitespace-nowrap">
@@ -1341,15 +1721,17 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                             {item.portalCompleted.toLocaleString()}
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold">
-                            {item.discrepancy === 0 ? (
+                            {isIgnored ? (
+                              <span className="text-zinc-500 font-mono text-[11px]">—</span>
+                            ) : item.discrepancy === 0 ? (
                               <span className="text-emerald-400 font-mono">0</span>
                             ) : item.discrepancy > 0 ? (
                               <span className="text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/30">
-                                +{item.discrepancy}
+                                +{item.discrepancy.toLocaleString()}
                               </span>
                             ) : (
                               <span className="text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
-                                {item.discrepancy}
+                                {item.discrepancy.toLocaleString()}
                               </span>
                             )}
                           </td>
@@ -1358,28 +1740,38 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                               className={`text-[9px] font-mono px-2 py-0.5 rounded font-semibold ${
                                 item.status === 'matched'
                                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                  : item.status === 'ignored_no_live_sheet' || item.status === 'portal_only'
+                                  ? 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                                  : item.status === 'ignored_no_exam'
+                                  ? 'bg-zinc-800/80 text-zinc-400 border border-zinc-700/80'
                                   : item.status === 'portal_backlog'
                                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                                   : item.status === 'portal_exceeds'
                                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                  : 'bg-slate-800 text-zinc-400'
+                                  : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                               }`}
                             >
                               {item.status === 'matched'
                                 ? 'Matched (All Clear)'
+                                : item.status === 'ignored_no_live_sheet' || item.status === 'portal_only'
+                                ? 'Ignored (Not in Live Sheet)'
+                                : item.status === 'ignored_no_exam'
+                                ? 'Ignored (No Exam on Date)'
                                 : item.status === 'portal_backlog'
                                 ? 'Shortfall'
                                 : item.status === 'portal_exceeds'
                                 ? 'Portal Exceeds'
                                 : item.status === 'team_only'
-                                ? 'Team Only'
+                                ? 'Unmatched (Team Only)'
                                 : 'Portal Only'}
                             </span>
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex flex-wrap gap-1 max-w-xs">
                               {item.teammates.length === 0 ? (
-                                <span className="text-slate-600 italic text-[10px]">None</span>
+                                <span className="text-zinc-600 italic text-[10px]">
+                                  {isIgnored ? '—' : 'None'}
+                                </span>
                               ) : (
                                 item.teammates.map((t) => (
                                   <span
@@ -1609,26 +2001,64 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           className={`text-[9px] font-mono px-2 py-0.5 rounded font-semibold ${
                             isEmpty
                               ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                              : portalSlots.length > 0
+                              ? tm.totalVariance === 0
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : tm.totalVariance && tm.totalVariance > 0
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                               : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                           }`}
                         >
-                          {isEmpty ? 'Awaiting Data' : `${tm.totalReceived.toLocaleString()} Received`}
+                          {isEmpty
+                            ? 'Awaiting Data'
+                            : portalSlots.length > 0
+                            ? tm.totalVariance === 0
+                              ? '100% Reconciled'
+                              : tm.totalVariance && tm.totalVariance > 0
+                              ? `+${tm.totalVariance} Variance`
+                              : `${tm.totalVariance} Variance`
+                            : `${tm.totalReceived.toLocaleString()} Received`}
                         </span>
                       </div>
 
                       {/* Counts Box */}
-                      <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#121214] border border-[#27272a] text-[11px] font-mono mb-3">
+                      <div className="grid grid-cols-4 gap-2 p-2.5 rounded-xl bg-[#121214] border border-[#27272a] text-[11px] font-mono mb-3">
                         <div>
                           <span className="text-zinc-500 text-[9px] block uppercase">Received</span>
-                          <span className="font-bold text-white text-sm">{tm.totalReceived}</span>
+                          <span className="font-bold text-white text-sm">{tm.totalReceived.toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 text-[9px] block uppercase">Uploaded</span>
+                          <span className="font-bold text-cyan-400 text-sm">
+                            {portalSlots.length > 0 ? (tm.totalPortalUploaded ?? 0).toLocaleString() : '—'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 text-[9px] block uppercase">Variance</span>
+                          <span
+                            className={`font-bold text-sm ${
+                              portalSlots.length === 0
+                                ? 'text-zinc-500'
+                                : (tm.totalVariance ?? 0) === 0
+                                ? 'text-emerald-400'
+                                : (tm.totalVariance ?? 0) > 0
+                                ? 'text-rose-400'
+                                : 'text-amber-400'
+                            }`}
+                          >
+                            {portalSlots.length === 0
+                              ? '—'
+                              : (tm.totalVariance ?? 0) === 0
+                              ? '0'
+                              : (tm.totalVariance ?? 0) > 0
+                              ? `+${(tm.totalVariance ?? 0).toLocaleString()}`
+                              : (tm.totalVariance ?? 0).toLocaleString()}
+                          </span>
                         </div>
                         <div>
                           <span className="text-zinc-500 text-[9px] block uppercase">Batches</span>
-                          <span className="font-bold text-cyan-300 text-sm">{tm.entriesCount}</span>
-                        </div>
-                        <div>
-                          <span className="text-zinc-500 text-[9px] block uppercase">Schools</span>
-                          <span className="font-bold text-zinc-300 text-sm">{tm.schoolsCovered.length}</span>
+                          <span className="font-bold text-zinc-300 text-sm">{tm.entriesCount}</span>
                         </div>
                       </div>
 
@@ -2458,29 +2888,45 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Reconciliation Comparison Summary */}
+            {expandedItem.isIgnored && (
+              <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-700/80 flex items-center space-x-2 text-xs text-zinc-300">
+                <span className="w-2 h-2 rounded-full bg-zinc-400" />
+                <span>
+                  <strong>Ignored Entry:</strong>{' '}
+                  {expandedItem.ignoreReason ||
+                    (expandedItem.status === 'ignored_no_live_sheet'
+                      ? 'Ignored as it is not present in live Google Sheet.'
+                      : 'Ignored as there was no exam on this date.')}
+                </span>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-3 text-xs font-mono p-3 rounded-xl bg-[#121214] border border-[#27272a]">
               <div>
                 <span className="text-zinc-500 block text-[9px] uppercase">Physical Received (Team)</span>
-                <span className="font-bold text-white text-sm">{expandedItem.teamReceived}</span>
+                <span className="font-bold text-white text-sm">{expandedItem.teamReceived.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-zinc-500 block text-[9px] uppercase">Portal Completed (Excel)</span>
-                <span className="font-bold text-cyan-400 text-sm">{expandedItem.portalCompleted}</span>
+                <span className="font-bold text-cyan-400 text-sm">{expandedItem.portalCompleted.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-zinc-500 block text-[9px] uppercase">Variance (Received - Portal)</span>
                 <span
                   className={`font-bold text-sm ${
-                    expandedItem.discrepancy !== 0
+                    expandedItem.isIgnored
+                      ? 'text-zinc-400'
+                      : expandedItem.discrepancy !== 0
                       ? expandedItem.discrepancy > 0 ? 'text-rose-400' : 'text-amber-400'
                       : 'text-emerald-400'
                   }`}
                 >
-                  {expandedItem.discrepancy === 0
+                  {expandedItem.isIgnored
+                    ? '— (Ignored)'
+                    : expandedItem.discrepancy === 0
                     ? '0 (100% Matched)'
                     : expandedItem.discrepancy > 0
-                    ? `+${expandedItem.discrepancy} (Portal Shortfall)`
-                    : `${expandedItem.discrepancy} (Portal Exceeds)`}
+                    ? `+${expandedItem.discrepancy.toLocaleString()} (Portal Shortfall)`
+                    : `${expandedItem.discrepancy.toLocaleString()} (Portal Exceeds)`}
                 </span>
               </div>
             </div>
@@ -2630,35 +3076,62 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
 
               <div className="p-3 rounded-xl bg-[#10141E] border border-[#1C2331]">
-                <span className="text-zinc-500 text-[10px] uppercase block">Scanned by Teammate</span>
-                <span className="text-lg font-bold text-emerald-400">
-                  {activeModalTeammate.totalScanned.toLocaleString()}
+                <span className="text-zinc-500 text-[10px] uppercase block">
+                  {portalSlots.length > 0 ? 'Portal Uploaded' : 'Scanned by Teammate'}
                 </span>
-                <span className="text-[10px] text-emerald-500/80 block mt-0.5">Digitized to portal</span>
+                <span className="text-lg font-bold text-cyan-400">
+                  {portalSlots.length > 0
+                    ? (modalPortalUploaded ?? 0).toLocaleString()
+                    : activeModalTeammate.totalScanned.toLocaleString()}
+                </span>
+                <span className="text-[10px] text-cyan-500/80 block mt-0.5">
+                  {portalSlots.length > 0 ? 'Digitized in portal Excel' : 'Digitized to portal'}
+                </span>
               </div>
 
               <div className="p-3 rounded-xl bg-[#10141E] border border-[#1C2331]">
-                <span className="text-zinc-500 text-[10px] uppercase block">Pending Backlog</span>
+                <span className="text-zinc-500 text-[10px] uppercase block">
+                  {portalSlots.length > 0 ? 'Variance' : 'Pending Backlog'}
+                </span>
                 <span
                   className={`text-lg font-bold ${
-                    activeModalTeammate.totalReceived - activeModalTeammate.totalScanned > 0
+                    portalSlots.length === 0
+                      ? activeModalTeammate.totalReceived - activeModalTeammate.totalScanned > 0
+                        ? 'text-rose-400'
+                        : 'text-zinc-400'
+                      : (modalVariance ?? 0) === 0
+                      ? 'text-emerald-400'
+                      : (modalVariance ?? 0) > 0
                       ? 'text-rose-400'
-                      : 'text-zinc-400'
+                      : 'text-amber-400'
                   }`}
                 >
-                  {(
-                    activeModalTeammate.totalReceived - activeModalTeammate.totalScanned
-                  ).toLocaleString()}
+                  {portalSlots.length === 0
+                    ? (activeModalTeammate.totalReceived - activeModalTeammate.totalScanned).toLocaleString()
+                    : (modalVariance ?? 0) === 0
+                    ? '0'
+                    : (modalVariance ?? 0) > 0
+                    ? `+${(modalVariance ?? 0).toLocaleString()}`
+                    : (modalVariance ?? 0).toLocaleString()}
                 </span>
-                <span className="text-[10px] text-zinc-500 block mt-0.5">Scripts remaining</span>
+                <span className="text-[10px] text-zinc-500 block mt-0.5">
+                  {portalSlots.length > 0
+                    ? (modalVariance ?? 0) === 0
+                      ? 'All scripts accounted for'
+                      : (modalVariance ?? 0) > 0
+                      ? 'Shortfall in portal uploads'
+                      : 'Portal exceeds physical'
+                    : 'Scripts remaining'}
+                </span>
               </div>
 
               <div className="p-3 rounded-xl bg-[#09090b] border border-[#27272a]">
                 <span className="text-zinc-500 text-[10px] uppercase block">Completion Rate</span>
-                <span className="text-lg font-bold text-cyan-400">
+                <span className="text-lg font-bold text-emerald-400">
                   {activeModalTeammate.totalReceived > 0
                     ? `${(
-                        (activeModalTeammate.totalScanned / activeModalTeammate.totalReceived) *
+                        ((portalSlots.length > 0 ? (modalPortalUploaded ?? 0) : activeModalTeammate.totalScanned) /
+                          activeModalTeammate.totalReceived) *
                         100
                       ).toFixed(1)}%`
                     : '0%'}
@@ -2670,8 +3143,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                       width: `${Math.min(
                         100,
                         activeModalTeammate.totalReceived > 0
-                          ? (activeModalTeammate.totalScanned / activeModalTeammate.totalReceived) *
-                              100
+                          ? (((portalSlots.length > 0 ? (modalPortalUploaded ?? 0) : activeModalTeammate.totalScanned) /
+                              activeModalTeammate.totalReceived) *
+                              100)
                           : 0
                       )}%`,
                     }}
@@ -2778,47 +3252,81 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                           </div>
                         </th>
                         <th className="p-3 text-right">Physical Received</th>
+                        <th className="p-3 text-right">Portal Uploaded</th>
+                        <th className="p-3 text-right">Variance</th>
                         <th className="p-3">Shift / Notes</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#121214] font-mono text-[11px]">
                       {sortedTeammateEntries.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="p-8 text-center text-zinc-500">
+                          <td colSpan={7} className="p-8 text-center text-zinc-500">
                             No rows match your search filter.
                           </td>
                         </tr>
                       ) : (
-                        sortedTeammateEntries.map((entry, idx) => (
-                          <tr
-                            key={entry.id || idx}
-                            className="hover:bg-[#121214]/60 transition-colors"
-                          >
-                            <td className="p-3 text-zinc-500 text-[10px]">{idx + 1}</td>
-                            <td className="p-3 text-zinc-200 font-semibold">{entry.date}</td>
-                            <td className="p-3">
-                              <span className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-white font-bold text-[10px] mr-1.5">
-                                {entry.schoolCode || entry.school}
-                              </span>
-                              {entry.school && entry.school !== entry.schoolCode && (
-                                <span className="text-zinc-400 text-[10px] font-sans truncate max-w-[150px] inline-block align-middle">
-                                  {entry.school}
+                        sortedTeammateEntries.map((entry, idx) => {
+                          const portalInfo = getEntryPortalInfo(entry);
+                          return (
+                            <tr
+                              key={entry.id || idx}
+                              className="hover:bg-[#121214]/60 transition-colors"
+                            >
+                              <td className="p-3 text-zinc-500 text-[10px]">{idx + 1}</td>
+                              <td className="p-3 text-zinc-200 font-semibold">{entry.date}</td>
+                              <td className="p-3">
+                                <span className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-white font-bold text-[10px] mr-1.5">
+                                  {entry.schoolCode || entry.school}
                                 </span>
-                              )}
-                            </td>
-                            <td className="p-3 text-right font-bold text-white font-mono text-sm">
-                              {entry.receivedCount}
-                            </td>
-                            <td className="p-3 text-zinc-400 text-[10px] font-sans">
-                              {entry.shift && (
-                                <span className="text-[9px] font-mono px-1.5 py-0.5 bg-[#27272a] text-cyan-300 rounded mr-1">
-                                  {entry.shift}
-                                </span>
-                              )}
-                              <span>{entry.notes || '-'}</span>
-                            </td>
-                          </tr>
-                        ))
+                                {entry.school && entry.school !== entry.schoolCode && (
+                                  <span className="text-zinc-400 text-[10px] font-sans truncate max-w-[150px] inline-block align-middle">
+                                    {entry.school}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right font-bold text-white font-mono text-sm">
+                                {entry.receivedCount.toLocaleString()}
+                              </td>
+                              <td className="p-3 text-right font-bold text-cyan-400 font-mono text-sm">
+                                {portalInfo.uploaded !== null ? (
+                                  portalInfo.uploaded.toLocaleString()
+                                ) : (
+                                  <span className="text-zinc-500 font-normal text-xs">—</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right font-mono text-xs">
+                                {portalInfo.variance !== null ? (
+                                  portalInfo.variance === 0 ? (
+                                    <span className="text-emerald-400 font-bold">0</span>
+                                  ) : portalInfo.variance > 0 ? (
+                                    <span className="text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/30 font-bold">
+                                      +{portalInfo.variance.toLocaleString()}
+                                    </span>
+                                  ) : (
+                                    <span className="text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30 font-bold">
+                                      {portalInfo.variance.toLocaleString()}
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="text-zinc-500 font-normal text-xs">—</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-zinc-400 text-[10px] font-sans">
+                                {entry.isIgnored && (
+                                  <span className="text-[9px] font-mono px-1.5 py-0.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded mr-1">
+                                    Ignored (No Exam)
+                                  </span>
+                                )}
+                                {entry.shift && (
+                                  <span className="text-[9px] font-mono px-1.5 py-0.5 bg-[#27272a] text-cyan-300 rounded mr-1">
+                                    {entry.shift}
+                                  </span>
+                                )}
+                                <span>{entry.notes || '-'}</span>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -2831,9 +3339,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                       <thead className="bg-[#121214] text-[10px] uppercase font-mono text-zinc-400 border-b border-[#27272a]">
                         <tr>
                           <th className="p-3">Date</th>
-                          <th className="p-3 text-right">Total Received</th>
-                          <th className="p-3 text-right">Total Scanned</th>
-                          <th className="p-3 text-right">Day Backlog</th>
+                          <th className="p-3 text-right">Physical Received</th>
+                          <th className="p-3 text-right">Portal Uploaded</th>
+                          <th className="p-3 text-right">Variance</th>
                           <th className="p-3 text-right">Completion Rate</th>
                           <th className="p-3">Schools Handled on Date</th>
                           <th className="p-3 text-right">Batches</th>
@@ -2849,17 +3357,21 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                             <td className="p-3 text-right text-zinc-200">
                               {day.received.toLocaleString()}
                             </td>
-                            <td className="p-3 text-right font-bold text-emerald-400">
-                              {day.scanned.toLocaleString()}
+                            <td className="p-3 text-right font-bold text-cyan-400">
+                              {day.portalUploaded !== null ? day.portalUploaded.toLocaleString() : '—'}
                             </td>
                             <td className="p-3 text-right">
-                              <span
-                                className={
-                                  day.backlog > 0 ? 'text-rose-400 font-bold' : 'text-zinc-500'
-                                }
-                              >
-                                {day.backlog > 0 ? `+${day.backlog}` : day.backlog}
-                              </span>
+                              {day.variance !== null ? (
+                                day.variance === 0 ? (
+                                  <span className="text-emerald-400 font-bold">0</span>
+                                ) : day.variance > 0 ? (
+                                  <span className="text-rose-400 font-bold">+{day.variance.toLocaleString()}</span>
+                                ) : (
+                                  <span className="text-amber-400 font-bold">{day.variance.toLocaleString()}</span>
+                                )
+                              ) : (
+                                <span className="text-zinc-500">—</span>
+                              )}
                             </td>
                             <td className="p-3 text-right">
                               <span
@@ -2900,9 +3412,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                         <tr>
                           <th className="p-3">School Code</th>
                           <th className="p-3">School Name</th>
-                          <th className="p-3 text-right">Total Received</th>
-                          <th className="p-3 text-right">Total Scanned</th>
-                          <th className="p-3 text-right">School Backlog</th>
+                          <th className="p-3 text-right">Physical Received</th>
+                          <th className="p-3 text-right">Portal Uploaded</th>
+                          <th className="p-3 text-right">Variance</th>
                           <th className="p-3 text-right">Completion Rate</th>
                           <th className="p-3">Dates Active</th>
                           <th className="p-3 text-right">Batches</th>
@@ -2920,17 +3432,21 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                             <td className="p-3 text-right text-zinc-200">
                               {sch.received.toLocaleString()}
                             </td>
-                            <td className="p-3 text-right font-bold text-emerald-400">
-                              {sch.scanned.toLocaleString()}
+                            <td className="p-3 text-right font-bold text-cyan-400">
+                              {sch.portalUploaded !== null ? sch.portalUploaded.toLocaleString() : '—'}
                             </td>
                             <td className="p-3 text-right">
-                              <span
-                                className={
-                                  sch.backlog > 0 ? 'text-rose-400 font-bold' : 'text-zinc-500'
-                                }
-                              >
-                                {sch.backlog > 0 ? `+${sch.backlog}` : sch.backlog}
-                              </span>
+                              {sch.variance !== null ? (
+                                sch.variance === 0 ? (
+                                  <span className="text-emerald-400 font-bold">0</span>
+                                ) : sch.variance > 0 ? (
+                                  <span className="text-rose-400 font-bold">+{sch.variance.toLocaleString()}</span>
+                                ) : (
+                                  <span className="text-amber-400 font-bold">{sch.variance.toLocaleString()}</span>
+                                )
+                              ) : (
+                                <span className="text-zinc-500">—</span>
+                              )}
                             </td>
                             <td className="p-3 text-right">
                               <span
@@ -2944,16 +3460,9 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                               </span>
                             </td>
                             <td className="p-3">
-                              <div className="flex flex-wrap gap-1">
-                                {sch.dates.map((d) => (
-                                  <span
-                                    key={d}
-                                    className="px-1.5 py-0.5 rounded bg-[#18181b] border border-[#27272a] text-[10px] text-zinc-300"
-                                  >
-                                    {d}
-                                  </span>
-                                ))}
-                              </div>
+                              <span className="text-[10px] text-zinc-400">
+                                {sch.dates.length} date(s)
+                              </span>
                             </td>
                             <td className="p-3 text-right text-zinc-400">{sch.batchesCount}</td>
                           </tr>

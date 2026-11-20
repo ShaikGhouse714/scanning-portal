@@ -166,11 +166,23 @@ export function parseTeamGoogleSheet(data: ArrayBuffer): {
       const date = extractDateString(rawDate);
       if (!date || date === 'Unknown') continue;
 
-      const receivedCount = Math.max(0, parseInt(String(rawReceived)) || 0);
-      const scannedCount = rawScanned ? Math.max(0, parseInt(String(rawScanned)) || 0) : receivedCount;
+      // Check if Google Sheet row indicates "Exam not there / ignore this"
+      const allRowValues = Object.values(row).map((v) => String(v ?? '').trim());
+      const allRowText = allRowValues.join(' ').toLowerCase();
 
-      // If received count is 0 and no school, likely empty row
-      if (!rawSchool && receivedCount === 0) continue;
+      const isExamNotThere =
+        /exam\s*(is)?\s*not\s*there/i.test(allRowText) ||
+        /ignore\s*(this)?/i.test(allRowText) ||
+        /no\s*exam/i.test(allRowText) ||
+        /exam\s*not\s*conducted/i.test(allRowText) ||
+        /exam\s*not\s*held/i.test(allRowText) ||
+        /not\s*conducted/i.test(allRowText);
+
+      const receivedCount = isExamNotThere ? 0 : Math.max(0, parseInt(String(rawReceived)) || 0);
+      const scannedCount = isExamNotThere ? 0 : (rawScanned ? Math.max(0, parseInt(String(rawScanned)) || 0) : receivedCount);
+
+      // If received count is 0 and no school, likely empty row (unless explicitly marked as no exam)
+      if (!rawSchool && receivedCount === 0 && !isExamNotThere) continue;
 
       const { code: schoolCode, name: schoolName } = normalizeSchool(String(rawSchool));
 
@@ -184,6 +196,8 @@ export function parseTeamGoogleSheet(data: ArrayBuffer): {
         scannedCount,
         shift: rawShift ? String(rawShift).trim() : 'Morning',
         notes: rawNotes ? String(rawNotes).trim() : '',
+        isIgnored: isExamNotThere,
+        ignoreReason: isExamNotThere ? 'Exam not there / Ignore this' : undefined,
       });
     }
   }
@@ -247,25 +261,39 @@ export function reconcileIntakeVsPortal(
   const matrix: ReconciledDateSchool[] = [];
 
   for (const [key, item] of dateSchoolMap.entries()) {
-    const teamReceived = item.teamEntries.reduce((sum, e) => sum + e.receivedCount, 0);
+    const activeTeamEntries = item.teamEntries.filter((e) => !e.isIgnored);
+    const hasIgnoredEntriesOnly = item.teamEntries.length > 0 && activeTeamEntries.length === 0;
+
+    const teamReceived = activeTeamEntries.reduce((sum, e) => sum + e.receivedCount, 0);
     const portalCompleted = item.portalSlots.reduce((sum, s) => sum + s.completed, 0);
-    const teamScanned = item.teamEntries.reduce((sum, e) => sum + (e.scannedCount || e.receivedCount), 0);
+    const teamScanned = teamReceived;
 
-    // Primary Reconciliation: Match Physical Received (Team) against Completed (Central Portal)
-    const discrepancy = teamReceived - portalCompleted;
-
+    let discrepancy = teamReceived - portalCompleted;
     let status: ReconciledDateSchool['status'] = 'matched';
+    let isIgnored = false;
+    let ignoreReason = '';
 
     if (item.teamEntries.length === 0 && item.portalSlots.length > 0) {
-      status = 'portal_only';
+      // Entry is in Central Portal Excel, but NOT in live Google Sheet!
+      // Status: Ignored as it is not there in live sheet (kept in last)
+      status = 'ignored_no_live_sheet';
+      isIgnored = true;
+      ignoreReason = 'Ignored as it is not there in live sheet';
+      discrepancy = 0;
+    } else if (hasIgnoredEntriesOnly && item.portalSlots.length === 0) {
+      // Google Sheet specified "Exam not there / ignore this"
+      status = 'ignored_no_exam';
+      isIgnored = true;
+      ignoreReason = 'No exam on date (Ignored per Google Sheet)';
+      discrepancy = 0;
     } else if (item.portalSlots.length === 0 && item.teamEntries.length > 0) {
       status = 'team_only';
     } else if (discrepancy > 0) {
-      status = 'portal_backlog'; // Team physically received scripts, but portal has fewer completed
+      status = 'portal_backlog'; // Shortfall
     } else if (discrepancy < 0) {
-      status = 'portal_exceeds'; // Central portal has more completed than physically received by team
+      status = 'portal_exceeds'; // Portal exceeds physical received
     } else {
-      status = 'matched'; // Exact match between physical received and portal completed!
+      status = 'matched'; // Exact match
     }
 
     const teammates = Array.from(new Set(item.teamEntries.map((e) => e.teammateName)));
@@ -286,11 +314,36 @@ export function reconcileIntakeVsPortal(
       portalSlotsCount: item.portalSlots.length,
       portalSlots: item.portalSlots,
       teamEntries: item.teamEntries,
+      isIgnored,
+      ignoreReason: ignoreReason || undefined,
     });
   }
 
-  // Sort matrix chronologically, then by school
+  // Proper Sequence and Arrangement:
+  // 1. All unmatched at a place (Rank 1: portal_backlog, portal_exceeds, team_only)
+  // 2. All matched at a place (Rank 2: matched)
+  // 3. Ignored in last (Rank 3: ignored_no_live_sheet, ignored_no_exam, portal_only)
   matrix.sort((a, b) => {
+    const getRank = (item: ReconciledDateSchool) => {
+      if (item.isIgnored || item.status === 'ignored_no_live_sheet' || item.status === 'ignored_no_exam' || item.status === 'portal_only') {
+        return 3;
+      }
+      if (item.status === 'matched') {
+        return 2;
+      }
+      return 1;
+    };
+
+    const rankA = getRank(a);
+    const rankB = getRank(b);
+    if (rankA !== rankB) return rankA - rankB;
+
+    if (rankA === 1) {
+      if (Math.abs(b.discrepancy) !== Math.abs(a.discrepancy)) {
+        return Math.abs(b.discrepancy) - Math.abs(a.discrepancy);
+      }
+    }
+
     const dComp = b.date.localeCompare(a.date);
     if (dComp !== 0) return dComp;
     return a.schoolCode.localeCompare(b.schoolCode);
@@ -318,10 +371,22 @@ export function reconcileIntakeVsPortal(
 
   const teammates: TeammateSummary[] = [];
   for (const [name, entries] of teammateMap.entries()) {
-    const totalReceived = entries.reduce((s, e) => s + e.receivedCount, 0);
-    const totalScanned = entries.reduce((s, e) => s + e.scannedCount, 0);
+    const activeEntries = entries.filter((e) => !e.isIgnored);
+    const totalReceived = activeEntries.reduce((s, e) => s + e.receivedCount, 0);
+    const totalScanned = activeEntries.reduce((s, e) => s + e.scannedCount, 0);
     const schoolsCovered = Array.from(new Set(entries.map((e) => e.schoolCode)));
     const datesActive = Array.from(new Set(entries.map((e) => e.date))).sort();
+
+    // Calculate total portal uploaded and variance for this teammate
+    let totalPortalUploaded = 0;
+    const handledKeys = new Set(activeEntries.map((e) => `${e.date}_${e.schoolCode}`));
+    for (const key of handledKeys) {
+      const match = matrix.find((m) => m.key === key);
+      if (match) {
+        totalPortalUploaded += match.portalCompleted;
+      }
+    }
+    const totalVariance = totalReceived - totalPortalUploaded;
 
     teammates.push({
       name,
@@ -331,6 +396,8 @@ export function reconcileIntakeVsPortal(
       datesActive,
       entriesCount: entries.length,
       entries,
+      totalPortalUploaded,
+      totalVariance,
     });
   }
 
@@ -342,15 +409,16 @@ export function reconcileIntakeVsPortal(
     return a.name.localeCompare(b.name);
   });
 
-  // 5. Global Metrics
-  const totalTeamReceived = matrix.reduce((sum, m) => sum + m.teamReceived, 0);
-  const totalPortalCompleted = matrix.reduce((sum, m) => sum + m.portalCompleted, 0);
+  // 5. Global Metrics (Active non-ignored batches)
+  const activeBatches = matrix.filter((m) => !m.isIgnored);
+  const totalTeamReceived = activeBatches.reduce((sum, m) => sum + m.teamReceived, 0);
+  const totalPortalCompleted = activeBatches.reduce((sum, m) => sum + m.portalCompleted, 0);
   const totalTeamScanned = totalTeamReceived;
   const netDiscrepancy = totalTeamReceived - totalPortalCompleted;
 
   const matchedBatchesCount = matrix.filter((m) => m.status === 'matched').length;
   const discrepancyBatchesCount = matrix.filter(
-    (m) => m.status === 'portal_backlog' || m.status === 'portal_exceeds'
+    (m) => m.status === 'portal_backlog' || m.status === 'portal_exceeds' || m.status === 'team_only'
   ).length;
 
   const uniqueSchools = new Set(matrix.map((m) => m.schoolCode));

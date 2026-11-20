@@ -38,6 +38,8 @@ export interface TeamSubsheetEntry {
   scannedCount: number;
   shift?: string;
   notes?: string;
+  isIgnored?: boolean;
+  ignoreReason?: string;
 }
 
 export interface ReconciledDateSchool {
@@ -51,11 +53,21 @@ export interface ReconciledDateSchool {
   teamScanned: number; // backward compatibility
   discrepancyScannedVsPortal: number; // backward compatibility
   discrepancyReceivedVsScanned: number; // backward compatibility
-  status: 'matched' | 'portal_backlog' | 'portal_exceeds' | 'pending_scan' | 'portal_only' | 'team_only';
+  status:
+    | 'matched'
+    | 'portal_backlog'
+    | 'portal_exceeds'
+    | 'pending_scan'
+    | 'portal_only'
+    | 'team_only'
+    | 'ignored_no_live_sheet'
+    | 'ignored_no_exam';
   teammates: string[];
   portalSlotsCount: number;
   portalSlots: PortalExamSlot[];
   teamEntries: TeamSubsheetEntry[];
+  isIgnored?: boolean;
+  ignoreReason?: string;
 }
 
 export interface TeammateSummary {
@@ -66,6 +78,8 @@ export interface TeammateSummary {
   datesActive: string[];
   entriesCount: number;
   entries: TeamSubsheetEntry[];
+  totalPortalUploaded?: number;
+  totalVariance?: number;
 }
 
 export interface ReconciliationMetrics {

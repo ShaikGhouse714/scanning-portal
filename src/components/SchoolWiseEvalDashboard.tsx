@@ -905,7 +905,7 @@ export const SchoolWiseEvalDashboard: React.FC = () => {
                 size="sm"
                 wrap
                 value={statusFilter}
-                onChange={setStatusFilter}
+                onChange={(val) => setStatusFilter(val as any)}
                 options={[
                   { value: 'ALL', label: 'All', count: selectedSchoolRows.length.toLocaleString() },
                   {
