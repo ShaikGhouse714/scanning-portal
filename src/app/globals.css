@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -67,11 +67,11 @@ code, kbd, samp, pre, .font-mono {
 
 /* ========================================================================= */
 /* WHITE MODE (LIGHT THEME) OVERRIDES                                        */
-/* Uses .light-mode wrapper class for maximum CSS compatibility               */
+/* Strategy: html.light â†’ body; .light-mode wrapper â†’ all content elements  */
 /* ========================================================================= */
 
-/* --- CSS Custom Properties --- */
-.light-mode {
+/* 1. CSS Custom Properties overrides */
+html.light {
   --bg-base: #f8fafc;
   --bg-surface: #ffffff;
   --bg-card: #ffffff;
@@ -85,63 +85,118 @@ code, kbd, samp, pre, .font-mono {
   --text-muted: #64748b;
 }
 
-/* --- Base wrapper --- */
+/* 2. Body background (overrides layout.tsx body bg-[#000000] class) */
+html.light body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* 3. Scrollbars */
+html.light ::-webkit-scrollbar-track { background: #f1f5f9; }
+html.light ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+html.light ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* 4. Smooth theme transition for key properties */
+.light-mode,
+.light-mode * {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+}
+
+/* 5. Light-mode wrapper base */
 .light-mode {
   background-color: #f8fafc !important;
   color: #0f172a !important;
 }
 
-/* --- Scrollbars --- */
-.light-mode ::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-.light-mode ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-}
-.light-mode ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
+/* ---- BACKGROUNDS -------------------------------------------------------- */
 
-/* --- Canvas / full-page backgrounds --- */
+/* Pure black / near-black -> white surface */
 .light-mode .bg-\[\#000000\],
 .light-mode .bg-\[\#050505\],
 .light-mode .bg-\[\#070709\],
+.light-mode .bg-\[\#09090b\],
+.light-mode .bg-\[\#090C12\],
+.light-mode .bg-\[\#0b0b0c\],
+.light-mode .bg-\[\#0b0b0f\],
+.light-mode .bg-\[\#0c0c0e\],
+.light-mode .bg-\[\#0c0c0f\],
+.light-mode .bg-\[\#0C0F17\],
+.light-mode .bg-\[\#0e0e11\],
+.light-mode .bg-\[\#0e0e12\],
+.light-mode .bg-\[\#0E121C\],
+.light-mode .bg-\[\#0f0f14\],
+.light-mode .bg-\[\#0F1524\],
+.light-mode .bg-\[\#101012\],
+.light-mode .bg-\[\#10141E\],
+.light-mode .bg-\[\#111114\],
+.light-mode .bg-\[\#111116\],
 .light-mode .bg-black,
-.light-mode > * {
-  /* cascade: children get light background by default from body bg */
+.light-mode .bg-zinc-950 {
+  background-color: #ffffff !important;
 }
 
-/* --- Main viewport content area --- */
-.light-mode .flex-1.flex.flex-col {
-  background-color: #f8fafc !important;
+/* Dark gray surfaces -> very light gray */
+.light-mode .bg-\[\#121214\],
+.light-mode .bg-\[\#121215\],
+.light-mode .bg-\[\#121218\],
+.light-mode .bg-\[\#141418\],
+.light-mode .bg-\[\#141824\],
+.light-mode .bg-\[\#151C2C\],
+.light-mode .bg-\[\#16161b\],
+.light-mode .bg-\[\#16161c\],
+.light-mode .bg-\[\#18181b\],
+.light-mode .bg-\[\#18181d\],
+.light-mode .bg-\[\#1a1a20\],
+.light-mode .bg-\[\#1A2230\],
+.light-mode .bg-\[\#1c1c22\],
+.light-mode .bg-\[\#1E2436\],
+.light-mode .bg-\[\#1E2536\],
+.light-mode .bg-\[\#1E273C\],
+.light-mode .bg-\[\#1f1f27\],
+.light-mode .bg-\[\#202737\],
+.light-mode .bg-\[\#222229\],
+.light-mode .bg-\[\#27272a\],
+.light-mode .bg-zinc-900,
+.light-mode .bg-zinc-800,
+.light-mode .bg-zinc-700 {
+  background-color: #f1f5f9 !important;
 }
 
-/* --- Sidebar --- */
+/* Hover backgrounds */
+.light-mode .hover\:bg-\[\#121214\]:hover,
+.light-mode .hover\:bg-\[\#18181b\]:hover,
+.light-mode .hover\:bg-\[\#09090b\]:hover,
+.light-mode .hover\:bg-\[\#0c0c0e\]:hover,
+.light-mode .hover\:bg-zinc-800:hover,
+.light-mode .hover\:bg-zinc-900:hover,
+.light-mode .hover\:bg-zinc-700:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* Main content viewport */
+.light-mode > div {
+  background-color: #f8fafc;
+}
+
+/* ---- SIDEBAR ------------------------------------------------------------ */
 .light-mode aside {
   background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-  box-shadow: 1px 0 3px rgba(0, 0, 0, 0.06) !important;
+  border-right-color: #e2e8f0 !important;
+  box-shadow: 1px 0 8px rgba(0, 0, 0, 0.06) !important;
 }
 .light-mode aside .sidebar-bottom-section {
   background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-}
-.light-mode aside button[title="Return to Welcome Greetings"] {
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-}
-.light-mode aside button[title="Return to Welcome Greetings"]:hover {
-  background-color: #f8fafc !important;
+  border-top-color: #e2e8f0 !important;
 }
 
-/* Active sidebar nav item */
+/* Active sidebar nav pill */
 .light-mode aside .bg-white.text-black {
   background-color: #0f172a !important;
   color: #ffffff !important;
   border-color: #0f172a !important;
-  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12) !important;
 }
-.light-mode aside .bg-white.text-black svg {
+.light-mode aside .bg-white.text-black svg,
+.light-mode aside .bg-white.text-black span {
   color: #ffffff !important;
 }
 .light-mode aside .bg-white.text-black .bg-black.text-white {
@@ -149,7 +204,7 @@ code, kbd, samp, pre, .font-mono {
   color: #0f172a !important;
 }
 
-/* Inactive sidebar nav items */
+/* Inactive sidebar items */
 .light-mode aside nav button:not(.bg-white) {
   color: #475569 !important;
 }
@@ -157,39 +212,31 @@ code, kbd, samp, pre, .font-mono {
   color: #0f172a !important;
   background-color: #f1f5f9 !important;
 }
-.light-mode aside nav button:not(.bg-white) svg {
-  color: #64748b !important;
-}
-.light-mode aside nav button:not(.bg-white):hover svg {
-  color: #0f172a !important;
-}
+.light-mode aside nav button:not(.bg-white) svg { color: #64748b !important; }
+.light-mode aside nav button:not(.bg-white):hover svg { color: #0f172a !important; }
 
-/* Sidebar accordion border */
-.light-mode aside .border-zinc-800 {
-  border-color: #cbd5e1 !important;
-}
+/* Sidebar accordion borders */
+.light-mode aside .border-zinc-800 { border-color: #e2e8f0 !important; }
 
-/* Theme toggle box in sidebar */
+/* Theme toggle container */
 .light-mode .theme-toggle-container {
   background-color: #f1f5f9 !important;
   border-color: #e2e8f0 !important;
 }
 
-/* User profile card in sidebar */
+/* User profile card */
 .light-mode aside .user-profile-card {
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
   border-color: #e2e8f0 !important;
 }
-.light-mode aside .user-profile-name {
-  color: #0f172a !important;
-}
+.light-mode aside .user-profile-name { color: #0f172a !important; }
 .light-mode aside .avatar-badge {
   background-color: #e2e8f0 !important;
   border-color: #cbd5e1 !important;
   color: #0f172a !important;
 }
 .light-mode aside .manage-users-btn {
-  background-color: #f8fafc !important;
+  background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   color: #334155 !important;
 }
@@ -197,136 +244,76 @@ code, kbd, samp, pre, .font-mono {
   background-color: #f1f5f9 !important;
   color: #0f172a !important;
 }
-.light-mode aside .sign-out-btn {
-  color: #64748b !important;
-}
+.light-mode aside .sign-out-btn { color: #64748b !important; }
 .light-mode aside .sign-out-btn:hover {
   background-color: #f1f5f9 !important;
   color: #0f172a !important;
 }
 
-/* --- Attribute-based background overrides (most reliable approach) ---
-   Targets any element whose class attribute contains a dark hex code.
-   These attribute substring selectors work in all browsers and bypass
-   the escaped-bracket issue with Tailwind v4. */
-
-/* Pure black and near-black backgrounds -> white */
-.light-mode [class*="bg-[#0"] {
-  background-color: #ffffff !important;
-}
-.light-mode [class*="bg-[#1"] {
-  background-color: #f8fafc !important;
-}
-.light-mode [class*="bg-[#2"] {
-  background-color: #f1f5f9 !important;
-}
-
-/* Named Tailwind dark classes */
-.light-mode .bg-black {
-  background-color: #f8fafc !important;
-}
-.light-mode .bg-zinc-950 {
-  background-color: #ffffff !important;
-}
-.light-mode .bg-zinc-900 {
-  background-color: #f8fafc !important;
-}
-.light-mode .bg-zinc-800 {
-  background-color: #f1f5f9 !important;
-}
-
-/* Hover states */
-.light-mode .hover\:bg-zinc-800:hover,
-.light-mode .hover\:bg-zinc-900:hover {
-  background-color: #f1f5f9 !important;
-}
-.light-mode [class*="hover:bg-[#"]:hover {
-  background-color: #f1f5f9 !important;
-}
-
-/* --- Borders --- */
-.light-mode [class*="border-[#"] {
-  border-color: #e2e8f0 !important;
-}
+/* ---- BORDERS ------------------------------------------------------------ */
+.light-mode .border-\[\#17171c\],
+.light-mode .border-\[\#1a1a1a\],
+.light-mode .border-\[\#1a532d\],
+.light-mode .border-\[\#1c1c20\],
+.light-mode .border-\[\#1c1c22\],
+.light-mode .border-\[\#1C2331\],
+.light-mode .border-\[\#1e1e21\],
+.light-mode .border-\[\#1e1e24\],
+.light-mode .border-\[\#1E283C\],
+.light-mode .border-\[\#1f1f23\],
+.light-mode .border-\[\#1f1f26\],
+.light-mode .border-\[\#222222\],
+.light-mode .border-\[\#222228\],
+.light-mode .border-\[\#222836\],
+.light-mode .border-\[\#232936\],
+.light-mode .border-\[\#232B3A\],
+.light-mode .border-\[\#27272a\],
+.light-mode .border-\[\#272730\],
+.light-mode .border-\[\#2a2a32\],
+.light-mode .border-\[\#2a2a33\],
+.light-mode .border-\[\#2d2d35\],
+.light-mode .border-\[\#2e2e33\],
+.light-mode .border-\[\#303D57\],
+.light-mode .border-\[\#3f3f46\],
 .light-mode .border-zinc-800,
 .light-mode .border-zinc-700,
 .light-mode .border-zinc-600 {
   border-color: #e2e8f0 !important;
 }
 
+/* Dividers */
 .light-mode .divide-zinc-800 > :not([hidden]) ~ :not([hidden]),
-.light-mode [class*="divide-[#"] > :not([hidden]) ~ :not([hidden]) {
+.light-mode .divide-zinc-700 > :not([hidden]) ~ :not([hidden]) {
   border-color: #e2e8f0 !important;
 }
 
-/* --- Text Colors --- */
-.light-mode .text-white {
-  color: #0f172a !important;
-}
-.light-mode .text-zinc-100,
-.light-mode .text-zinc-200 {
-  color: #1e293b !important;
-}
-.light-mode .text-zinc-300 {
-  color: #334155 !important;
-}
-.light-mode .text-zinc-400,
-.light-mode .text-zinc-500 {
-  color: #64748b !important;
-}
-.light-mode .text-zinc-600 {
-  color: #94a3b8 !important;
-}
+/* ---- TEXT COLORS -------------------------------------------------------- */
+.light-mode .text-white { color: #0f172a !important; }
+.light-mode .text-zinc-100 { color: #0f172a !important; }
+.light-mode .text-zinc-200 { color: #1e293b !important; }
+.light-mode .text-zinc-300 { color: #334155 !important; }
+.light-mode .text-zinc-400 { color: #64748b !important; }
+.light-mode .text-zinc-500 { color: #64748b !important; }
+.light-mode .text-zinc-600 { color: #94a3b8 !important; }
 
-/* Accent text: keep but shift to accessible light-mode equivalents */
-.light-mode .text-cyan-400,
-.light-mode .text-cyan-300 {
-  color: #0284c7 !important;
-}
-.light-mode .text-emerald-400,
-.light-mode .text-emerald-300 {
-  color: #16a34a !important;
-}
-.light-mode .text-rose-400,
-.light-mode .text-rose-300 {
-  color: #e11d48 !important;
-}
-.light-mode .text-amber-400,
-.light-mode .text-amber-300 {
-  color: #d97706 !important;
-}
+/* Accent text */
+.light-mode .text-cyan-400, .light-mode .text-cyan-300 { color: #0284c7 !important; }
+.light-mode .text-emerald-400, .light-mode .text-emerald-300 { color: #16a34a !important; }
+.light-mode .text-rose-400, .light-mode .text-rose-300 { color: #dc2626 !important; }
+.light-mode .text-amber-400, .light-mode .text-amber-300 { color: #d97706 !important; }
 
-/* --- Badge / Soft-tone backgrounds --- */
-.light-mode .bg-emerald-500\/20 {
-  background-color: #dcfce7 !important;
-}
-.light-mode .border-emerald-500\/30,
-.light-mode .border-emerald-500\/45 {
-  border-color: #86efac !important;
-}
-.light-mode .bg-rose-500\/20 {
-  background-color: #ffe4e6 !important;
-}
-.light-mode .border-rose-500\/30,
-.light-mode .border-rose-500\/45 {
-  border-color: #fca5a5 !important;
-}
-.light-mode .bg-amber-500\/20 {
-  background-color: #fef3c7 !important;
-}
-.light-mode .border-amber-500\/30 {
-  border-color: #fde68a !important;
-}
-.light-mode .bg-rose-950\/10 {
-  background-color: #fff1f2 !important;
-}
+/* ---- BADGE / SOFT TONES ------------------------------------------------- */
+.light-mode .bg-emerald-500\/20 { background-color: #dcfce7 !important; }
+.light-mode .border-emerald-500\/30, .light-mode .border-emerald-500\/45 { border-color: #86efac !important; }
+.light-mode .bg-rose-500\/20 { background-color: #ffe4e6 !important; }
+.light-mode .border-rose-500\/30, .light-mode .border-rose-500\/45 { border-color: #fca5a5 !important; }
+.light-mode .bg-amber-500\/20 { background-color: #fef3c7 !important; }
+.light-mode .border-amber-500\/30 { border-color: #fde68a !important; }
+.light-mode .bg-rose-950\/10 { background-color: #fff1f2 !important; }
+.light-mode .bg-\[\#091f13\] { background-color: #dcfce7 !important; }
 
-/* --- Form Inputs --- */
-.light-mode input[type="text"],
-.light-mode input[type="email"],
-.light-mode input[type="password"],
-.light-mode input[type="search"],
-.light-mode input[type="number"],
+/* ---- FORM INPUTS -------------------------------------------------------- */
+.light-mode input,
 .light-mode textarea,
 .light-mode select {
   background-color: #ffffff !important;
@@ -338,26 +325,29 @@ code, kbd, samp, pre, .font-mono {
   color: #94a3b8 !important;
 }
 
-/* --- Modals & Shadows --- */
-.light-mode .shadow-2xl {
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
-}
-
-/* --- Table headers --- */
-.light-mode thead {
+/* ---- TABLES ------------------------------------------------------------- */
+.light-mode table { border-color: #e2e8f0 !important; }
+.light-mode thead,
+.light-mode thead tr,
+.light-mode thead th {
   background-color: #f1f5f9 !important;
   color: #475569 !important;
+  border-color: #e2e8f0 !important;
 }
+.light-mode tbody tr:hover { background-color: #f8fafc !important; }
+.light-mode td, .light-mode th { border-color: #e2e8f0 !important; }
 
-/* --- Dropdown Menus --- */
+/* ---- MODALS & POPOVERS -------------------------------------------------- */
+.light-mode .shadow-2xl {
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04) !important;
+}
+.light-mode [role="dialog"],
 .light-mode [role="listbox"] {
   background-color: #ffffff !important;
-  border-color: #cbd5e1 !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.12) !important;
 }
-.light-mode [role="listbox"] button:not(.bg-white) {
-  color: #334155 !important;
-}
+.light-mode [role="listbox"] button:not(.bg-white) { color: #334155 !important; }
 .light-mode [role="listbox"] button:not(.bg-white):hover {
   background-color: #f1f5f9 !important;
   color: #0f172a !important;
@@ -367,7 +357,7 @@ code, kbd, samp, pre, .font-mono {
   color: #ffffff !important;
 }
 
-/* --- Segmented Toggles / Tablists --- */
+/* ---- SEGMENTED TOGGLES / TABLISTS --------------------------------------- */
 .light-mode [role="tablist"] {
   background-color: #f1f5f9 !important;
   border-color: #e2e8f0 !important;
@@ -380,8 +370,11 @@ code, kbd, samp, pre, .font-mono {
 .light-mode [role="tablist"] button:not(.bg-white) {
   color: #64748b !important;
 }
+.light-mode [role="tablist"] button:not(.bg-white):hover {
+  color: #0f172a !important;
+}
 
-/* --- Primary Action Buttons --- */
+/* ---- PRIMARY ACTION BUTTONS --------------------------------------------- */
 .light-mode button.bg-white.text-black:not(aside button):not([role="tab"]):not([role="option"]) {
   background-color: #0f172a !important;
   color: #ffffff !important;
