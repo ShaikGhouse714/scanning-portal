@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   GraduationCap,
   LogOut,
+  Sun,
+  Moon,
   LucideIcon,
 } from 'lucide-react';
 
@@ -27,6 +29,8 @@ interface SidebarProps {
   usersCount?: number;
   netDiscrepancy?: number;
   isSyncing?: boolean;
+  theme?: 'dark' | 'light';
+  onToggleTheme?: (theme: 'dark' | 'light') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -37,6 +41,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAccountModal,
   usersCount = 0,
   netDiscrepancy = 0,
+  theme = 'dark',
+  onToggleTheme,
 }) => {
   const isSuperAdmin = currentUser.role === 'super_admin';
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
@@ -319,13 +325,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Bottom Profile Section */}
-      <div className="p-3 border-t border-[#27272a] space-y-2 bg-[#000000]">
-        <div className="p-2.5 rounded-xl bg-[#09090b] border border-[#27272a] flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-full bg-[#18181b] border border-[#2e2e33] flex items-center justify-center text-xs font-bold text-white shrink-0">
+      <div className="p-3 border-t border-[#27272a] space-y-2.5 bg-[#000000] sidebar-bottom-section">
+        {/* Theme Switcher Toggle (Dark / White Mode) - Highlighted Slot in Sidebar */}
+        <div className="p-1 rounded-xl bg-[#09090b] border border-[#27272a] flex items-center space-x-1 theme-toggle-container">
+          <button
+            type="button"
+            onClick={() => onToggleTheme?.('dark')}
+            title="Switch to Dark Mode"
+            aria-label="Switch to Dark Mode"
+            aria-pressed={theme === 'dark'}
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
+              theme === 'dark'
+                ? 'bg-[#18181b] text-white shadow-sm border border-[#27272a]'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Moon className="w-3.5 h-3.5 text-zinc-300" />
+            <span>Dark</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleTheme?.('light')}
+            title="Switch to White Mode"
+            aria-label="Switch to White Mode"
+            aria-pressed={theme === 'light'}
+            className={`flex-1 flex items-center justify-center space-x-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${
+              theme === 'light'
+                ? 'bg-white text-zinc-900 shadow-sm border border-zinc-200 font-bold'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Sun className="w-3.5 h-3.5 text-amber-500" />
+            <span>White</span>
+          </button>
+        </div>
+
+        <div className="p-2.5 rounded-xl bg-[#09090b] border border-[#27272a] flex items-center space-x-3 user-profile-card">
+          <div className="w-8 h-8 rounded-full bg-[#18181b] border border-[#2e2e33] flex items-center justify-center text-xs font-bold text-white shrink-0 avatar-badge">
             {currentUser.name.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-white truncate">
+            <p className="text-xs font-semibold text-white truncate user-profile-name">
               {currentUser.name}
             </p>
             <div className="flex items-center space-x-1.5 mt-0.5">

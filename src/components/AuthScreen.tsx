@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { SUPER_ADMIN_EMAIL, SUPER_ADMIN_EMAILS, isSuperAdminEmail, INITIAL_USERS } from '../lib/mockData';
-import { getStoredUsers, saveStoredUsers, setActiveUser } from '../lib/storage';
-import { ShieldCheck, ArrowRight, UserPlus, LogIn, Sparkles, Building, Mail, User as UserIcon } from 'lucide-react';
+import { getStoredUsers, saveStoredUsers, setActiveUser, getStoredTheme, saveStoredTheme } from '../lib/storage';
+import { ShieldCheck, ArrowRight, UserPlus, LogIn, Sparkles, Building, Mail, User as UserIcon, Sun, Moon } from 'lucide-react';
 
 interface AuthScreenProps {
   onLoginSuccess: (user: User) => void;
@@ -42,9 +42,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   const [regEmail, setRegEmail] = useState('');
   const [regStation, setRegStation] = useState('');
 
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  React.useEffect(() => {
+    setTheme(getStoredTheme());
+  }, []);
 
   // Handle Sign In with Google
   const handleSignIn = async (e: React.FormEvent) => {
@@ -196,7 +201,33 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans selection:bg-white selection:text-black relative">
+      {/* Top Right White Mode Toggle */}
+      <div className="absolute top-4 right-4">
+        <button
+          type="button"
+          onClick={() => {
+            const next = theme === 'dark' ? 'light' : 'dark';
+            setTheme(next);
+            saveStoredTheme(next);
+          }}
+          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-[#09090b] hover:bg-[#121214] border border-[#27272a] text-xs font-medium text-zinc-300 transition-colors shadow-sm"
+          title={theme === 'dark' ? 'Switch to White Mode' : 'Switch to Dark Mode'}
+        >
+          {theme === 'dark' ? (
+            <>
+              <Sun className="w-3.5 h-3.5 text-amber-400" />
+              <span>White Mode</span>
+            </>
+          ) : (
+            <>
+              <Moon className="w-3.5 h-3.5 text-zinc-600" />
+              <span>Dark Mode</span>
+            </>
+          )}
+        </button>
+      </div>
+
       <div className="sm:mx-auto sm:w-full sm:max-w-md px-4">
         {/* Brand Header with 3-bar metric icon */}
         <div className="text-center mb-6">

@@ -319,3 +319,33 @@ export function exportPortalSlotsToCSV(
   link.click();
   document.body.removeChild(link);
 }
+
+// 8. Theme Preference (Dark / White Mode)
+const THEME_STORAGE_KEY = 'scantrack_theme';
+
+export function getStoredTheme(): 'dark' | 'light' {
+  if (typeof window === 'undefined') return 'dark';
+  try {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    return stored === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
+export function saveStoredTheme(theme: 'dark' | 'light'): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+    const root = document.documentElement;
+    if (theme === 'light') {
+      root.classList.remove('dark');
+      root.classList.add('light');
+      root.setAttribute('data-theme', 'light');
+    } else {
+      root.classList.add('dark');
+      root.classList.remove('light');
+      root.setAttribute('data-theme', 'dark');
+    }
+  } catch {}
+}

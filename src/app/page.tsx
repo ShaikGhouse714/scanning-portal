@@ -17,6 +17,8 @@ import {
   saveStoredSheetNames,
   getLastSyncTime,
   setLastSyncTime,
+  getStoredTheme,
+  saveStoredTheme,
 } from '../lib/storage';
 import {
   parsePortalData,
@@ -41,6 +43,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<string>('intro');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState<boolean>(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   // Core Data Stores (Clean Slate: Zero pre-saved data)
   const [teamEntries, setTeamEntries] = useState<TeamSubsheetEntry[]>([]);
@@ -55,10 +58,13 @@ export default function Home() {
     const active = getActiveUser();
     const storedUsers = getStoredUsers();
     const storedUrl = getStoredSheetUrl();
+    const initialTheme = getStoredTheme();
 
     setCurrentUser(active);
     setUsers(storedUsers);
     setGoogleSheetUrl(storedUrl);
+    setTheme(initialTheme);
+    saveStoredTheme(initialTheme);
     setActiveTab('intro');
 
     // CLEAN SLATE ON LINK OPEN: Do NOT store or restore previous data on mount!
@@ -372,6 +378,11 @@ export default function Home() {
     setActiveUser(null);
   };
 
+  const handleToggleTheme = (newTheme: 'dark' | 'light') => {
+    setTheme(newTheme);
+    saveStoredTheme(newTheme);
+  };
+
   const isSuperAdmin =
     currentUser?.role === 'super_admin' ||
     currentUser?.email.toLowerCase().trim() === SUPER_ADMIN_EMAIL.toLowerCase() ||
@@ -428,6 +439,8 @@ export default function Home() {
         usersCount={users.length}
         netDiscrepancy={metrics.netDiscrepancy}
         isSyncing={isSyncing}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* Main Viewport */}
