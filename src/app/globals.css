@@ -67,10 +67,11 @@ code, kbd, samp, pre, .font-mono {
 
 /* ========================================================================= */
 /* WHITE MODE (LIGHT THEME) OVERRIDES                                        */
+/* Uses .light-mode wrapper class for maximum CSS compatibility               */
 /* ========================================================================= */
 
-html.light,
-[data-theme="light"] {
+/* --- CSS Custom Properties --- */
+.light-mode {
   --bg-base: #f8fafc;
   --bg-surface: #ffffff;
   --bg-card: #ffffff;
@@ -84,354 +85,311 @@ html.light,
   --text-muted: #64748b;
 }
 
-html.light body,
-[data-theme="light"] body {
+/* --- Base wrapper --- */
+.light-mode {
   background-color: #f8fafc !important;
   color: #0f172a !important;
 }
 
-html.light ::-webkit-scrollbar-track,
-[data-theme="light"] ::-webkit-scrollbar-track {
+/* --- Scrollbars --- */
+.light-mode ::-webkit-scrollbar-track {
   background: #f1f5f9;
 }
-
-html.light ::-webkit-scrollbar-thumb,
-[data-theme="light"] ::-webkit-scrollbar-thumb {
+.light-mode ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
 }
-
-html.light ::-webkit-scrollbar-thumb:hover,
-[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+.light-mode ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-html.light {
-  /* Selection */
-  ::selection {
-    background-color: rgba(15, 23, 42, 0.15);
-    color: #0f172a;
-  }
+/* --- Canvas / full-page backgrounds --- */
+.light-mode .bg-\[\#000000\],
+.light-mode .bg-\[\#050505\],
+.light-mode .bg-\[\#070709\],
+.light-mode .bg-black,
+.light-mode > * {
+  /* cascade: children get light background by default from body bg */
+}
 
-  /* Canvas backgrounds */
-  .bg-\[\#000000\],
-  .bg-\[\#050505\],
-  .bg-\[\#070709\],
-  .bg-black {
-    background-color: #f8fafc !important;
-  }
+/* --- Main viewport content area --- */
+.light-mode .flex-1.flex.flex-col {
+  background-color: #f8fafc !important;
+}
 
-  /* Sidebar */
-  aside {
-    background-color: #ffffff !important;
-    border-color: #e2e8f0 !important;
-    box-shadow: 1px 0 3px rgba(0, 0, 0, 0.03) !important;
-  }
+/* --- Sidebar --- */
+.light-mode aside {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 1px 0 3px rgba(0, 0, 0, 0.06) !important;
+}
+.light-mode aside .sidebar-bottom-section {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+.light-mode aside button[title="Return to Welcome Greetings"] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+.light-mode aside button[title="Return to Welcome Greetings"]:hover {
+  background-color: #f8fafc !important;
+}
 
-  aside .sidebar-bottom-section,
-  aside button[title="Return to Welcome Greetings"] {
-    background-color: #ffffff !important;
-    border-color: #e2e8f0 !important;
-  }
+/* Active sidebar nav item */
+.light-mode aside .bg-white.text-black {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #0f172a !important;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12) !important;
+}
+.light-mode aside .bg-white.text-black svg {
+  color: #ffffff !important;
+}
+.light-mode aside .bg-white.text-black .bg-black.text-white {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
 
-  aside button[title="Return to Welcome Greetings"]:hover {
-    background-color: #f8fafc !important;
-  }
+/* Inactive sidebar nav items */
+.light-mode aside nav button:not(.bg-white) {
+  color: #475569 !important;
+}
+.light-mode aside nav button:not(.bg-white):hover {
+  color: #0f172a !important;
+  background-color: #f1f5f9 !important;
+}
+.light-mode aside nav button:not(.bg-white) svg {
+  color: #64748b !important;
+}
+.light-mode aside nav button:not(.bg-white):hover svg {
+  color: #0f172a !important;
+}
 
-  /* Active Sidebar Navigation Item in Light Mode */
-  aside .bg-white.text-black {
-    background-color: #0f172a !important;
-    color: #ffffff !important;
-    border-color: #0f172a !important;
-    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12) !important;
-  }
-  aside .bg-white.text-black svg {
-    color: #ffffff !important;
-    stroke: #ffffff !important;
-  }
-  aside .bg-white.text-black .bg-black.text-white {
-    background-color: #ffffff !important;
-    color: #0f172a !important;
-  }
+/* Sidebar accordion border */
+.light-mode aside .border-zinc-800 {
+  border-color: #cbd5e1 !important;
+}
 
-  /* Inactive Navigation Items in Sidebar */
-  aside nav button:not(.bg-white) {
-    color: #475569 !important;
-  }
-  aside nav button:not(.bg-white):hover {
-    color: #0f172a !important;
-    background-color: #f1f5f9 !important;
-  }
-  aside nav button:not(.bg-white) svg {
-    color: #64748b !important;
-  }
-  aside nav button:not(.bg-white):hover svg {
-    color: #0f172a !important;
-  }
+/* Theme toggle box in sidebar */
+.light-mode .theme-toggle-container {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
 
-  /* Accordion Sub-items Indentation Border */
-  aside .border-zinc-800 {
-    border-color: #cbd5e1 !important;
-  }
+/* User profile card in sidebar */
+.light-mode aside .user-profile-card {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+.light-mode aside .user-profile-name {
+  color: #0f172a !important;
+}
+.light-mode aside .avatar-badge {
+  background-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+.light-mode aside .manage-users-btn {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+.light-mode aside .manage-users-btn:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+.light-mode aside .sign-out-btn {
+  color: #64748b !important;
+}
+.light-mode aside .sign-out-btn:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
 
-  /* Theme Toggle Box in Sidebar */
-  .theme-toggle-container {
-    background-color: #f1f5f9 !important;
-    border-color: #e2e8f0 !important;
-  }
+/* --- Attribute-based background overrides (most reliable approach) ---
+   Targets any element whose class attribute contains a dark hex code.
+   These attribute substring selectors work in all browsers and bypass
+   the escaped-bracket issue with Tailwind v4. */
 
-  /* User profile card & buttons in Sidebar */
-  aside .user-profile-card {
-    background-color: #f8fafc !important;
-    border-color: #e2e8f0 !important;
-  }
-  aside .user-profile-name {
-    color: #0f172a !important;
-  }
-  aside .avatar-badge {
-    background-color: #e2e8f0 !important;
-    border-color: #cbd5e1 !important;
-    color: #0f172a !important;
-  }
-  aside .manage-users-btn {
-    background-color: #f8fafc !important;
-    border-color: #e2e8f0 !important;
-    color: #334155 !important;
-  }
-  aside .manage-users-btn:hover {
-    background-color: #f1f5f9 !important;
-    color: #0f172a !important;
-  }
-  aside .sign-out-btn {
-    color: #64748b !important;
-  }
-  aside .sign-out-btn:hover {
-    background-color: #f1f5f9 !important;
-    color: #0f172a !important;
-  }
+/* Pure black and near-black backgrounds -> white */
+.light-mode [class*="bg-[#0"] {
+  background-color: #ffffff !important;
+}
+.light-mode [class*="bg-[#1"] {
+  background-color: #f8fafc !important;
+}
+.light-mode [class*="bg-[#2"] {
+  background-color: #f1f5f9 !important;
+}
 
-  /* Surfaces & Main Containers & Cards */
-  .bg-\[\#09090b\],
-  .bg-\[\#0c0c0e\],
-  .bg-\[\#0c0c0f\],
-  .bg-\[\#0e0e11\],
-  .bg-\[\#0e0e12\],
-  .bg-\[\#101012\],
-  .bg-\[\#111114\],
-  .bg-\[\#111116\],
-  .bg-\[\#090C12\],
-  .bg-\[\#0C0F17\],
-  .bg-\[\#0E121C\],
-  .bg-\[\#0F1524\] {
-    background-color: #ffffff !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02) !important;
-  }
+/* Named Tailwind dark classes */
+.light-mode .bg-black {
+  background-color: #f8fafc !important;
+}
+.light-mode .bg-zinc-950 {
+  background-color: #ffffff !important;
+}
+.light-mode .bg-zinc-900 {
+  background-color: #f8fafc !important;
+}
+.light-mode .bg-zinc-800 {
+  background-color: #f1f5f9 !important;
+}
 
-  /* Secondary surfaces, inputs, hover cards */
-  .bg-\[\#121214\],
-  .bg-\[\#121215\],
-  .bg-\[\#121218\],
-  .bg-\[\#141418\],
-  .bg-\[\#16161b\],
-  .bg-\[\#16161c\],
-  .bg-\[\#18181b\],
-  .bg-\[\#18181d\],
-  .bg-\[\#1a1a20\],
-  .bg-\[\#1c1c22\],
-  .bg-\[\#1f1f27\],
-  .bg-\[\#222229\],
-  .bg-\[\#141824\],
-  .bg-\[\#151C2C\],
-  .bg-\[\#1A2230\],
-  .bg-\[\#1E2436\],
-  .bg-\[\#1E2536\],
-  .bg-\[\#1E273C\],
-  .bg-\[\#202737\],
-  .bg-zinc-900,
-  .bg-zinc-800 {
-    background-color: #f8fafc !important;
-  }
+/* Hover states */
+.light-mode .hover\:bg-zinc-800:hover,
+.light-mode .hover\:bg-zinc-900:hover {
+  background-color: #f1f5f9 !important;
+}
+.light-mode [class*="hover:bg-[#"]:hover {
+  background-color: #f1f5f9 !important;
+}
 
-  /* Hover states */
-  .hover\:bg-\[\#121214\]:hover,
-  .hover\:bg-\[\#18181b\]:hover,
-  .hover\:bg-\[\#09090b\]:hover,
-  .hover\:bg-zinc-800:hover,
-  .hover\:bg-zinc-900:hover {
-    background-color: #f1f5f9 !important;
-  }
+/* --- Borders --- */
+.light-mode [class*="border-[#"] {
+  border-color: #e2e8f0 !important;
+}
+.light-mode .border-zinc-800,
+.light-mode .border-zinc-700,
+.light-mode .border-zinc-600 {
+  border-color: #e2e8f0 !important;
+}
 
-  /* Borders */
-  .border-\[\#27272a\],
-  .border-\[\#3f3f46\],
-  .border-\[\#17171c\],
-  .border-\[\#1a1a1a\],
-  .border-\[\#1c1c20\],
-  .border-\[\#1c1c22\],
-  .border-\[\#1e1e21\],
-  .border-\[\#1e1e24\],
-  .border-\[\#1f1f23\],
-  .border-\[\#1f1f26\],
-  .border-\[\#222222\],
-  .border-\[\#222228\],
-  .border-\[\#2e2e33\],
-  .border-zinc-800,
-  .border-zinc-700,
-  .border-zinc-600 {
-    border-color: #e2e8f0 !important;
-  }
+.light-mode .divide-zinc-800 > :not([hidden]) ~ :not([hidden]),
+.light-mode [class*="divide-[#"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
 
-  .divide-\[\#27272a\] > :not([hidden]) ~ :not([hidden]),
-  .divide-\[\#121214\] > :not([hidden]) ~ :not([hidden]),
-  .divide-zinc-800 > :not([hidden]) ~ :not([hidden]) {
-    border-color: #e2e8f0 !important;
-  }
+/* --- Text Colors --- */
+.light-mode .text-white {
+  color: #0f172a !important;
+}
+.light-mode .text-zinc-100,
+.light-mode .text-zinc-200 {
+  color: #1e293b !important;
+}
+.light-mode .text-zinc-300 {
+  color: #334155 !important;
+}
+.light-mode .text-zinc-400,
+.light-mode .text-zinc-500 {
+  color: #64748b !important;
+}
+.light-mode .text-zinc-600 {
+  color: #94a3b8 !important;
+}
 
-  /* Text Colors */
-  .text-white {
-    color: #0f172a !important;
-  }
-  .text-zinc-100,
-  .text-zinc-200 {
-    color: #1e293b !important;
-  }
-  .text-zinc-300 {
-    color: #334155 !important;
-  }
-  .text-zinc-400 {
-    color: #64748b !important;
-  }
-  .text-zinc-500 {
-    color: #64748b !important;
-  }
-  .text-zinc-600 {
-    color: #94a3b8 !important;
-  }
+/* Accent text: keep but shift to accessible light-mode equivalents */
+.light-mode .text-cyan-400,
+.light-mode .text-cyan-300 {
+  color: #0284c7 !important;
+}
+.light-mode .text-emerald-400,
+.light-mode .text-emerald-300 {
+  color: #16a34a !important;
+}
+.light-mode .text-rose-400,
+.light-mode .text-rose-300 {
+  color: #e11d48 !important;
+}
+.light-mode .text-amber-400,
+.light-mode .text-amber-300 {
+  color: #d97706 !important;
+}
 
-  /* Contrast-optimized Accents */
-  .text-cyan-400,
-  .text-cyan-300 {
-    color: #0284c7 !important;
-  }
-  .text-emerald-400,
-  .text-emerald-300 {
-    color: #16a34a !important;
-  }
-  .text-rose-400,
-  .text-rose-300 {
-    color: #e11d48 !important;
-  }
-  .text-amber-400,
-  .text-amber-300 {
-    color: #d97706 !important;
-  }
+/* --- Badge / Soft-tone backgrounds --- */
+.light-mode .bg-emerald-500\/20 {
+  background-color: #dcfce7 !important;
+}
+.light-mode .border-emerald-500\/30,
+.light-mode .border-emerald-500\/45 {
+  border-color: #86efac !important;
+}
+.light-mode .bg-rose-500\/20 {
+  background-color: #ffe4e6 !important;
+}
+.light-mode .border-rose-500\/30,
+.light-mode .border-rose-500\/45 {
+  border-color: #fca5a5 !important;
+}
+.light-mode .bg-amber-500\/20 {
+  background-color: #fef3c7 !important;
+}
+.light-mode .border-amber-500\/30 {
+  border-color: #fde68a !important;
+}
+.light-mode .bg-rose-950\/10 {
+  background-color: #fff1f2 !important;
+}
 
-  /* Badges & Soft Tones */
-  .bg-emerald-500\/20 {
-    background-color: #dcfce7 !important;
-  }
-  .border-emerald-500\/30,
-  .border-emerald-500\/45 {
-    border-color: #86efac !important;
-  }
+/* --- Form Inputs --- */
+.light-mode input[type="text"],
+.light-mode input[type="email"],
+.light-mode input[type="password"],
+.light-mode input[type="search"],
+.light-mode input[type="number"],
+.light-mode textarea,
+.light-mode select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+.light-mode input::placeholder,
+.light-mode textarea::placeholder {
+  color: #94a3b8 !important;
+}
 
-  .bg-rose-500\/20 {
-    background-color: #ffe4e6 !important;
-  }
-  .border-rose-500\/30,
-  .border-rose-500\/45 {
-    border-color: #fca5a5 !important;
-  }
+/* --- Modals & Shadows --- */
+.light-mode .shadow-2xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+}
 
-  .bg-amber-500\/20 {
-    background-color: #fef3c7 !important;
-  }
-  .border-amber-500\/30 {
-    border-color: #fde68a !important;
-  }
+/* --- Table headers --- */
+.light-mode thead {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+}
 
-  .bg-rose-950\/10 {
-    background-color: #fff1f2 !important;
-  }
+/* --- Dropdown Menus --- */
+.light-mode [role="listbox"] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+}
+.light-mode [role="listbox"] button:not(.bg-white) {
+  color: #334155 !important;
+}
+.light-mode [role="listbox"] button:not(.bg-white):hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+.light-mode [role="listbox"] button.bg-white.text-black {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
 
-  /* Form Inputs & Textareas */
-  input[type="text"],
-  input[type="email"],
-  input[type="password"],
-  input[type="search"],
-  input[type="number"],
-  textarea,
-  select {
-    background-color: #ffffff !important;
-    border-color: #cbd5e1 !important;
-    color: #0f172a !important;
-  }
+/* --- Segmented Toggles / Tablists --- */
+.light-mode [role="tablist"] {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+.light-mode [role="tablist"] button.bg-white.text-black {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #0f172a !important;
+}
+.light-mode [role="tablist"] button:not(.bg-white) {
+  color: #64748b !important;
+}
 
-  input::placeholder,
-  textarea::placeholder {
-    color: #94a3b8 !important;
-  }
-
-  /* Modals & Dropdown Popovers */
-  .shadow-2xl {
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
-  }
-
-  /* Table Headers */
-  thead.bg-\[\#000000\],
-  thead.bg-\[\#121214\] {
-    background-color: #f1f5f9 !important;
-    color: #475569 !important;
-  }
-
-  /* Dropdown Menus */
-  [role="listbox"] {
-    background-color: #ffffff !important;
-    border-color: #cbd5e1 !important;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
-  }
-  [role="listbox"] .bg-black {
-    background-color: #f8fafc !important;
-    border-color: #e2e8f0 !important;
-  }
-  [role="listbox"] button.bg-white.text-black {
-    background-color: #0f172a !important;
-    color: #ffffff !important;
-  }
-  [role="listbox"] button.bg-white.text-black svg {
-    color: #ffffff !important;
-  }
-  [role="listbox"] button:not(.bg-white) {
-    color: #334155 !important;
-  }
-  [role="listbox"] button:not(.bg-white):hover {
-    background-color: #f1f5f9 !important;
-    color: #0f172a !important;
-  }
-
-  /* Segmented Toggles */
-  [role="tablist"].bg-black {
-    background-color: #f1f5f9 !important;
-    border-color: #e2e8f0 !important;
-  }
-  [role="tablist"] button.bg-white.text-black {
-    background-color: #0f172a !important;
-    color: #ffffff !important;
-    border-color: #0f172a !important;
-  }
-  [role="tablist"] button.bg-white.text-black svg {
-    color: #ffffff !important;
-  }
-
-  /* Primary Action Buttons (e.g. Launch Scanning Ops ->) */
-  button.bg-white.text-black:not(aside button):not([role="tab"]):not([role="option"]) {
-    background-color: #0f172a !important;
-    color: #ffffff !important;
-    border-color: #0f172a !important;
-  }
-  button.bg-white.text-black:not(aside button):not([role="tab"]):not([role="option"]):hover {
-    background-color: #1e293b !important;
-  }
-  button.bg-white.text-black:not(aside button):not([role="tab"]):not([role="option"]) svg {
-    color: #ffffff !important;
-  }
+/* --- Primary Action Buttons --- */
+.light-mode button.bg-white.text-black:not(aside button):not([role="tab"]):not([role="option"]) {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #0f172a !important;
+}
+.light-mode button.bg-white.text-black:not(aside button):not([role="tab"]):not([role="option"]):hover {
+  background-color: #1e293b !important;
+}
+.light-mode button.bg-white.text-black:not(aside button):not([role="tab"]):not([role="option"]) svg {
+  color: #ffffff !important;
 }
