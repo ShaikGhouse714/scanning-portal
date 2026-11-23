@@ -86,6 +86,8 @@ export interface MasterEvalRow {
   courseName: string;
   schoolCode: string;
   examDate: string;
+  remarks?: string;
+  isQuestionWiseEvaluation?: boolean;
   raw: Record<string, any>;
 }
 

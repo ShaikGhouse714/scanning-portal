@@ -8,6 +8,7 @@ import {
   Download,
   RefreshCw,
   AlertTriangle,
+  AlertCircle,
   FileSpreadsheet,
   X,
   Copy,
@@ -35,8 +36,12 @@ interface ExtractedChiefRow {
   courseName: string;
   schoolCode: string;
   examDate: string;
+  remarks?: string;
+  isQuestionWiseEvaluation?: boolean;
   raw: Record<string, any>;
 }
+
+export const QUESTION_WISE_REASON = 'Question wise evaluation - check the raw data and then assign the evaluation';
 
 export const ChiefEvalScheduleExtractor: React.FC = () => {
   // Google Sheet URL & State
@@ -185,6 +190,47 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
     return parsedTargetScheduleIds.filter((id) => !foundUpper.has(id.toUpperCase()));
   }, [parsedTargetScheduleIds, foundScheduleIds]);
 
+  // Set of all Schedule IDs flagged as Question-Wise Evaluation in master sheet
+  const questionWiseScheduleIdsSet = useMemo(() => {
+    const set = new Set<string>();
+    masterRows.forEach((r) => {
+      if (r.scheduleId) {
+        const rem = (r.remarks || '').toLowerCase();
+        if (
+          r.isQuestionWiseEvaluation ||
+          rem.includes('question') ||
+          rem.includes('qwe')
+        ) {
+          set.add(r.scheduleId.toUpperCase());
+        }
+      }
+    });
+    return set;
+  }, [masterRows]);
+
+  // Helper to determine if an extracted row requires question-wise evaluation assignment
+  const isRowQuestionWise = (r: ExtractedChiefRow): boolean => {
+    if (r.isQuestionWiseEvaluation) return true;
+    const rem = (r.remarks || '').toLowerCase();
+    if (rem.includes('question') || rem.includes('qwe')) return true;
+    if (r.scheduleId && questionWiseScheduleIdsSet.has(r.scheduleId.toUpperCase())) {
+      const hasEmail = Boolean(r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail));
+      if (!hasEmail) return true;
+    }
+    return false;
+  };
+
+  // Schedule IDs among matched entries that have question-wise evaluation
+  const questionWiseMatchedScheduleIds = useMemo(() => {
+    const ids = new Set<string>();
+    matchedEntries.forEach((r) => {
+      if (r.scheduleId && isRowQuestionWise(r)) {
+        ids.add(r.scheduleId);
+      }
+    });
+    return Array.from(ids).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [matchedEntries, questionWiseScheduleIdsSet]);
+
   // Chief Evaluator metrics for matched entries
   const chiefMetrics = useMemo(() => {
     let withChief = 0;
@@ -284,11 +330,22 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
   const handleExportFilteredExcel = () => {
     if (displayedEntries.length === 0) return;
 
-    const excelRows = displayedEntries.map((item) => ({
-      'Schedule ID': item.scheduleId,
-      'Chief Evaluator Email ID': (item.chiefEvaluatorEmail && !isMissingOrPlaceholder(item.chiefEvaluatorEmail)) ? item.chiefEvaluatorEmail : 'Details Missing',
-      'Student Details': item.studentEmail || item.studentName,
-    }));
+    const excelRows = displayedEntries.map((item) => {
+      let chiefEmail = '';
+      if (item.chiefEvaluatorEmail && !isMissingOrPlaceholder(item.chiefEvaluatorEmail)) {
+        chiefEmail = item.chiefEvaluatorEmail;
+      } else if (isRowQuestionWise(item)) {
+        chiefEmail = QUESTION_WISE_REASON;
+      } else {
+        chiefEmail = 'Details Missing';
+      }
+
+      return {
+        'Schedule ID': item.scheduleId,
+        'Chief Evaluator Email ID': chiefEmail,
+        'Student Details': item.studentEmail || item.studentName,
+      };
+    });
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(excelRows, {
@@ -297,7 +354,7 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
 
     ws['!cols'] = [
       { wch: 18 }, // Col A: Schedule ID
-      { wch: 34 }, // Col B: Chief Evaluator Email ID
+      { wch: 72 }, // Col B: Chief Evaluator Email ID (wide enough for question-wise instruction)
       { wch: 34 }, // Col C: Student Details
     ];
 
@@ -309,13 +366,17 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
   const handleCopyTable = () => {
     if (displayedEntries.length === 0) return;
     const header = ['Schedule ID', 'Chief Evaluator Email ID', 'Student Details'].join('\t');
-    const lines = displayedEntries.map((r) =>
-      [
-        r.scheduleId,
-        (r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail)) ? r.chiefEvaluatorEmail : 'Details Missing',
-        r.studentEmail || r.studentName,
-      ].join('\t')
-    );
+    const lines = displayedEntries.map((r) => {
+      let chiefEmail = '';
+      if (r.chiefEvaluatorEmail && !isMissingOrPlaceholder(r.chiefEvaluatorEmail)) {
+        chiefEmail = r.chiefEvaluatorEmail;
+      } else if (isRowQuestionWise(r)) {
+        chiefEmail = QUESTION_WISE_REASON;
+      } else {
+        chiefEmail = 'Details Missing';
+      }
+      return [r.scheduleId, chiefEmail, r.studentEmail || r.studentName].join('\t');
+    });
     navigator.clipboard.writeText([header, ...lines].join('\n'));
     setCopiedSuccess(true);
     setTimeout(() => setCopiedSuccess(false), 2000);
@@ -617,7 +678,7 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
       {hasExtracted && (
         <div className="space-y-4 animate-in fade-in duration-200">
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+          <div className={`grid grid-cols-2 ${questionWiseMatchedScheduleIds.length > 0 ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-3.5`}>
             <div className="p-4 rounded-2xl bg-[#09090b] border border-[#27272a]">
               <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block">
                 Target IDs Requested
@@ -638,6 +699,18 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
               </span>
               <span className="text-[10px] text-emerald-400/70 font-mono block mt-0.5">Email ID found</span>
             </div>
+
+            {questionWiseMatchedScheduleIds.length > 0 && (
+              <div className="p-4 rounded-2xl bg-[#09090b] border border-indigo-500/40 bg-indigo-500/5">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 block">
+                  Question-Wise Evals
+                </span>
+                <span className="text-xl font-bold font-mono text-indigo-300 block mt-1">
+                  {questionWiseMatchedScheduleIds.length}
+                </span>
+                <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">Check raw data & assign</span>
+              </div>
+            )}
 
             <div
               className={`p-4 rounded-2xl bg-[#09090b] border ${
@@ -684,6 +757,41 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
                   <span
                     key={id}
                     className="font-mono text-[11px] px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-200"
+                  >
+                    {id}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Question-Wise Evaluation Notice Banner */}
+          {questionWiseMatchedScheduleIds.length > 0 && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-indigo-950/20 border border-indigo-500/40 text-xs space-y-3 shadow-xl">
+              <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center space-x-2.5 text-indigo-300 font-bold">
+                  <div className="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center shrink-0">
+                    <AlertCircle className="w-3.5 h-3.5 text-indigo-400" />
+                  </div>
+                  <span className="text-sm font-sans tracking-tight">
+                    Question-Wise Evaluation Detected ({questionWiseMatchedScheduleIds.length} Schedule {questionWiseMatchedScheduleIds.length === 1 ? 'ID' : 'IDs'})
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold">
+                  Action Required: Check Raw Data
+                </span>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed font-sans">
+                These Schedule IDs have <strong>question-wise evaluations</strong>. Check the raw data and then assign the evaluation. In the downloaded Excel and copied tables, these entries are automatically populated with this instruction instead of empty fields.
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-indigo-500/20">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400/80 mr-1">
+                  Affected Schedule IDs:
+                </span>
+                {questionWiseMatchedScheduleIds.map((id) => (
+                  <span
+                    key={id}
+                    className="font-mono text-[11px] px-2.5 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-200 font-semibold"
                   >
                     {id}
                   </span>
@@ -856,6 +964,16 @@ export const ChiefEvalScheduleExtractor: React.FC = () => {
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                                 <span className="text-amber-200 font-sans font-medium text-xs">
                                   {item.chiefEvaluatorEmail}
+                                </span>
+                              </div>
+                            ) : isRowQuestionWise(item) ? (
+                              <div className="space-y-1">
+                                <span className="inline-flex items-center space-x-1.5 text-indigo-300 text-[11px] font-sans font-semibold px-2.5 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30">
+                                  <AlertCircle className="w-3 h-3 text-indigo-400 shrink-0" />
+                                  <span>Question-wise evaluation</span>
+                                </span>
+                                <span className="block text-[10px] text-zinc-400 font-mono">
+                                  Check raw data and assign evaluation
                                 </span>
                               </div>
                             ) : (

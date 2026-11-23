@@ -494,6 +494,10 @@ function parseBufferAndRespond(
     const colExamDate = findCol(
       'exam date', 'examdate', 'exam_date', 'examination date', 'date of exam', 'date', 'slot date'
     );
+    const colRemarks = findCol(
+      'remarks', 'remark', 'evaluator remarks', 'evaluation remarks', 'evaluator remark', 'evaluation remark',
+      'comments', 'comment', 'notes', 'note', 'reason', 'status', 'evaluation type'
+    );
 
     // Deep fallback column for chief details if standard aliases didn't hit
     let colChiefFallback: string | null = null;
@@ -506,10 +510,22 @@ function parseBufferAndRespond(
       }
     }
 
+    // Deep fallback for remarks column
+    let colRemarksFallback = colRemarks;
+    if (!colRemarksFallback) {
+      for (const [cleanKey, origKey] of cleanKeyMap) {
+        if (cleanKey.includes('remark') || cleanKey.includes('comment') || cleanKey.includes('note')) {
+          colRemarksFallback = origKey;
+          break;
+        }
+      }
+    }
+
     const uniqueScheduleIdsSet = new Set<string>();
     const uniqueSchoolsSet = new Set<string>();
     const uniqueCoursesSet = new Set<string>();
     const uniqueChiefEvaluatorsSet = new Set<string>();
+    const scheduleIdsWithQuestionWiseSet = new Set<string>();
 
     const rows = rawJson.map((row, idx) => {
       // 1. Schedule ID
@@ -567,6 +583,27 @@ function parseBufferAndRespond(
       if (schoolCode) uniqueSchoolsSet.add(schoolCode);
       const examDate = colExamDate ? String(row[colExamDate] ?? '').trim() : '';
 
+      // 7. Remarks & Question-Wise Evaluation Detection
+      let rawRemarks = colRemarksFallback ? String(row[colRemarksFallback] ?? '').trim() : '';
+      if (!rawRemarks) {
+        for (const v of Object.values(row)) {
+          const s = String(v ?? '').trim();
+          if (s.toLowerCase().includes('question') && (s.toLowerCase().includes('wise') || s.toLowerCase().includes('eval'))) {
+            rawRemarks = s;
+            break;
+          }
+        }
+      }
+
+      const isQuestionWise = Boolean(
+        rawRemarks &&
+        (rawRemarks.toLowerCase().includes('question') || rawRemarks.toLowerCase().includes('qwe'))
+      );
+
+      if (isQuestionWise && scheduleId) {
+        scheduleIdsWithQuestionWiseSet.add(scheduleId.toUpperCase());
+      }
+
       return {
         id: `row_${idx + 1}_${scheduleId || 'nosched'}`,
         scheduleId,
@@ -581,9 +618,25 @@ function parseBufferAndRespond(
         courseName,
         schoolCode,
         examDate,
+        remarks: rawRemarks,
+        isQuestionWiseEvaluation: isQuestionWise,
         raw: {}, // EMPTY RAW: ELIMINATES 90% PAYLOAD SIZE & INSTANT CLIENT PARSING!
       };
     });
+
+    // Second pass: inherit question-wise flag across all rows of the same scheduleId where evaluator is missing
+    if (scheduleIdsWithQuestionWiseSet.size > 0) {
+      for (const r of rows) {
+        if (r.scheduleId && scheduleIdsWithQuestionWiseSet.has(r.scheduleId.toUpperCase())) {
+          if (!r.evaluatorEmail || isMissingOrPlaceholder(r.evaluatorEmail)) {
+            r.isQuestionWiseEvaluation = true;
+            if (!r.remarks) {
+              r.remarks = 'Question wise evaluation';
+            }
+          }
+        }
+      }
+    }
 
     const isTotalData = Boolean(
       selectedSheetName.toLowerCase().replace(/[^a-z0-9]/g, '').includes('totaldata')
@@ -600,6 +653,7 @@ function parseBufferAndRespond(
       uniqueSchools: Array.from(uniqueSchoolsSet).sort(),
       uniqueCourses: Array.from(uniqueCoursesSet).sort(),
       uniqueChiefEvaluators: Array.from(uniqueChiefEvaluatorsSet).sort(),
+      uniqueScheduleIdsWithQuestionWise: Array.from(scheduleIdsWithQuestionWiseSet).sort(),
       totalWithChiefDetails: rows.filter((r) => r.hasChiefDetails).length,
       totalWithoutChiefDetails: rows.filter((r) => !r.hasChiefDetails).length,
     };
