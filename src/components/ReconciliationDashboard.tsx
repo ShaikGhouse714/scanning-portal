@@ -828,7 +828,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           </div>
 
           {/* Hero Action Card to Enter Scanning Ops */}
-          <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-b from-[#0e0e11] to-[#050505] border border-[#27272a] shadow-2xl relative overflow-hidden space-y-6">
+          <div className="p-6 sm:p-8 rounded-2xl bg-[#09090b] border border-[#27272a] shadow-2xl relative overflow-hidden space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
@@ -1073,7 +1073,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           </div>
 
           {/* Active Data Source Connections Banner */}
-          <div className="bg-[#09090b]/80 backdrop-blur-xl rounded-2xl border border-[#27272a] p-4 shadow-xl">
+          <div className="bg-[#09090b] backdrop-blur-xl rounded-2xl border border-[#27272a] p-4 shadow-xl">
             <div className="flex items-center justify-between pb-3 border-b border-[#27272a] mb-3 text-xs">
               <div className="flex items-center space-x-2.5">
                 <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] animate-pulse" />
@@ -1092,7 +1092,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
               {/* Card 1: Google Sheet */}
-              <div className="relative group overflow-hidden rounded-2xl bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-cyan-500/40 p-4 shadow-lg shadow-black/30 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5">
+              <div className="relative group overflow-hidden rounded-2xl bg-[#09090b] border border-[#27272a] hover:border-cyan-500/40 p-4 shadow-lg shadow-black/30 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5">
                 <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3">
@@ -1164,7 +1164,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
                     }
                   }
                 }}
-                className={`relative group overflow-hidden rounded-2xl bg-gradient-to-b from-[#09090b] to-[#09090b] border ${
+                className={`relative group overflow-hidden rounded-2xl bg-[#09090b] border ${
                   isCard2Dragging
                     ? 'border-white ring-2 ring-white/30 bg-[#141418] scale-[1.01]'
                     : 'border-[#27272a] hover:border-emerald-500/40'
@@ -1216,7 +1216,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               </div>
 
               {/* Card 3: Discrepancy Status */}
-              <div className={`relative group overflow-hidden rounded-2xl bg-gradient-to-b from-[#09090b] to-[#09090b] border ${
+              <div className={`relative group overflow-hidden rounded-2xl bg-[#09090b] border ${
                 metrics.netDiscrepancy > 0 ? 'border-rose-500/30 hover:border-rose-500/50' : 'border-[#27272a] hover:border-emerald-500/40'
               } p-4 shadow-lg shadow-black/30 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-0.5`}>
                 <div className={`absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent ${
@@ -1300,7 +1300,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           {/* 4 Core Telemetry Cards (Enhanced Hardware-Telemetry Styling) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Tile 1: Total Physical Received */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-sky-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border border-[#27272a] hover:border-sky-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-sky-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -1322,7 +1322,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Tile 2: Portal Uploaded (Completed) */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border border-[#27272a] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -1344,7 +1344,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Tile 3: Net Discrepancy (Received - Portal) */}
-            <div className={`relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border ${
+            <div className={`relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border ${
               metrics.netDiscrepancy !== 0
                 ? metrics.netDiscrepancy > 0
                   ? 'border-rose-500/40 hover:border-rose-500/60 bg-gradient-to-b from-rose-950/20 to-[#09090b]'
@@ -1388,7 +1388,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Tile 4: Reconciliation Rate */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border border-[#27272a] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -1411,7 +1411,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           </div>
 
           {/* Clean Dynamic Filters Bar with Custom Dropdowns */}
-          <div className="bg-[#09090b]/90 backdrop-blur-xl rounded-2xl border border-[#27272a] p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+          <div className="bg-[#09090b] backdrop-blur-xl rounded-2xl border border-[#27272a] p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xl">
             <div className="flex items-center space-x-2.5">
               <div className="w-7 h-7 rounded-lg bg-[#121214] border border-[#27272a] flex items-center justify-center text-zinc-300">
                 <Filter className="w-3.5 h-3.5 text-cyan-400" />
@@ -1841,7 +1841,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           {/* Teammate Specific Telemetry Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Tile 1: Total Connected Subsheets */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border border-[#27272a] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -1861,7 +1861,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Tile 2: Active With Logged Data */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border border-[#27272a] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -1883,7 +1883,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Tile 3: Awaiting Data (Empty) */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-amber-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border border-[#27272a] hover:border-amber-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -1905,7 +1905,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Tile 4: Total Physical Received */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border border-[#27272a] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -2178,7 +2178,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           {/* Portal Specific Telemetry Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Tile 1: Total Exam Slots Staged */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border border-[#27272a] hover:border-cyan-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -2200,7 +2200,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Tile 2: Total Completed Uploads */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border border-[#27272a] hover:border-emerald-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -2226,7 +2226,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
               onClick={() =>
                 setPortalSectorFilter(portalSectorFilter === 'unscanned' ? 'all' : 'unscanned')
               }
-              className={`relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border cursor-pointer transition-all duration-200 hover:-translate-y-0.5 shadow-xl shadow-black/30 ${
+              className={`relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border cursor-pointer transition-all duration-200 hover:-translate-y-0.5 shadow-xl shadow-black/30 ${
                 unscannedPortalSlots.length > 0
                   ? 'border-amber-500/40 hover:border-amber-500/70 hover:bg-amber-950/10'
                   : 'border-[#27272a] hover:border-emerald-500/40'
@@ -2272,7 +2272,7 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
             </div>
 
             {/* Tile 4: Examination Dates & Schools */}
-            <div className="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-[#09090b] to-[#09090b] border border-[#27272a] hover:border-indigo-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
+            <div className="relative group overflow-hidden rounded-2xl p-5 bg-[#09090b] border border-[#27272a] hover:border-indigo-500/40 shadow-xl shadow-black/30 transition-all duration-200 hover:-translate-y-0.5">
               <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-40 group-hover:opacity-100 transition-opacity" />
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
