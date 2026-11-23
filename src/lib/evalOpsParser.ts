@@ -24,6 +24,8 @@ export interface RawScheduleRow {
   scheduleId: string;
   groups: string;
   testName: string;
+  testStartTime?: string;
+  examDate?: string;
   evaluatorEmail: string;
   evaluatorName: string;
   raw: Record<string, any>;
@@ -46,7 +48,7 @@ export interface MappedStudentAllocation {
   hasChiefDetails: boolean;
   scheduleId: string;
   isMapped: boolean;
-  allocationMode?: 'single' | 'sub_schedule_evaluator' | 'sub_schedule_group' | 'duplicate_first';
+  allocationMode?: 'single' | 'sub_schedule_evaluator' | 'sub_schedule_group' | 'sub_schedule_date' | 'duplicate_first';
   issues: string[];
 }
 
@@ -67,7 +69,7 @@ export interface EvalOpsValidationSummary {
     courseCode: string;
     scheduleIds: string[];
     evaluatorCount: number;
-    details: { evaluator: string; scheduleId: string; groupName?: string }[];
+    details: { evaluator: string; scheduleId: string; groupName?: string; examDate?: string }[];
   }[];
 }
 
@@ -288,12 +290,16 @@ export function isMissingOrPlaceholder(val: any): boolean {
 export function formatExcelDate(val: any): string {
   if (!val) return '';
   if (val instanceof Date) {
-    return val.toISOString().split('T')[0];
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
-  // Check if it's a numeric Excel serial date (e.g., 40000 - 55000)
-  if (typeof val === 'number' || (!isNaN(Number(val)) && Number(val) > 30000 && Number(val) < 60000)) {
+  const str = String(val).trim();
+  // Check if it's a numeric Excel serial date (e.g., 30000 - 60000)
+  if (typeof val === 'number' || (!isNaN(Number(str)) && Number(str) > 30000 && Number(str) < 60000)) {
     try {
-      const parsedDate = XLSX.SSF.parse_date_code(Number(val));
+      const parsedDate = XLSX.SSF.parse_date_code(Number(str));
       if (parsedDate) {
         const y = parsedDate.y;
         const m = String(parsedDate.m).padStart(2, '0');
@@ -304,7 +310,46 @@ export function formatExcelDate(val: any): string {
       // fallback
     }
   }
-  return String(val).trim();
+
+  // Regex for YYYY-MM-DD or YYYY/MM/DD (with optional time component)
+  const m1 = str.match(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/);
+  if (m1) {
+    const y = m1[1];
+    const m = m1[2].padStart(2, '0');
+    const d = m1[3].padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // Regex for DD-MM-YYYY or DD/MM/YYYY (with optional time component)
+  const m2 = str.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/);
+  if (m2) {
+    const d = m2[1].padStart(2, '0');
+    const m = m2[2].padStart(2, '0');
+    const y = m2[3];
+    return `${y}-${m}-${d}`;
+  }
+
+  return str;
+}
+
+// Compare two date strings or values, normalizing formats to YYYY-MM-DD
+export function datesMatch(d1?: string, d2?: string): boolean {
+  if (!d1 || !d2) return false;
+  const s1 = String(d1).trim();
+  const s2 = String(d2).trim();
+  if (!s1 || !s2) return false;
+
+  if (s1.toLowerCase() === s2.toLowerCase()) return true;
+
+  const f1 = formatExcelDate(s1);
+  const f2 = formatExcelDate(s2);
+  if (f1 && f2 && f1 === f2) return true;
+
+  // Substring containment check if full dates match
+  if (f1 && f1.length >= 8 && s2.includes(f1)) return true;
+  if (f2 && f2.length >= 8 && s1.includes(f2)) return true;
+
+  return false;
 }
 
 // Parse Student & Evaluator Excel File (with optional targeted sheetName)
@@ -676,9 +721,29 @@ export function parseStudentEvaluatorFile(
       'exam_date',
       'examdate',
       'test date',
-      'slot date'
+      'slot date',
+      'test start time',
+      'test_start_time',
+      'teststarttime',
+      'test start',
+      'start time',
+      'start_time',
+      'starttime',
+      'start date'
     );
-    const examDate = formatExcelDate(rawExamDate);
+    let examDate = formatExcelDate(rawExamDate);
+    if (!examDate) {
+      for (const [k, v] of Object.entries(row)) {
+        const lk = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (lk.includes('examdate') || (lk.includes('start') && (lk.includes('time') || lk.includes('date')))) {
+          const parsedD = formatExcelDate(v);
+          if (parsedD && parsedD.match(/^20\d{2}-\d{2}-\d{2}$/)) {
+            examDate = parsedD;
+            break;
+          }
+        }
+      }
+    }
 
     // 10. Participant Group Name (used to differentiate sub-tests/schedules)
     const groupName = getRowVal(
@@ -791,6 +856,8 @@ export function parseScheduleFile(
     courseName: boolean;
     scheduleId: boolean;
     groups: boolean;
+    testStartTime?: boolean;
+    examDate?: boolean;
   };
   sampleHeaders: string[];
 } {
@@ -807,7 +874,7 @@ export function parseScheduleFile(
       rows: [],
       sheetNames,
       activeSheetName,
-      headersDetected: { courseCode: false, courseName: false, scheduleId: false, groups: false },
+      headersDetected: { courseCode: false, courseName: false, scheduleId: false, groups: false, testStartTime: false, examDate: false },
       sampleHeaders: [],
     };
   }
@@ -818,7 +885,7 @@ export function parseScheduleFile(
       rows: [],
       sheetNames,
       activeSheetName,
-      headersDetected: { courseCode: false, courseName: false, scheduleId: false, groups: false },
+      headersDetected: { courseCode: false, courseName: false, scheduleId: false, groups: false, testStartTime: false, examDate: false },
       sampleHeaders: [],
     };
   }
@@ -957,12 +1024,58 @@ export function parseScheduleFile(
     ).trim();
     const evaluatorName = isMissingOrPlaceholder(rawEvalName) ? '' : rawEvalName;
 
+    // Test Start Time / Exam Date (for mapping dates with courses to link evaluators)
+    const rawTestStartTime = getRowVal(
+      row,
+      'test start time',
+      'test_start_time',
+      'teststarttime',
+      'test start',
+      'start time',
+      'start_time',
+      'starttime',
+      'test start date',
+      'start date',
+      'test date',
+      'exam date',
+      'date',
+      'slot date',
+      'slot time',
+      'exam start time',
+      'examination start time'
+    );
+    let testStartTimeStr = rawTestStartTime ? String(rawTestStartTime).trim() : '';
+    if (!testStartTimeStr) {
+      for (const [colName, colVal] of Object.entries(row)) {
+        const lowerCol = colName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (
+          lowerCol.includes('teststarttime') ||
+          lowerCol.includes('teststart') ||
+          (lowerCol.includes('start') && (lowerCol.includes('time') || lowerCol.includes('date'))) ||
+          lowerCol === 'starttime'
+        ) {
+          testStartTimeStr = String(colVal ?? '').trim();
+          break;
+        }
+      }
+    }
+
+    let scheduleExamDate = formatExcelDate(testStartTimeStr);
+    if (!scheduleExamDate) {
+      scheduleExamDate = formatExcelDate(participantGroupName);
+    }
+    if (!scheduleExamDate) {
+      scheduleExamDate = formatExcelDate(testName);
+    }
+
     return {
       courseCode: normalizeCourseCode(courseCode),
       courseName: courseName.trim(),
       scheduleId,
       groups: participantGroupName,
       testName,
+      testStartTime: testStartTimeStr,
+      examDate: scheduleExamDate,
       evaluatorEmail: facultyEmail,
       evaluatorName,
       raw: row,
@@ -974,6 +1087,8 @@ export function parseScheduleFile(
   const hasCourseName = rows.some((r) => r.courseName.length > 0);
   const hasScheduleId = rows.some((r) => r.scheduleId.length > 0);
   const hasGroups = rows.some((r) => r.groups.length > 0);
+  const hasTestStartTime = rows.some((r) => Boolean(r.testStartTime));
+  const hasExamDate = rows.some((r) => Boolean(r.examDate));
 
   return {
     rows,
@@ -984,6 +1099,8 @@ export function parseScheduleFile(
       courseName: hasCourseName,
       scheduleId: hasScheduleId,
       groups: hasGroups,
+      testStartTime: hasTestStartTime,
+      examDate: hasExamDate,
     },
     sampleHeaders,
   };
@@ -1004,9 +1121,12 @@ export function mapStudentEvaluatorSchedules(
     courseName: string;
     groups: string;
     testName: string;
+    testStartTime?: string;
+    examDate?: string;
     evaluatorEmail: string;
     evaluatorName: string;
     rawString: string;
+    raw?: Record<string, any>;
   }
 
   const courseSchedulesMap = new Map<string, ScheduleCandidate[]>();
@@ -1031,6 +1151,8 @@ export function mapStudentEvaluatorSchedules(
       const existing = existingCandidates[foundIdx];
       if (!existing.groups && s.groups) existing.groups = s.groups;
       if (!existing.testName && s.testName) existing.testName = s.testName;
+      if (!existing.testStartTime && s.testStartTime) existing.testStartTime = s.testStartTime;
+      if (!existing.examDate && s.examDate) existing.examDate = s.examDate;
       if (!existing.evaluatorEmail && s.evaluatorEmail) existing.evaluatorEmail = s.evaluatorEmail;
       if (!existing.evaluatorName && s.evaluatorName) existing.evaluatorName = s.evaluatorName;
       existing.rawString = `${existing.rawString} ${rowValues}`.trim();
@@ -1041,9 +1163,12 @@ export function mapStudentEvaluatorSchedules(
         courseName: s.courseName,
         groups: s.groups || '',
         testName: s.testName || '',
+        testStartTime: s.testStartTime || '',
+        examDate: s.examDate || '',
         evaluatorEmail: s.evaluatorEmail || '',
         evaluatorName: s.evaluatorName || '',
-        rawString: `${s.groups || ''} ${s.testName || ''} ${s.evaluatorEmail || ''} ${s.evaluatorName || ''} ${rowValues}`.trim(),
+        raw: s.raw,
+        rawString: `${s.groups || ''} ${s.testName || ''} ${s.evaluatorEmail || ''} ${s.evaluatorName || ''} ${s.testStartTime || ''} ${rowValues}`.trim(),
       });
       courseSchedulesMap.set(s.courseCode, existingCandidates);
     }
@@ -1088,7 +1213,7 @@ export function mapStudentEvaluatorSchedules(
 
   // 2. Multi-Subschedule Matching & Differentiated Allocation
   const studentScheduleAssignment: string[] = new Array(studentRows.length).fill('');
-  const studentAllocationMode: ('single' | 'sub_schedule_evaluator' | 'sub_schedule_group' | 'duplicate_first')[] =
+  const studentAllocationMode: ('single' | 'sub_schedule_evaluator' | 'sub_schedule_group' | 'sub_schedule_date' | 'duplicate_first')[] =
     new Array(studentRows.length).fill('single');
   const unresolvedDuplicateCourseCodes = new Set<string>();
   const unresolvedDuplicateCourses: { courseCode: string; scheduleIds: string[] }[] = [];
@@ -1096,7 +1221,7 @@ export function mapStudentEvaluatorSchedules(
     courseCode: string;
     scheduleIds: string[];
     evaluatorCount: number;
-    details: { evaluator: string; scheduleId: string; groupName?: string }[];
+    details: { evaluator: string; scheduleId: string; groupName?: string; examDate?: string }[];
   }[] = [];
 
   // Group student indices by courseCode
@@ -1253,16 +1378,86 @@ export function mapStudentEvaluatorSchedules(
       }
     }
 
+    // Pass 4: Match by Exam Date (mapping between target schedule file's 'test start time' header and student clean examDate)
+    const dateToScheduleMap = new Map<string, string>();
+    const candidateScheduleDates = new Map<string, Set<string>>();
+
+    for (const c of candidates) {
+      const dates = new Set<string>();
+      if (c.examDate) {
+        const f = formatExcelDate(c.examDate);
+        if (f) dates.add(f);
+      }
+      if (c.testStartTime) {
+        const f = formatExcelDate(c.testStartTime);
+        if (f) dates.add(f);
+      }
+      const grpDate = formatExcelDate(c.groups);
+      if (grpDate && grpDate.match(/^20\d{2}-\d{2}-\d{2}$/)) dates.add(grpDate);
+      const testDate = formatExcelDate(c.testName);
+      if (testDate && testDate.match(/^20\d{2}-\d{2}-\d{2}$/)) dates.add(testDate);
+
+      for (const val of Object.values(c.raw || {})) {
+        const strVal = String(val ?? '').trim();
+        if (strVal.length >= 8) {
+          const dStr = formatExcelDate(strVal);
+          if (dStr && dStr.match(/^20\d{2}-\d{2}-\d{2}$/)) {
+            dates.add(dStr);
+          }
+        }
+      }
+
+      candidateScheduleDates.set(c.scheduleId, dates);
+    }
+
+    // Determine unique dates per candidate schedule
+    for (const [sId, dateSet] of candidateScheduleDates.entries()) {
+      for (const d of dateSet) {
+        const conflictingCandidates = candidates.filter(
+          (other) => other.scheduleId !== sId && candidateScheduleDates.get(other.scheduleId)?.has(d)
+        );
+        if (conflictingCandidates.length === 0) {
+          dateToScheduleMap.set(d, sId);
+        }
+      }
+    }
+
+    // Attempt date matching for student rows
+    for (const idx of studentIndices) {
+      const st = studentRows[idx];
+      const stDate = formatExcelDate(st.examDate);
+      if (!stDate) continue;
+
+      if (dateToScheduleMap.has(stDate)) {
+        assignedCandidateScheduleIds.add(dateToScheduleMap.get(stDate)!);
+      } else {
+        for (const c of candidates) {
+          const cDates = candidateScheduleDates.get(c.scheduleId);
+          if (cDates && (cDates.has(stDate) || Array.from(cDates).some((cd) => datesMatch(cd, stDate)))) {
+            assignedCandidateScheduleIds.add(c.scheduleId);
+            break;
+          }
+          if (datesMatch(c.examDate, stDate) || datesMatch(c.testStartTime, stDate)) {
+            assignedCandidateScheduleIds.add(c.scheduleId);
+            break;
+          }
+        }
+      }
+    }
+
     // VIGILANCE CHECK:
     // Determine whether this course qualifies as Sub-Schedule Differentiated Mode,
     // OR if it is a Normal Course with multiple conflicting Schedule IDs.
+    const hasMultipleAssignedSchedules = assignedCandidateScheduleIds.size > 1;
+    const hasDateDifferentiated = dateToScheduleMap.size > 0 || Array.from(candidateScheduleDates.values()).some((ds) => ds.size > 0);
+
     const isSubScheduleDifferentiated =
-      assignedCandidateScheduleIds.size > 1 ||
-      (assignedCandidateScheduleIds.size >= 1 && hasAnyCandidateEmail);
+      hasMultipleAssignedSchedules ||
+      (assignedCandidateScheduleIds.size >= 1 && (hasAnyCandidateEmail || hasDateDifferentiated));
 
     if (!isSubScheduleDifferentiated) {
       // MODE B: NORMAL PREVIOUS BEHAVIOUR FOR ALL REMAINING IDS
-      // When multiple schedules exist but lack faculty-email sub-test designations:
+      // When multiple schedules exist but lack faculty-email or date sub-test designations:
       // Assign the primary schedule ID (candidates[0].scheduleId) to all students in this course
       const primaryScheduleId = candidates[0].scheduleId;
       for (const idx of studentIndices) {
@@ -1281,13 +1476,14 @@ export function mapStudentEvaluatorSchedules(
     }
 
     // MODE A: SPECIALIZED SUB-SCHEDULE DIFFERENTIATED ALLOCATION
-    // For courses with embedded faculty emails in participant groups:
+    // For courses with embedded faculty emails in participant groups OR differentiated by exam date:
     const primaryCandidateId = candidates[0].scheduleId;
     for (const idx of studentIndices) {
       const st = studentRows[idx];
       const stEmail = extractFacultyEmail(st.evaluatorEmail) || st.evaluatorEmail.toLowerCase().trim();
       const stName = (st.evaluatorName || '').toLowerCase().trim();
       const gName = (st.groupName || '').toLowerCase().trim();
+      const stDate = formatExcelDate(st.examDate);
 
       if (stEmail && evaluatorToScheduleMap.has(stEmail)) {
         studentScheduleAssignment[idx] = evaluatorToScheduleMap.get(stEmail)!;
@@ -1298,6 +1494,24 @@ export function mapStudentEvaluatorSchedules(
       } else if (stName && evaluatorToScheduleMap.has(stName)) {
         studentScheduleAssignment[idx] = evaluatorToScheduleMap.get(stName)!;
         studentAllocationMode[idx] = 'sub_schedule_evaluator';
+      } else if (stDate && dateToScheduleMap.has(stDate)) {
+        studentScheduleAssignment[idx] = dateToScheduleMap.get(stDate)!;
+        studentAllocationMode[idx] = 'sub_schedule_date';
+      } else if (stDate) {
+        const dateMatch = candidates.find((c) => {
+          const cDates = candidateScheduleDates.get(c.scheduleId);
+          if (cDates && (cDates.has(stDate) || Array.from(cDates).some((cd) => datesMatch(cd, stDate)))) {
+            return true;
+          }
+          return datesMatch(c.examDate, stDate) || datesMatch(c.testStartTime, stDate);
+        });
+        if (dateMatch) {
+          studentScheduleAssignment[idx] = dateMatch.scheduleId;
+          studentAllocationMode[idx] = 'sub_schedule_date';
+        } else {
+          studentScheduleAssignment[idx] = primaryCandidateId;
+          studentAllocationMode[idx] = 'single';
+        }
       } else {
         // Fallback for any unmatched student in this differentiated course: primary candidate
         studentScheduleAssignment[idx] = primaryCandidateId;
@@ -1306,13 +1520,28 @@ export function mapStudentEvaluatorSchedules(
     }
 
     // Build details for the diagnostics banner
-    const matchedDetails: { evaluator: string; scheduleId: string; groupName?: string }[] = [];
+    const matchedDetails: { evaluator: string; scheduleId: string; groupName?: string; examDate?: string }[] = [];
     for (const [ev, sid] of evaluatorToScheduleMap.entries()) {
       matchedDetails.push({ evaluator: ev, scheduleId: sid });
     }
     for (const [grp, sid] of groupToScheduleMap.entries()) {
       if (!matchedDetails.some((m) => m.scheduleId === sid)) {
         matchedDetails.push({ evaluator: grp, scheduleId: sid, groupName: grp });
+      }
+    }
+    for (const [d, sid] of dateToScheduleMap.entries()) {
+      if (!matchedDetails.some((m) => m.scheduleId === sid)) {
+        matchedDetails.push({ evaluator: `Date: ${d}`, scheduleId: sid, examDate: d });
+      }
+    }
+    for (const [sid, dateSet] of candidateScheduleDates.entries()) {
+      if (assignedCandidateScheduleIds.has(sid) && !matchedDetails.some((m) => m.scheduleId === sid)) {
+        const datesArr = Array.from(dateSet);
+        matchedDetails.push({
+          evaluator: datesArr.length > 0 ? `Date: ${datesArr.join(', ')}` : 'Matched Schedule',
+          scheduleId: sid,
+          examDate: datesArr[0] || undefined,
+        });
       }
     }
 

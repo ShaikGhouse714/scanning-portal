@@ -74,6 +74,8 @@ export const EvalOpsDashboard: React.FC = () => {
     courseName: boolean;
     scheduleId: boolean;
     groups?: boolean;
+    testStartTime?: boolean;
+    examDate?: boolean;
   } | null>(null);
 
   // Preview Drawer Toggles
@@ -690,7 +692,7 @@ export const EvalOpsDashboard: React.FC = () => {
                 <span className="text-zinc-500 text-[10px] block uppercase mb-1.5 font-semibold">
                   Detected Column Headers:
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-zinc-300">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-zinc-300">
                   <div className="flex items-center space-x-1.5">
                     <span className={scheduleDetection.courseCode ? 'text-emerald-400' : 'text-rose-400'}>
                       {scheduleDetection.courseCode ? '✓' : '✗'}
@@ -714,6 +716,12 @@ export const EvalOpsDashboard: React.FC = () => {
                       {scheduleDetection.groups ? '✓' : '–'}
                     </span>
                     <span>Schedule Groups</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <span className={scheduleDetection.testStartTime || scheduleDetection.examDate ? 'text-emerald-400' : 'text-zinc-500'}>
+                      {scheduleDetection.testStartTime || scheduleDetection.examDate ? '✓' : '–'}
+                    </span>
+                    <span>Start Time / Date</span>
                   </div>
                 </div>
               </div>
@@ -743,6 +751,7 @@ export const EvalOpsDashboard: React.FC = () => {
                     <th className="py-2 px-2.5">Course Code</th>
                     <th className="py-2 px-2.5">Course Name</th>
                     <th className="py-2 px-2.5">Schedule ID</th>
+                    <th className="py-2 px-2.5">Start Time / Date</th>
                     <th className="py-2 px-2.5">Participant Group / Faculty Email</th>
                   </tr>
                 </thead>
@@ -752,6 +761,13 @@ export const EvalOpsDashboard: React.FC = () => {
                       <td className="py-1.5 px-2.5 text-white">{r.courseCode}</td>
                       <td className="py-1.5 px-2.5 text-zinc-300">{r.courseName || '–'}</td>
                       <td className="py-1.5 px-2.5 text-zinc-300 font-bold">{r.scheduleId || '–'}</td>
+                      <td className="py-1.5 px-2.5 text-zinc-300 whitespace-nowrap">
+                        {r.testStartTime || r.examDate ? (
+                          <span className="text-cyan-300">{r.testStartTime || r.examDate}</span>
+                        ) : (
+                          <span className="text-zinc-500">–</span>
+                        )}
+                      </td>
                       <td className="py-1.5 px-2.5 text-zinc-300">
                         {r.evaluatorEmail ? (
                           <div>
@@ -887,11 +903,11 @@ export const EvalOpsDashboard: React.FC = () => {
                     <div className="flex items-center space-x-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
                       <strong className="text-emerald-400 text-xs font-mono">
-                        Sub-Test Schedule IDs Differentiated by Evaluator &amp; Group ({summary.subScheduleDifferentiatedCourses.length} course{summary.subScheduleDifferentiatedCourses.length > 1 ? 's' : ''}):
+                        Sub-Test Schedule IDs Differentiated by Date, Evaluator &amp; Group ({summary.subScheduleDifferentiatedCourses.length} course{summary.subScheduleDifferentiatedCourses.length > 1 ? 's' : ''}):
                       </strong>
                     </div>
                     <span className="text-[11px] text-zinc-400 block font-mono">
-                      Multiple sub-schedules were matched and accurately partitioned across evaluators and participant groups:
+                      Multiple sub-schedules were accurately partitioned across exam dates, evaluators, and participant groups:
                     </span>
                     <div className="space-y-1.5 mt-1 max-h-52 overflow-y-auto pr-1">
                       {summary.subScheduleDifferentiatedCourses.map((d) => (
@@ -914,6 +930,11 @@ export const EvalOpsDashboard: React.FC = () => {
                                 <span className="text-emerald-400 font-bold">{dt.scheduleId}</span>
                                 <span className="text-zinc-500">:</span>
                                 <span className="text-zinc-300 truncate max-w-[140px]">{dt.evaluator}</span>
+                                {dt.examDate && (
+                                  <span className="text-cyan-400 font-mono text-[9px] bg-cyan-500/10 px-1 rounded border border-cyan-500/20">
+                                    {dt.examDate}
+                                  </span>
+                                )}
                                 {dt.groupName && (
                                   <span className="text-zinc-400 font-mono text-[9px]">({dt.groupName})</span>
                                 )}
